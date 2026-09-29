@@ -2875,3 +2875,40 @@ Goal shift: force Tribe to load a custom local GLB unconditionally via a runtime
    Downstream of all url logic — but only fires if the RPM path is entered at spawn (see verdict).
 
 STOP — awaiting OK before Phase 2 (build).
+
+## Phase 2 diagnostic (instrumented Hook A) — RESULT: case (ii), type check NOT on the spawn path
+
+Built libhook.so (NDK r26d, aarch64, -nostdlib++ so deps = liblog/libm/libdl/libc only — Tribe bundles
+no libc++_shared.so). Injected as DT_NEEDED of libUnreal.so (LIEF add_library, placed first in NEEDED).
+Hook A = minimal ARM64 absolute-jump replace stub written over FUN_050fc054 entry
+(`ldr x16,#8 ; br x16 ; .quad handler`); handler decodes the incoming FString id (UTF-16) via
+__android_log_print(TAG "TRIBEMOD"), returns 1 (ReadyPlayerMe), never calls original. Repacked APK via
+7z in-place update of the two libs, zipalign -p 4, apksigner (v3, cert 979d63d7…), `adb install -r`
+(in-place, same key, OBB preserved).
+Artifacts: hook/hook.cpp, hook/add_needed.py, out/hookA/{libhook.so, libUnreal.patched.so, tribe.hookA.apk}.
+Evidence: logs/diag_hookA.txt.
+
+Observations:
+- **Injection WORKS (case iii ruled out).** Every launch logs "hooks installing… / libUnreal.so
+  base=0x… / hooks installed: OK". libhook.so loads via the added DT_NEEDED and installs the hook.
+- **Launch requires the headset ON.** Headless `am start` (no active HMD / in-headset prompt not
+  accepted) → SIGSEGV on GameThread ~9 s in (OpenXR session can't initialise). NOT hook-related — the
+  headset-on launch is clean and stable. Test this build only with the headset worn.
+- Headset-on launch: stable (pid 14618, 2+ min, 72 fps, avatar rendering — spawn completed).
+- **GetAvatarTypeForId FIRED count = 0** across launch + full in-game spawn. TRIBEMOD buffer did not
+  roll (install lines retained), so zero is real, not lost.
+
+**Verdict = case (ii).** Forcing GetAvatarTypeForId→ReadyPlayerMe is inert at spawn. Confirms the Phase 1
+hypothesis: avatar type/route is Blueprint-orchestrated and the Meta path loads at spawn WITHOUT calling
+the RPM type classifier. The clean "Hook A + Hook B" plan cannot work as-is.
+
+**Proven reusable:** the injection mechanism (DT_NEEDED libhook.so) and the inline-replace hook
+technique — both work and are non-disruptive (app runs normally with the hook resident).
+
+**Next = third touch (trace the guaranteed-at-spawn entry).** Targets to decompile/trace:
+FUN_050f5a00 (reads component url member this+0x2A8 → calls RPM resolver FUN_050f49cc) and ITS caller;
+the UTribeAvatarComponent spawn/init that currently drives the Meta loader FUN_04ba868c. Aim: the
+function that always runs at pawn spawn — hook it to call FUN_050f49cc(this,0,&customUrl) forcing the
+RPM/glTF branch regardless of stored type, then Hook B (FUN_050f4548) pins the file.
+
+STOP — awaiting OK for the third-touch trace.
