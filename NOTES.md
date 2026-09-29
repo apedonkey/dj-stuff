@@ -2756,3 +2756,33 @@ the read-only + no-root constraints held so far.
 Analysis goals are complete: engine ID, avatar select/load logic, URL validator, cache path+format,
 config backend, and the reference RPM rig (extracted DefaultAvatar.glb + skeleton_report.md). The only
 unmet goal is a WORKING no-root injection of a custom avatar, which is blocked as above.
+
+## Phase — ATTEMPT 3: clean from-launch logcat test (headset on, file staged). Evidence, not inference.
+
+Corrected method: server + adb reverse up, UECommandLine.txt (with -ini: overrides for
+GameUserSettings/Game/Engine/TribeXR + `-LOG=tribeprobe.log`) pushed to 3 external paths, logcat
+buffer raised to 32M, then `logcat -c` → `am force-stop` → `am start` → 100s LIVE capture from t=0.
+This time the app fully booted (headset on).
+
+Confirmed facts:
+- App fully booted & running: pid 18567, `topResumedActivity = …/GameActivity`, immersive transition
+  ended, 4209 native log lines from the process, spatial/hand tracking active. NOT stalled (unlike
+  attempt 1). 15,456 total lines captured.
+- It loaded the **Meta** avatar: CachedAvatars.zip / PresetAvatars_Quest2.zip / OvrAvatar2Assets.zip
+  all touched at/after 10:51 launch.
+- **No RPM activity at all**: no `Documents/Avatars/`, no `rpmavatar-*`, no server GET/HEAD for
+  test.glb (only my earlier PC-side HEAD), no `tribeprobe.log`.
+- **UE-core logging is OFF in this shipping build** (the key blocker, now proven): of 4209 lines from
+  pid 18567, every one is from OVR/OpenXR/Oculus-Platform/RuntimeIPC SDKs; there are ZERO UE-core
+  ("UE" tag native) lines and no `APK Commandline`/`Command Line`/`Final commandline`. The decompile
+  showed `APK Commandline: %s` runs unconditionally every boot, yet it never appears → UE's FMsg log
+  device does not reach logcat here.
+
+**Evidence-based conclusion:** in a clean, fully-booted, headset-on launch with the override file
+staged, the RPM path did NOT fire (Meta avatar loaded, zero RPM fetch/cache). BUT the specific check
+"did the override enter the resolved command line" is UNOBSERVABLE on this build, because UE-core
+logging is disabled — logcat, the UE log file (Saved/Logs empty; `-LOG` produced nothing), and the
+internal config are all unavailable without root. So I have evidence the RPM path didn't fire, but
+cannot distinguish "external UECommandLine.txt not read at the tried paths" from "config not consumed
+at spawn (reason c)". Disambiguating needs an observable independent of UE logging AND the avatar
+(e.g. redirect a config-driven startup network endpoint to the local server) — more RE, uncertain.
