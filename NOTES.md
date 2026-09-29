@@ -3235,3 +3235,60 @@ An expert review corrected two of my errors and reframed the plan. Verified fact
    Mesh delivery in EITHER route: override DefaultAvatar.glb via _P pak (least fragile).
 
 STOP — read-only done. Next step (usmap dumper) is a BUILD; awaiting greenlight.
+
+## Session 1 — usmap/SDK dumper LOCATOR CONTRACTS (static Ghidra, read-only)
+
+Reminder: **real runtime vaddr = Ghidra addr − 0x100000** (image base 0x100000). Runtime abs = libUnreal.so
+load base + real vaddr. Ghidra project scripts: AnchorTrace.java, DecompAddrs.java.
+
+**L1 — NamePoolData (FNamePool). RESOLVED.**
+- Global `NamePoolData` = Ghidra DAT_07d622c0 → **real 0x07C622C0** (in .bss; direct ADRP+ADD, not GOT →
+  addr = base + 0x07C622C0). Lazy-init once-guard at real 0x07C622B8; hash shards base real 0x07C72300 (stride 0x80).
+- Anchor chain: FName ctor FUN_0173299c (real 0x0163299C) → number-suffix parse FUN_01732a18 (0x01632A18)
+  → pool store FUN_01736088 (0x01636088): `if(!guard){ FUN_0172ff60(&NamePoolData); guard=1 } store=FUN_01731784(&NamePoolData,...)`.
+- Pool constructor / hardcoded-name registrar = **FUN_0172ff60** (real 0x0162FF60; the 6180-byte fn that
+  references "ByteProperty"/"IntProperty"/… — the reviewer's L1 anchor). FName store = FUN_01731784 (0x01631784).
+- Layout (5.4): FNameEntryAllocator at pool base; Blocks[] after FRWLock (bionic pthread_rwlock_t = 56 B →
+  Blocks ~0x40, VERIFY at runtime). Resolve: block=id>>16, entry=Blocks[block]+(id&0xFFFF)*2; header u16
+  {bIsWide:1, hash:5, Len:10}. Self-check: Resolve(0)=="None"; check sizeof(FName)==8 (outline-number OFF).
+
+**L2 — GUObjectArray. RESOLVED.**
+- Anchor UObjectBaseInit = **FUN_0197bbd8** (real 0x0187BBD8; builds "UObjectBaseInit", reads the 3 gc.* cvars).
+- It calls AllocateObjectPool **FUN_01977c90** (real 0x01877C90; refs "…/UObjectArray.cpp") with this =
+  GOT slot **Ghidra 0x07ba59e8 → real 0x07AB59E8** (in .got, PTR_ → **GUObjectArray = *(base+0x07AB59E8)**;
+  if self-check fails, try direct base+0x07AB59E8).
+- Layout CONFIRMED from FUN_01977c90: +0x08 MaxObjectsNotConsideredByGC, **+0x10 ObjObjects**
+  (FChunkedFixedUObjectArray: Objects**, PreAllocatedObjects*, MaxElements i32, NumElements i32, MaxChunks
+  i32, NumChunks i32). FUObjectItem stride 0x18 {Object*, Flags i32, ClusterRootIndex i32, SerialNumber i32}.
+  Index→Objects[i>>16][i&0xFFFF]. Self-check: NumElements ~tens of thousands; NumChunks==ceil(NumElements/65536);
+  Objects[0][0].Object->InternalIndex==0.
+
+**L3 — ProcessEvent vtable slot. NOT pinned statically → runtime-resolve.**
+- "ReceiveBeginPlay" has no direct code xref (FName-hashed); "ReceiveTick" xrefs were BT-node event
+  *detection* (FindFunction-based FUN_055b52d8), not the ProcessEvent vtable dispatch. FName ctor for events =
+  FUN_0173299c; impl-checker = FUN_055b52d8.
+- Resolve at runtime (reviewer's self-check): candidate UObject vtable slot → hook it, log first ~20
+  Function->NamePrivate; expect ReceiveTick/Tick/ReceiveBeginPlay/Construct. Cross-anchor ReceiveTick +
+  ReceiveBeginPlay must yield the same slot. (Do in Session 3, needs the L1/L2 walk working first.)
+
+**L4 — UObject/UStruct/FField offsets. Hypothesis from reviewer; runtime-verify via invariants.**
+- UObject: 0x00 vtable,0x08 Flags,0x0C InternalIndex,0x10 ClassPrivate,0x18 NamePrivate(FName),0x20 Outer (size 0x28).
+- UField 0x28 Next; UStruct 0x30 SuperStruct,0x38 Children,0x40 ChildProperties(FField*),0x48 PropertiesSize,0x50 Script.
+- FField 0x08 ClassPrivate(FFieldClass*, Name@0x00),0x28 NamePrivate,0x20 Next; FProperty 0x3C ElementSize,
+  0x40 PropertyFlags,0x4C Offset_Internal. **FProperty is NOT a UObject (since 4.25)** — walk UStruct::ChildProperties.
+  Handle FObjectProperty.PropertyClass / FStructProperty.Struct / FArrayProperty.Inner / FBoolProperty bitfield /
+  **FOptionalProperty (NEW in 5.4)**. Verify: Class "Object" → SuperStruct==0 && PropertiesSize==0x28; Class "Class"
+  → ClassPrivate==self. Shift tail until both hold.
+
+### Decisive-question shortcut (build into the dumper day 1)
+Once L2 + property offsets work: read Default__TribePawnBP_C.ActiveSkinClasses (CDO default) vs a live spawned
+pawn's ActiveSkinClasses a few frames after ReceiveBeginPlay. Identical → CDO default survives → patch-pak
+route. Differ → spawn rebuilds from AvatarId/server → widget-replay route. No VM decompile needed.
+
+### Session plan
+S1 (done): L1/L2 pinned, L3 runtime-deferred, L4 hypotheses + self-checks.
+S2 (device, read-only, build): libhook resolves L1/L2, runs self-checks, dumps objects.txt + sdk.txt. No new hooks.
+S3: ProcessEvent hook (resolve L3) + values.txt live CDO/pawn reads + script/ dump + TribeXR.usmap.
+S4: file-polled console (cmd.txt → FindObject/FindFunction/ProcessEvent).
+
+STOP — Session 1 static contracts done; Session 2 is a device BUILD, awaiting greenlight.
