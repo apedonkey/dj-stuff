@@ -3110,3 +3110,54 @@ Two forward paths (empirical, cheap, before any hook):
    glb. This is a BP-UFunction-level force, not the simple native dispatcher we tried.
 
 STOP — awaiting direction. Recommend the reachability check (path 1) first: it may need no hook at all.
+
+## Path-2 design trace (native, read-only) — NO clean native hook exists for the skin selection
+
+scripts/SkinTrace.java over the analyzed project. Searched libUnreal.so's string table for the skin/
+avatar function names and traced the config read.
+
+**Decisive: the skin system is Blueprint-only (no native chokepoint).** These names are NOT present as
+strings in libUnreal.so, i.e. they are BP UFunctions (VM bytecode), not native C++:
+`AddActiveSkin`, `ApplyActiveSkins`, `GetSkinClass`, `GetDefaultSkinClass`, `SetAvatarID`.
+So "Hook 1 = force AddActiveSkin's class arg / inject RPM into the list" has **no native function to
+inline-hook** — the list is built and consumed in the BP VM. Forcing it needs either a UObject::
+ProcessEvent VM interception (heavy, fires for every BP call, must filter) or a pak BP edit (recompile
+cooked BP — fragile, breaks per update). Neither is a clean minimal hook.
+
+**What IS native/hookable (but downstream of the BP skin decision):**
+- Config read: `ReadConfigString` string present (@0061e03d, native TribeBlueprintLibrary). The RPM
+  URL read is native `FUN_050f584c` (Ghidra 0x050F584C / real 0x04FF584C): calls GConfig::GetString
+  (`FUN_016a70bc`) for [TribeAvatar]ReadyPlayerMeAvatarUrl + ReadyPlayerMeETag, builds
+  "%srpmavatar-%s" cache path, FileExists. `ReadyPlayerMeAvatarUrl` string (@002ccf8e) is read by
+  FUN_050fc6e0, FUN_050f584c, FUN_050f49cc.
+- RPM loader FUN_050f49cc / choke FUN_050f4548, dispatcher FUN_050fc2d4 (all native).
+- `GetTribeDefaultAvatarId` string present (@00686acb) but no direct code xref surfaced (registration-
+  only); would need more tracing to hook.
+
+**Why the native leaf hooks don't solve it:** supplying the config URL (hook FUN_016a70bc / FUN_050f584c)
+only matters if the RPM SKIN is applied — and applying it is the BP-only step with no native seam. The
+native avatar paths we can hook are either off the spawn path (dispatcher FUN_050fc2d4 — 0 fires at
+spawn, proven) or fire too early (the choke's empty-URL spawn init — crashes if forced). At spawn the BP
+applies the DEFAULT (Meta) skin (BP_OculusAvatarSkin → MetaAvatar2Component), never touching the RPM
+native path.
+
+### Path-2 verdict: the clean minimal-hook set does NOT exist
+Forcing the RPM skin at spawn requires acting on Blueprint VM state, not a native chokepoint. Options,
+worst-to-best for effort/robustness:
+- (worst) Pak BP edit: change the pawn's default skin class / skin-selection BP → recompile cooked BP +
+  repack the 688 MB Oodle pak. Fragile, breaks each update, heavy tooling.
+- (heavy) Hook UObject::ProcessEvent in libhook: detect the pawn's skin-apply UFunction call and swap the
+  skin class to BP_ReadyPlayerMeAvatarSkin_C (obtain via FindObject/StaticLoadObject on
+  "/Game/Visuals/Skins/OculusAvatar/BP_ReadyPlayerMeAvatarSkin.BP_ReadyPlayerMeAvatarSkin_C"), plus hook
+  FUN_016a70bc to return our URL for [TribeAvatar]ReadyPlayerMeAvatarUrl. Doable but fragile, wide blast
+  radius, must not fire prematurely.
+- (best) **Path 1, no hook: use the in-app RPM Avatar Creator if it is still reachable.** It writes the
+  config URL and applies the RPM skin through the supported flow; pre-place our .glb at the cache path
+  `<ProjectUserDir>/Documents/Avatars/rpmavatar-<basename(url)>.glb` so FileExists short-circuits the
+  download. No hook, no re-sign. Whether it persists across relaunch is an empirical check.
+
+Config details (for Path 1 / any approach): key = GConfig section [TribeAvatar], value ReadyPlayerMeAvatarUrl
+(+ ReadyPlayerMeETag), in the global user ini (internal — not a writable external file; that's why the
+writer being gone matters). Cache file the loader wants: Documents/Avatars/rpmavatar-<basename>.glb.
+
+STOP — no build. Recommend Path 1 reachability check in-headset before any hook.
