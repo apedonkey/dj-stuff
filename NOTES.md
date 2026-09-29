@@ -2786,3 +2786,28 @@ internal config are all unavailable without root. So I have evidence the RPM pat
 cannot distinguish "external UECommandLine.txt not read at the tried paths" from "config not consumed
 at spawn (reason c)". Disambiguating needs an observable independent of UE logging AND the avatar
 (e.g. redirect a config-driven startup network endpoint to the local server) — more RE, uncertain.
+
+## Phase — isolate "is the file read" (step 1): both boot-probes confounded → undeterminable black-box
+
+Per the isolate-the-unknowns plan, tried to prove read/not-read via boot behavior (not logging/avatar/net):
+- **Probe 1 `-nosound`** (keep -project): after relaunch, Tribe (uid 10107) still had 2 active
+  `OpenSL ES AudioPlayer state:started usage=USAGE_MEDIA`. INCONCLUSIVE — Tribe's DJ audio is its own
+  SuperPowered/OpenSL engine, which UE's `-nosound` (FAudioDevice) would not disable. So "audio still
+  on" ≠ "file not read".
+- **Probe 2 bad `-project`** (`ZZDOESNOTEXIST.uproject`): app booted normally (pid stable), Meta avatar
+  zips touched (booted to avatar load), no crash, no error. INCONCLUSIVE — `-project` is baked into the
+  packaged Android build, so a bad value on the cmdline is ignored on-device.
+
+**Conclusion: which of (a)/(b)/(c) we're in is UNDETERMINABLE by black-box probing on this build.**
+Every distinguishing observable is denied: UE-core logging compiled out (proven, attempt 3), no
+readable UE log file, internal GameUserSettings.ini unreadable without root, and boot-arg effects are
+confounded by app specifics (custom audio; baked project). This is a tested conclusion, not an
+inference. A definitive answer needs an observable that crosses the held constraints:
+  - **root** (no patch): read the internal ini after a staged launch to see if the `-ini:` override
+    took, and read the UE log — the least-invasive way to get certainty; Quest 3 has no public root.
+  - **binary patch**: add an observable / force the value — crosses read-only-of-binary.
+
+Device restored to stock (all staged UECommandLine.txt removed; server + adb reverse torn down).
+Verified facts that stand: loader applies an external UECommandLine.txt unconditionally when FOUND
+(decompile, no shipping guard); the reference RPM rig is extracted; the config backend + cache path are
+mapped. What could not be shown: that a staged file is actually read at the tried paths on this build.
