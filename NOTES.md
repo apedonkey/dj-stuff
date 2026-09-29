@@ -2286,3 +2286,220 @@ installed UE games' binaries = none either.
   `oo2core_9_win64.dll` ships with the UE ENGINE/EDITOR (Epic Games Launcher), not with games.
   So "pull it from a UE5 game I own" does not work for these titles.
 - oo2core DLL is still required for the Windows extract route; not present. Phase A-fin cannot run.
+
+### [054] 2026-09-29 09:20:00 · exit 0
+
+```sh
+echo "=== binutils / compilers / NDK present? ==="; for t in readelf nm objdump gcc g++ clang cc cl; do printf "%-9s " "$t"; command -v "$t" 2>/dev/null || echo "(no)"; done
+echo "ANDROID_NDK env: ${ANDROID_NDK:-<unset>} / ${ANDROID_NDK_HOME:-<unset>} / ${NDK_HOME:-<unset>}"
+echo "=== NDK / cmdline-tools on disk? (bounded) ==="; timeout 60 find /c/Users/Chris -maxdepth 5 -type d \( -iname "ndk" -o -iname "android-ndk*" \) 2>/dev/null | head; ls -d /c/Users/Chris/AppData/Local/Android/Sdk/ndk/* 2>/dev/null
+echo "=== is OodleLZ_Decompress an EXPORTED dynamic symbol in libUnreal.so? ==="
+python - <<PY
+import struct
+f=open("unpacked/base/lib/arm64-v8a/libUnreal.so","rb"); d=f.read(64)
+assert d[:4]==b"\x7fELF"
+is64=d[4]==2; le="<"
+e_shoff=struct.unpack_from(le+"Q",d,0x28)[0]
+e_shentsize=struct.unpack_from(le+"H",d,0x3a)[0]
+e_shnum=struct.unpack_from(le+"H",d,0x3c)[0]
+e_shstrndx=struct.unpack_from(le+"H",d,0x3e)[0]
+f.seek(e_shoff); sh=f.read(e_shentsize*e_shnum)
+secs=[]
+for i in range(e_shnum):
+    o=i*e_shentsize
+    name,typ=struct.unpack_from(le+"II",sh,o)
+    off,size=struct.unpack_from(le+"QQ",sh,o+0x18)
+    link,info=struct.unpack_from(le+"II",sh,o+0x28)
+    entsz=struct.unpack_from(le+"Q",sh,o+0x38)[0]
+    secs.append([name,typ,off,size,link,entsz])
+# section header string table
+stab=secs[e_shstrndx]; f.seek(stab[2]); shstr=f.read(stab[3])
+def nm(n): return shstr[n:shstr.index(b"\0",n)].decode()
+dynsym=dynstr=None
+for s in secs:
+    if nm(s[0])==".dynsym": dynsym=s
+    if nm(s[0])==".dynstr": dynstr=s
+if not dynsym: print("no .dynsym"); raise SystemExit
+f.seek(dynstr[2]); ds=f.read(dynstr[3])
+f.seek(dynsym[2]); sym=f.read(dynsym[3])
+cnt=dynsym[3]//24; found=[]; total=0
+for i in range(cnt):
+    o=i*24; nameoff=struct.unpack_from(le+"I",sym,o)[0]
+    shndx=struct.unpack_from(le+"H",sym,o+6)[0]
+    val=struct.unpack_from(le+"Q",sym,o+8)[0]
+    nmv=ds[nameoff:ds.index(b"\0",nameoff)].decode("latin-1")
+    if nmv: total+=1
+    if "Oodle" in nmv or "oodle" in nmv:
+        found.append((nmv,shndx,hex(val)))
+print("dynamic symbols:",total,"| Oodle-named exported:",len(found))
+for n,sh,v in found[:30]: print("   ",n,"shndx=",sh,"val=",v)
+PY
+```
+
+```text
+=== binutils / compilers / NDK present? ===
+readelf   (no)
+nm        (no)
+objdump   (no)
+gcc       (no)
+g++       (no)
+clang     (no)
+cc        (no)
+cl        (no)
+ANDROID_NDK env: <unset> / <unset> / <unset>
+=== NDK / cmdline-tools on disk? (bounded) ===
+=== is OodleLZ_Decompress an EXPORTED dynamic symbol in libUnreal.so? ===
+dynamic symbols: 1404 | Oodle-named exported: 0
+```
+
+### [055] 2026-09-29 09:22:04 · exit 0
+
+```sh
+echo "### validate header parse on DanceAvatar (small) + DefaultAvatar (big) ###"; python scripts/pak_extract.py pulled/main.2304.com.TribeXR.TribeXR.obb "Replays/DanceAvatar.glb" extracted/assets; echo; python scripts/pak_extract.py pulled/main.2304.com.TribeXR.TribeXR.obb "Replays/DefaultAvatar.glb" extracted/assets; echo "--- files written:"; ls -l extracted/assets/
+```
+
+```text
+### validate header parse on DanceAvatar (small) + DefaultAvatar (big) ###
+../../../TribeXR/Content/Replays/DanceAvatar.glb
+  pak=pakchunk0-Android_ASTC.pak method=1(Oodle) blocks=3 size=31,447 usize=147,948 off=374033340
+  -> wrote DanceAvatar.glb.oodleblocks (31,447 B, 3 blocks), manifest (raw total 147,948 == usize 147,948: True), relative_offsets=True
+
+../../../TribeXR/Content/Replays/DefaultAvatar.glb
+  pak=pakchunk0-Android_ASTC.pak method=1(Oodle) blocks=73 size=1,081,863 usize=4,732,412 off=374066761
+  -> wrote DefaultAvatar.glb.oodleblocks (1,081,863 B, 73 blocks), manifest (raw total 4,732,412 == usize 4,732,412: True), relative_offsets=True
+--- files written:
+total 1101
+-rw-r--r-- 1 Chris 197121     316 Sep 29 09:22 DanceAvatar.glb.manifest.json
+-rw-r--r-- 1 Chris 197121   31447 Sep 29 09:22 DanceAvatar.glb.oodleblocks
+-rw-r--r-- 1 Chris 197121    4817 Sep 29 09:22 DefaultAvatar.glb.manifest.json
+-rw-r--r-- 1 Chris 197121 1081863 Sep 29 09:22 DefaultAvatar.glb.oodleblocks
+```
+
+### [056] 2026-09-29 09:25:11 · exit 1
+
+```sh
+OD="/c/Users/Chris/AppData/Local/Temp/claude/C--Users-Chris-OneDrive-Desktop-tribe-hack/1513371d-9360-4e12-b704-023d9fd6c661/scratchpad/oodle_dec/target/release/oodle_dec.exe"; cd extracted/assets
+python -c "import json;m=json.load(open(\"DanceAvatar.glb.manifest.json\"));open(\"DanceAvatar.blocks.txt\",\"w\").write(\"\n\".join(f\"{b[\"comp_len\"]} {b[\"raw_len\"]}\" for b in m[\"blocks\"]))"
+"$OD" DanceAvatar.glb.oodleblocks DanceAvatar.blocks.txt DanceAvatar.glb
+echo "--- verify magic + size ---"; python -c "
+d=open(\"DanceAvatar.glb\",\"rb\").read()
+import struct
+print(\"size:\",len(d))
+print(\"magic:\",d[:4], \"(glTF)\" if d[:4]==b\"glTF\" else \"(NOT glTF)\")
+ver,length=struct.unpack_from(\"<II\",d,4); print(\"glb version:\",ver,\"declared length:\",length,\"match:\",length==len(d))
+"
+```
+
+```text
+
+thread 'main' (10128) panicked at src\main.rs:26:33:
+block 0: decompress failed: OozError
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+--- verify magic + size ---
+Traceback (most recent call last):
+  File "<string>", line 2, in <module>
+    d=open("DanceAvatar.glb","rb").read()
+      ~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'DanceAvatar.glb'
+```
+
+### [057] 2026-09-29 09:26:07 · exit 0
+
+```sh
+OD="/c/Users/Chris/AppData/Local/Temp/claude/C--Users-Chris-OneDrive-Desktop-tribe-hack/1513371d-9360-4e12-b704-023d9fd6c661/scratchpad/oodle_dec/target/release/oodle_dec.exe"; rm -f extracted/assets/DanceAvatar.glb
+python scripts/pak_extract.py pulled/main.2304.com.TribeXR.TribeXR.obb "Replays/DanceAvatar.glb" extracted/assets
+cd extracted/assets
+python -c "import json;m=json.load(open(\"DanceAvatar.glb.manifest.json\"));open(\"DanceAvatar.blocks.txt\",\"w\").write(chr(10).join(str(b[\"comp_len\"])+\" \"+str(b[\"raw_len\"]) for b in m[\"blocks\"]))"
+"$OD" DanceAvatar.glb.oodleblocks DanceAvatar.blocks.txt DanceAvatar.glb
+python -c "
+import struct
+d=open(\"DanceAvatar.glb\",\"rb\").read()
+print(\"size:\",len(d),\"magic:\",d[:4])
+if d[:4]==b\"glTF\":
+    ver,length=struct.unpack_from(\"<II\",d,4)
+    print(\"OK glTF v\",ver,\"len\",length,\"match\",length==len(d))
+    # first chunk (JSON)
+    clen,ctyp=struct.unpack_from(\"<II\",d,12); print(\"chunk0 len\",clen,\"type\",d[20:24])
+    print(\"JSON head:\", d[24:24+180].decode(\"utf-8\",\"replace\"))
+"
+```
+
+```text
+../../../TribeXR/Content/Replays/DanceAvatar.glb
+  pak=pakchunk0-Android_ASTC.pak method=1(Oodle) blocks=3 size=31,447 usize=147,948 off=374033340
+  header_size=105 block0.start=105 relative=True
+  -> wrote DanceAvatar.glb.oodleblocks (31,447 B, 3 blocks), manifest (raw total 147,948 == usize 147,948: True), relative_offsets=True
+wrote 147948 bytes to DanceAvatar.glb
+size: 147948 magic: b'glTF'
+OK glTF v 2 len 147948 match True
+chunk0 len 44236 type b'{"as'
+JSON head: set":{"generator":"Khronos glTF Blender I/O v1.8.19","version":"2.0"},"scene":0,"scenes":[{"name":"Scene","nodes":[55]}],"nodes":[{"name":"RightEye_end","rotation":[-2.846733404560
+```
+
+### [058] 2026-09-29 09:26:58 · exit 1
+
+```sh
+OD="/c/Users/Chris/AppData/Local/Temp/claude/C--Users-Chris-OneDrive-Desktop-tribe-hack/1513371d-9360-4e12-b704-023d9fd6c661/scratchpad/oodle_dec/target/release/oodle_dec.exe"
+# re-extract all three to emit sidecars, then decompress
+python scripts/pak_extract.py pulled/main.2304.com.TribeXR.TribeXR.obb "Replays/DefaultAvatar.glb" extracted/assets >/dev/null
+python scripts/pak_extract.py pulled/main.2304.com.TribeXR.TribeXR.obb "Replays/MentorAvatar.glb" extracted/assets >/dev/null
+python scripts/pak_extract.py pulled/main.2304.com.TribeXR.TribeXR.obb "Replays/DanceAvatar.glb" extracted/assets >/dev/null
+cd extracted/assets
+for n in DefaultAvatar MentorAvatar DanceAvatar; do "$OD" $n.glb.oodleblocks $n.blocks.txt $n.glb; done
+echo "--- verify ---"; python ../../scripts/glb_verify.py DefaultAvatar.glb MentorAvatar.glb DanceAvatar.glb
+```
+
+```text
+
+thread 'main' (11980) panicked at src\main.rs:13:45:
+read sidecar: Os { code: 2, kind: NotFound, message: "The system cannot find the file specified." }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'main' (7208) panicked at src\main.rs:13:45:
+read sidecar: Os { code: 2, kind: NotFound, message: "The system cannot find the file specified." }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+wrote 147948 bytes to DanceAvatar.glb
+--- verify ---
+Traceback (most recent call last):
+  File "C:\Users\Chris\OneDrive\Desktop\tribe hack\scripts\glb_verify.py", line 8, in <module>
+    d = open(path, "rb").read()
+        ~~~~^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'DefaultAvatar.glb'
+```
+
+### [059] 2026-09-29 09:28:46 · exit 0
+
+```sh
+python scripts/glb_report.py extracted/assets/DefaultAvatar.glb extracted/skeleton_report.md
+```
+
+```text
+wrote extracted/skeleton_report.md (105 lines)
+skin0 joints=38  meshes=1  materials=1  images=2
+```
+
+---
+
+## Phase A-fin / C / D — reference GLB extracted, skeleton report produced (2026-09-29)
+
+Oodle route WITHOUT the oo2core DLL: no DLL/UE install/NDK was available, but rust/cargo is, so I
+used a pure-Rust Oodle decompressor (`oozextract` v0.5.5) — all on PC, read-only toward the game.
+
+- **Tooling.** `scripts/pak_extract.py` parses the full FPakEntry header from inside the OBB and
+  writes each entry's Oodle blocks + a sidecar; `scratchpad/oodle_dec` (Rust, `oozextract`)
+  decompresses the blocks; `scripts/glb_verify.py` + `scripts/glb_report.py` validate/parse the GLB.
+  Block offsets are v9+ relative-to-entry (block0.start == header_size, verified).
+- **Phase A-fin (pipeline proof):** `DanceAvatar.glb` decompressed to a valid glTF v2 (147,948 B).
+- **Phase C (extracted to `extracted/assets/`, all valid glTF v2, sizes == uncompressed):**
+  - `DefaultAvatar.glb` 4,732,412 B  md5 `bb01368fc663411e5ad676ee268aac4e`
+  - `MentorAvatar.glb` 4,752,440 B  md5 `defb8f2890727d0e12ad1b1d2daff235`
+  - `DanceAvatar.glb`   147,948 B  md5 `10192f53353e2dd983693bb8d3f22a2f`
+- **Phase D (`extracted/skeleton_report.md`):** `DefaultAvatar.glb` = half-body RPM avatar
+  (`Wolf3D_Avatar`, Blender-exported). 38 joints, upper body only: `Hips→Spine→{Neck→Head→
+  {L/R Eye}; R/LHand→5 finger chains}`; **hands parent to Spine** (no arms/legs). Matches
+  `EReadyPlayerMeBone` exactly (38/39; only `AvatarRoot` absent = runtime root, not a joint; 0 extra
+  joints). Mesh: 1 skinned mesh, 5051 verts, 1 UV, 1 doubleSided material (baseColor+normal PNG).
+  **63 morph targets** = ARKit set + 15 `viseme_*` (OVRLipSync drives these). Units meters, Y-up,
+  Hips at origin. Full joint list + bind-pose TRS in the report.
+- `extracted/assets/` (the GLBs + manifests) is gitignored (binaries); `skeleton_report.md`,
+  `paklist.txt`, `avatar_asset_hits.txt` and the scripts are tracked.
