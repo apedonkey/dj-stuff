@@ -1,0 +1,171 @@
+# Avatar/skin pipeline (from objects.txt walk, in-game DJRoomMap)
+
+## BP_TribeVisualsManager_C (orchestrator; in CommonLevel.PersistentLevel.TribeVisualsManager)
+AddCachedRPMAvatarSkin
+AddOrUpdateCachedRPMAvatarSkin
+AddSkin
+ApplyNamedSkinToPlayer
+ApplySkinToPlayer
+ClearEnvironmentBackdrop
+ClearEventHandlers
+DefaultSceneRoot_GEN_VARIABLE
+DrawDeckTrackToBackdrop
+DrawModeChanged
+ExecuteUbergraph_BP_TribeVisualsManager
+FinishSkinsSetup
+GetDefaultEnvironmentName
+GetSkin
+GetSkinsLoaded
+GetSkinsReadyToApply
+GifPlaybackTick
+HandleBeatmatchAnalysisReady
+HandleBeatmatchTrackPlayed
+HandleClientAllActorsReplicated
+HandleDeckTrackChanged
+HandleDLCLoaded
+HandleLocalPawnReady
+HandlePawnForPreload
+InitAddonSkins
+InitCustomSkins
+InitEventHandlers
+InitMyRPMAvatarSkin
+InitRadialFX
+InitRPMAvatarSkins
+InitSkins
+LoadSkinSelection
+LoadSkinSelections
+LoadSkinsFromDataTable
+MediaPlayerOpened
+NdiPlaybackTick
+NODE_AddStaticMeshComponent-0
+OnActiveSkinChanged__DelegateSignature
+OnComputeAverageColorFromTextureResult
+OnEnvironmentLoaded
+OnSkinsLoaded__DelegateSignature
+OnSkinsReadyToApply__DelegateSignature
+PlayModeChanged
+PreloadSkins
+ReceiveBeginPlay
+ReceiveEndPlay
+ReceiveTick
+RefreshDynamicLightingCache
+RefreshGifBeatmatch
+RefreshUnlockedSkins
+RemoveSkin
+SetLightsDimmed
+SetLightsDimmed_Impl
+SetLightsDisabled
+SetRadialFXEnabled
+SetupEnvironmentBackdrop
+SimpleConstructionScript
+SimpleConstructionScript.SCS_Node
+SpawnRadialFX
+UpdateRadialFX
+UserConstructionScript
+VideoPlaybackTick
+
+## W_RPMAvatarCreator_C (RPM URL loader UI)
+BndEvt__W_ContentMenu_RPMCreateButton_K2Node_ComponentBoundEvent_12_OnButtonClickedEvent__DelegateSignature
+BndEvt__W_ContentMenu_RPMLaunchWebButton_K2Node_ComponentBoundEvent_10_OnButtonClickedEvent__DelegateSignature
+BndEvt__W_ContentMenu_RPMPasteButton_K2Node_ComponentBoundEvent_11_OnButtonClickedEvent__DelegateSignature
+ClearAvatarUrl
+ComponentDelegateBinding
+Construct
+ExecuteUbergraph_W_RPMAvatarCreator
+GetRPMCustomSkin
+HandleAvatarCached
+HandleAvatarLoaded
+LoadAvatarAtUrl
+OnAvatarSkinLoaded__DelegateSignature
+OnGoBack__DelegateSignature
+PasteAvatarUrl
+PreConstruct
+ReloadAvatarAtUrl
+WidgetTree
+WidgetTree.HorizontalBox
+WidgetTree.HorizontalBox.HorizontalBoxSlot
+WidgetTree.MessageText
+WidgetTree.RPMAvatarPanel
+WidgetTree.RPMAvatarPanel.HorizontalBoxSlot
+WidgetTree.RPMBackButton
+WidgetTree.RPMBackButton.ButtonSlot
+WidgetTree.RPMCopyImage
+WidgetTree.RPMGotoImage
+WidgetTree.RPMLaunchWebButton
+WidgetTree.RPMLaunchWebButton.ButtonSlot
+WidgetTree.RPMPasteButton
+WidgetTree.RPMPasteButton.ButtonSlot
+WidgetTree.RPMPasteImage
+WidgetTree.TextBlock
+WidgetTree.VerticalBox
+WidgetTree.VerticalBox.VerticalBoxSlot
+
+## BP_ReadyPlayerMeAvatarSkin_C
+ExecuteUbergraph_BP_ReadyPlayerMeAvatarSkin
+GetSkinClass
+HandleThumbnailResult
+OnSkinApplied
+OnSkinLoaded
+ReloadAvatarThumbnail
+
+## TribePawnBP_C avatar fns
+AvatarPropMesh
+AvatarPropMesh_GEN_VARIABLE
+HandleAvatarLoaded
+HandleAvatarVisibilityChanged
+HandleDesktopAvatarTexture
+HandleUserDesktopAvatarTexture
+RefreshAvatarPropAttachment
+RefreshAvatarPropVisibility
+RefreshAvatarVisibility
+RefreshDesktopAvatarImage
+SetAvatarID
+SetAvatarLightingForEnvironment
+SetAvatarProp
+SetAvatarSceneCaptureHidden
+SetAvatarThirdPersonVisible
+SetDesktopAvatarVisible
+SpawnDefaultAvatar
+TribeAvatar
+TribeAvatar.LocalLipSync
+TribeAvatar.MetaAvatar2Component
+TribeAvatar.MetaAvatar2Component.MetaAvatar2FirstPersonMesh
+TribeAvatar.MetaAvatar2Component.MetaAvatar2FirstPersonMesh.MetaAvatar2AnimInstance
+TribeAvatar.MetaAvatar2Component.MetaAvatar2ThirdPersonMesh
+TribeAvatar.MetaAvatar2Component.MetaAvatar2ThirdPersonMesh.MetaAvatar2AnimInstance
+TribeAvatar.ReadyPlayerMeComponent
+TribeAvatar.ReadyPlayerMeComponent.AvatarBodyMesh
+TribeAvatar.ReadyPlayerMeComponent.AvatarLeftHand
+TribeAvatar.ReadyPlayerMeComponent.AvatarRightHand
+TribeAvatar_GEN_VARIABLE
+TribeAvatar_GEN_VARIABLE.LocalLipSync
+TribeAvatar_GEN_VARIABLE.MetaAvatar2Component
+TribeAvatar_GEN_VARIABLE.MetaAvatar2Component.MetaAvatar2FirstPersonMesh
+TribeAvatar_GEN_VARIABLE.MetaAvatar2Component.MetaAvatar2ThirdPersonMesh
+TribeAvatar_GEN_VARIABLE.ReadyPlayerMeComponent
+TribeAvatar_GEN_VARIABLE.ReadyPlayerMeComponent.AvatarBodyMesh
+TribeAvatar_GEN_VARIABLE.ReadyPlayerMeComponent.AvatarLeftHand
+TribeAvatar_GEN_VARIABLE.ReadyPlayerMeComponent.AvatarRightHand
+UpdateDesktopAvatarLocation
+
+## Native /Script/ReadyPlayerMe
+Class                                      /Script/ReadyPlayerMe.ReadyPlayerMeFunctionLibrary
+DelegateFunction                           /Script/ReadyPlayerMe.ReadyPlayerMeHttpResponse__DelegateSignature
+Enum                                       /Script/ReadyPlayerMe.AvatarBodyType
+Enum                                       /Script/ReadyPlayerMe.AvatarGender
+Function                                   /Script/ReadyPlayerMe.ReadyPlayerMeFunctionLibrary.GetAvatarMetaDataLegacy
+Function                                   /Script/ReadyPlayerMe.ReadyPlayerMeFunctionLibrary.GetLegacyBodyType
+Function                                   /Script/ReadyPlayerMe.ReadyPlayerMeFunctionLibrary.GetRootBoneName
+Function                                   /Script/ReadyPlayerMe.ReadyPlayerMeFunctionLibrary.GetRPMMaterialsConfig
+Function                                   /Script/ReadyPlayerMe.ReadyPlayerMeFunctionLibrary.GetRPMRuntimeConfig
+Function                                   /Script/ReadyPlayerMe.ReadyPlayerMeFunctionLibrary.GetRPMSkeletalMeshConfig
+Function                                   /Script/ReadyPlayerMe.ReadyPlayerMeFunctionLibrary.GetRPMSkeletonConfig
+Function                                   /Script/ReadyPlayerMe.ReadyPlayerMeFunctionLibrary.GetUrlFromShortcode
+Function                                   /Script/ReadyPlayerMe.ReadyPlayerMeFunctionLibrary.IsUrl
+Function                                   /Script/ReadyPlayerMe.ReadyPlayerMeFunctionLibrary.LoadAvatarMetaData
+Function                                   /Script/ReadyPlayerMe.ReadyPlayerMeFunctionLibrary.SetAnimationBlueprint
+Function                                   /Script/ReadyPlayerMe.ReadyPlayerMeFunctionLibrary.SetMorphTarget
+Function                                   /Script/ReadyPlayerMe.ReadyPlayerMeFunctionLibrary.SetMorphTargets
+Function                                   /Script/ReadyPlayerMe.ReadyPlayerMeFunctionLibrary.SetupSkeleton
+ReadyPlayerMeFunctionLibrary               /Script/ReadyPlayerMe.Default__ReadyPlayerMeFunctionLibrary
+ScriptStruct                               /Script/ReadyPlayerMe.AvatarMetadata

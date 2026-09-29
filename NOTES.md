@@ -3325,3 +3325,53 @@ the reviewer's L1 string-anchor landed on the wrong function.
 Everything read-only. Dumper + scripts committed. Device left on the dumper build (harmless; hooks nothing).
 
 STOP — FName-pool re-anchor needed before the object walk can name-match; awaiting direction.
+
+## Session 2 COMPLETE — dumper green (FAILS=0); avatar pipeline mapped
+
+Read-only dumper now passes every self-check on-device and answers the decision. Fixes this session:
+- **FNamePool** via runtime signature scan (reviewer option C): scan libUnreal rw maps for a slot whose
+  target begins None(len4)+ByteProperty(len12). Real **NamePoolData rva=0x07C632C0** (old 0x07C622C0 was
+  FCustomVersions, one page low). blocks_off=0x40. `fname_resolve` (hdr>>6=len, hdr&1=wide) verified.
+- **GUObjectArray** located by Ghidra (AllocateObjectPool FUN_01977c90) + name-validated on-device.
+  Real **GUObjectArray rva=0x07CBBDD0** (Ghidra ptr slot 0x07ba59e8 -> static 0x07cbadd0, runtime is +0x1000).
+  GOT slot rva=0x07AA59E8 (old 0x07AB59E8 was off by 0x10000). ObjObjects@+0x10; Objects**@+0x10;
+  MaxElements@+0x20; NumElements@+0x24; NumChunks@+0x2C.
+- **FUObjectItem stride = 0x14** (NOT 0x18): {Object*,Flags,Cluster,Serial}=20B; chunk = 8B header(0x10000)
+  + 65536*0x14; Objects[k] points AT item[0] (chunk+8). This was the bug that made every R2 candidate/scan miss.
+- **UStruct offsets** (slid on-device, name-free): Super=0x40 Children=0x48 ChildProperties=0x50 PropSize=0x58.
+- **FField/FProperty** (from live dump): Owner is an 8-byte tagged FFieldVariant, so FF_Class=0x08 FF_Next=0x18
+  FF_Name=0x20; FProperty Offset_Internal=0x44. (Old 0x20/0x28/0x4C were each 0x08 high -> garbled names.)
+- **Stability**: in_range() is now binary search (maps are address-sorted); the SIGSEGV/SIGBUS guard is
+  thread-scoped (siglongjmp only on the dumper tid). The earlier long O(n) scan starved the VR AudioRecord
+  thread -> game SIGSEGV in libwilhelm audio callback. Pinning np/bo/ga via params.txt = instant, no scans.
+  Self-check RVAs (this build): np=0x07C632C0 bo=0x40 ga=0x07CBBDD0.
+
+Selfcheck: R1 (name pool) PASS; R2 GUObjectArray PASS (63,408 objs, obj0='/Script/CoreUObject'); R3
+Class/Object/Actor PASS + coupling; R4 FField chain PASS (real AActor props). TOTAL FAILS=0.
+
+### DECISION — the avatar is NOT a pawn-CDO ActiveSkinClasses default; it is TribeVisualsManager-driven.
+- TribePawnBP_C CDO = /Game/Pawn/TribePawnBP.Default__TribePawnBP_C; its ActiveSkinClasses holds an
+  ENVIRONMENT skin (BP_EnvironmentSkin_C), not the avatar. So patch-pak'ing the pawn CDO does NOT set the avatar.
+- Live avatars are **BP_OculusAvatarSkin_C** (11 live instances under CommonLevel.PersistentLevel.
+  TribeVisualsManager). **BP_ReadyPlayerMeAvatarSkin_C has NO live instance** (only its CDO) -> the RPM path
+  is dormant; the burner account currently renders a Meta/Oculus avatar.
+- GameInstance TribeGameInstanceBP_C.AvatarId (offset 0x318) = '3722236897819126'.
+
+### RPM pipeline (all BP UFunctions -> reachable via ProcessEvent). See logs/scan_final/avatar_pipeline.txt.
+- BP_TribeVisualsManager_C: InitMyRPMAvatarSkin, InitRPMAvatarSkins, AddOrUpdateCachedRPMAvatarSkin,
+  AddCachedRPMAvatarSkin, ApplySkinToPlayer, ApplyNamedSkinToPlayer, GetSkin, LoadSkinSelection(s), InitSkins.
+- W_RPMAvatarCreator_C: LoadAvatarAtUrl, ReloadAvatarAtUrl, PasteAvatarUrl, GetRPMCustomSkin,
+  HandleAvatarLoaded, HandleAvatarCached, OnAvatarSkinLoaded.
+- BP_ReadyPlayerMeAvatarSkin_C: GetSkinClass, OnSkinApplied, OnSkinLoaded.
+- TribePawnBP_C: SetAvatarID.  Native: /Script/ReadyPlayerMe.ReadyPlayerMeFunctionLibrary.
+
+### Session 3 (proposed): ProcessEvent hook to DRIVE the RPM pipeline at spawn.
+Resolve ProcessEvent (native->BP entry). Watch InitMyRPMAvatarSkin / ApplySkinToPlayer at spawn, then
+replay the RPM-load flow with our .glb URL: W_RPMAvatarCreator_C.LoadAvatarAtUrl(url) ->
+AddOrUpdateCachedRPMAvatarSkin -> ApplySkinToPlayer(RPM skin). This is the "widget-replay" branch; the
+patch-pak branch is ruled out for the avatar (avatar not in pawn CDO). Caveat: prop_offset for
+TribePawnBP_C.ActiveSkinClasses resolved @0x470 one run, -1 the next (find_struct picked a different
+same-named class object) — non-blocking for the decision but tighten find_struct (prefer the class whose
+Outer is the /Game/... package, skip SKEL_/REINST_) before relying on pawn property offsets in S3.
+
+STOP — Session 2 done; awaiting direction on Session 3 (ProcessEvent-driven RPM replay).

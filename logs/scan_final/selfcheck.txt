@@ -1,0 +1,20 @@
+base=0x7bf0a22000  params: np=0x7c632c0 ga=0x7cbbdd0 bo=0x40 probe=0x0,0
+[PASS] R1.NamePool.scan : NamePoolData rva=0x7c632c0 hits=0 blocks_off=0x40 CurrentBlock=0 CurrentByteCursor=0 leadBlocks=0
+[PASS] R1.NamePool.Resolve(0)==None : resolved='None' (rva=0x7c632c0)
+[PASS] R2a.objarray : via=param GUObjectArray rva=0x7cbbdd0 NumElements=63439 NumChunks=1 neOff=0x14 (got->rva=0x6d293e8 direct.rva=0x7cbadd0)
+[PASS] R2b.index0/1 : obj0=0x7bed9f9900 idx=0 obj1 idx=1
+[PASS] R2c.obj0.name_printable : obj0.name='/Script/CoreUObject'
+[PASS] R3a.Class.self_ref : Class(ClassPrivate==self)=0x7bed62cb80
+[PASS] R3b.UStruct.offsets : Object=0x7bed620b00 Super=0x40 Children=0x48 ChildProps=0x50 PropSize=0x58
+[PASS] R3c.coupling : Class.name='Class' Object.name='Object'
+[PASS] R3d.Actor : Actor.Super='Object' PropSize=0x290
+[PASS] R4.FField.chain : props=12
+  +0x028 StructProperty PrimaryActorTick
+  +0x058 BoolProperty bNetTemporary
+  +0x058 BoolProperty bOnlyRelevantToOwner
+  +0x058 BoolProperty bAlwaysRelevant
+  +0x058 BoolProperty bReplicateMovement
+  +0x058 BoolProperty bCallPreReplication
+  +0x
+
+TOTAL FAILS=0

@@ -24,3 +24,7 @@ extracted/assets/
 *.blocks.txt
 extracted/blueprints/*.manifest.json
 extracted/blueprints/*.json
+
+# large/transient on-device dumps
+logs/scan_final/objects.txt
+logs/*.log
