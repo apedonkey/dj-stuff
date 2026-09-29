@@ -2088,3 +2088,87 @@ Left/RightHand + full finger chains) — the GLB adds bind poses, hierarchy orde
 
 **STOP (Phase A Oodle gate + Phase B candidate review).** Awaiting: (a) an `oo2core_9_win64.dll`,
 and (b) OK to extract the candidate GLBs once it's available.
+
+### [050] 2026-09-29 08:50:38 · exit 0
+
+```sh
+adb devices -l | grep -w device || { echo "NO DEVICE"; exit 1; }
+echo "=== [1] every .glb anywhere under /sdcard/ (path, size) ==="
+adb shell "find /sdcard/ -iname \"*.glb\" -exec ls -la {} \; 2>/dev/null" | tr -d "\r"
+echo "=== [1b] any *avatar*.glb specifically ==="
+adb shell "find /sdcard/ -iname \"*avatar*.glb\" 2>/dev/null" | tr -d "\r"
+echo "=== [2] Replays / extracted / cooked content dirs under the app files dir ==="
+adb shell "find /sdcard/Android/data/com.TribeXR.TribeXR/ -type d \( -iname \"Replays\" -o -iname \"*extract*\" -o -iname \"*Content*\" -o -iname \"*cooked*\" -o -iname \"Paks\" \) 2>/dev/null" | tr -d "\r"
+echo "=== [2b] DefaultAvatar / MentorAvatar / DanceAvatar by name anywhere on /sdcard ==="
+adb shell "find /sdcard/ \( -iname \"DefaultAvatar*\" -o -iname \"MentorAvatar*\" -o -iname \"DanceAvatar*\" \) 2>/dev/null" | tr -d "\r"
+echo "(scan complete)"
+```
+
+```text
+2G0YC1ZF96072F         device product:eureka model:Quest_3 device:eureka transport_id:8
+=== [1] every .glb anywhere under /sdcard/ (path, size) ===
+-rw-rw---- 1 u0_a107 ext_data_rw 3375551 2024-06-24 12:28 /sdcard/Android/data/com.TribeXR.TribeXR/files/Oculus/Avatars2/A_845683494085919.glb
+-rw-rw---- 1 u0_a107 ext_data_rw 3150026 2024-06-24 11:50 /sdcard/Android/data/com.TribeXR.TribeXR/files/Oculus/Avatars2/A_2546452168858501.glb
+-rw-rw---- 1 u0_a107 ext_data_rw 2847602 2024-07-23 12:30 /sdcard/Android/data/com.TribeXR.TribeXR/files/Oculus/Avatars2/A_838591288205515.glb
+-rw-rw---- 1 u0_a107 ext_data_rw 3690510 2025-01-13 20:13 /sdcard/Android/data/com.TribeXR.TribeXR/files/Oculus/Avatars2/A_408029648751395.glb
+-rw-rw---- 1 u0_a107 ext_data_rw 3601596 2025-05-05 17:27 /sdcard/Android/data/com.TribeXR.TribeXR/files/Oculus/Avatars2/A_1232362938473877.glb
+-rw-rw---- 1 u0_a107 ext_data_rw 2477639 2024-04-06 12:41 /sdcard/Android/data/com.TribeXR.TribeXR/files/Oculus/Avatars2/A_311473537933362.glb
+-rw-rw---- 1 u0_a107 ext_data_rw 3464265 2025-01-08 22:05 /sdcard/Android/data/com.TribeXR.TribeXR/files/Oculus/Avatars2/A_2641865686006165.glb
+-rw-rw---- 1 u0_a107 ext_data_rw 3434756 2024-06-24 12:12 /sdcard/Android/data/com.TribeXR.TribeXR/files/Oculus/Avatars2/A_1426978754688935.glb
+-rw-rw---- 1 u0_a107 ext_data_rw 3632409 2024-06-24 12:06 /sdcard/Android/data/com.TribeXR.TribeXR/files/Oculus/Avatars2/A_437208149136331.glb
+-rw-rw---- 1 u0_a107 ext_data_rw 4017176 2024-06-24 12:34 /sdcard/Android/data/com.TribeXR.TribeXR/files/Oculus/Avatars2/A_975825064240371.glb
+-rw-rw---- 1 u0_a107 ext_data_rw 3608863 2024-03-07 15:24 /sdcard/Android/data/com.TribeXR.TribeXR/files/Oculus/Avatars2/A_413060121118574.glb
+-rw-rw---- 1 u0_a107 ext_data_rw 3869262 2024-06-24 11:29 /sdcard/Android/data/com.TribeXR.TribeXR/files/Oculus/Avatars2/A_368505276218154.glb
+-rw-rw---- 1 u0_a107 ext_data_rw 3516589 2024-03-16 15:15 /sdcard/Android/data/com.TribeXR.TribeXR/files/Oculus/Avatars2/A_258875507279586.glb
+-rw-rw---- 1 u0_a107 ext_data_rw 3246510 2024-06-24 12:05 /sdcard/Android/data/com.TribeXR.TribeXR/files/Oculus/Avatars2/A_1677002969771167.glb
+-rw-rw---- 1 u0_a120 ext_data_rw 2236784 2024-02-22 13:23 /sdcard/Android/data/com.LuckyVR.PokerStarsVR/files/Oculus/Avatars2/A_576404647650066.glb
+-rw-rw---- 1 u0_a120 ext_data_rw 3384915 2024-02-22 13:23 /sdcard/Android/data/com.LuckyVR.PokerStarsVR/files/Oculus/Avatars2/A_1299338774248806.glb
+-rw-rw---- 1 u0_a120 ext_data_rw 297609 2024-02-22 13:23 /sdcard/Android/data/com.LuckyVR.PokerStarsVR/files/Oculus/Avatars2/A_722324616128539.glb
+-rw-rw---- 1 u0_a120 ext_data_rw 3015242 2024-02-22 13:23 /sdcard/Android/data/com.LuckyVR.PokerStarsVR/files/Oculus/Avatars2/A_1204480777119881.glb
+-rw-rw---- 1 u0_a120 ext_data_rw 2096243 2024-02-22 13:23 /sdcard/Android/data/com.LuckyVR.PokerStarsVR/files/Oculus/Avatars2/A_675021977709914.glb
+-rw-rw---- 1 u0_a120 ext_data_rw 2769411 2024-02-22 13:23 /sdcard/Android/data/com.LuckyVR.PokerStarsVR/files/Oculus/Avatars2/A_1201144050831171.glb
+-rw-rw---- 1 u0_a120 ext_data_rw 1986506 2024-02-22 13:23 /sdcard/Android/data/com.LuckyVR.PokerStarsVR/files/Oculus/Avatars2/A_1537700413370689.glb
+-rw-rw---- 1 u0_a120 ext_data_rw 255515 2024-02-22 13:23 /sdcard/Android/data/com.LuckyVR.PokerStarsVR/files/Oculus/Avatars2/A_702194231485194.glb
+-rw-rw---- 1 u0_a120 ext_data_rw 1852584 2024-02-22 13:23 /sdcard/Android/data/com.LuckyVR.PokerStarsVR/files/Oculus/Avatars2/A_496837532517159.glb
+-rw-rw---- 1 u0_a120 ext_data_rw 261820 2024-02-22 13:23 /sdcard/Android/data/com.LuckyVR.PokerStarsVR/files/Oculus/Avatars2/A_1339129586908120.glb
+-rw-rw---- 1 u0_a120 ext_data_rw 264676 2024-02-22 13:23 /sdcard/Android/data/com.LuckyVR.PokerStarsVR/files/Oculus/Avatars2/A_8670582926316778.glb
+-rw-rw---- 1 u0_a120 ext_data_rw 311955 2024-02-22 13:23 /sdcard/Android/data/com.LuckyVR.PokerStarsVR/files/Oculus/Avatars2/A_1793927007649941.glb
+-rw-rw---- 1 u0_a120 ext_data_rw 363509 2024-02-22 13:23 /sdcard/Android/data/com.LuckyVR.PokerStarsVR/files/Oculus/Avatars2/A_722196245847985.glb
+-rw-rw---- 1 u0_a120 ext_data_rw 251913 2024-02-22 13:23 /sdcard/Android/data/com.LuckyVR.PokerStarsVR/files/Oculus/Avatars2/A_1566206963846523.glb
+-rw-rw---- 1 u0_a120 ext_data_rw 275345 2024-02-22 13:23 /sdcard/Android/data/com.LuckyVR.PokerStarsVR/files/Oculus/Avatars2/A_3508464322808614.glb
+-rw-rw---- 1 u0_a120 ext_data_rw 3106097 2024-02-22 13:23 /sdcard/Android/data/com.LuckyVR.PokerStarsVR/files/Oculus/Avatars2/A_685250219798024.glb
+-rw-rw---- 1 u0_a120 ext_data_rw 269849 2024-02-22 13:23 /sdcard/Android/data/com.LuckyVR.PokerStarsVR/files/Oculus/Avatars2/A_852893662654985.glb
+-rw-rw---- 1 u0_a120 ext_data_rw 2140403 2024-02-22 13:23 /sdcard/Android/data/com.LuckyVR.PokerStarsVR/files/Oculus/Avatars2/A_877885690323203.glb
+-rw-rw---- 1 u0_a120 ext_data_rw 2002252 2024-02-22 13:23 /sdcard/Android/data/com.LuckyVR.PokerStarsVR/files/Oculus/Avatars2/A_866186628005484.glb
+-rw-rw---- 1 u0_a120 ext_data_rw 293345 2024-02-22 13:23 /sdcard/Android/data/com.LuckyVR.PokerStarsVR/files/Oculus/Avatars2/A_680436747130080.glb
+-rw-rw---- 1 u0_a120 ext_data_rw 274375 2024-02-22 13:23 /sdcard/Android/data/com.LuckyVR.PokerStarsVR/files/Oculus/Avatars2/A_1083823439122617.glb
+-rw-rw---- 1 u0_a120 ext_data_rw 2689750 2024-02-22 13:23 /sdcard/Android/data/com.LuckyVR.PokerStarsVR/files/Oculus/Avatars2/A_881034386548261.glb
+-rw-rw---- 1 u0_a120 ext_data_rw 2644078 2024-02-22 13:23 /sdcard/Android/data/com.LuckyVR.PokerStarsVR/files/Oculus/Avatars2/A_704876301097425.glb
+-rw-rw---- 1 u0_a120 ext_data_rw 253178 2024-02-22 13:23 /sdcard/Android/data/com.LuckyVR.PokerStarsVR/files/Oculus/Avatars2/A_887681502425598.glb
+-rw-rw---- 1 u0_a120 ext_data_rw 314635 2024-02-22 13:23 /sdcard/Android/data/com.LuckyVR.PokerStarsVR/files/Oculus/Avatars2/A_472790305061026.glb
+-rw-rw---- 1 u0_a120 ext_data_rw 286163 2024-02-22 13:23 /sdcard/Android/data/com.LuckyVR.PokerStarsVR/files/Oculus/Avatars2/A_690511866125394.glb
+-rw-rw---- 1 u0_a120 ext_data_rw 285322 2024-02-22 13:23 /sdcard/Android/data/com.LuckyVR.PokerStarsVR/files/Oculus/Avatars2/A_565857824877620.glb
+-rw-rw---- 1 u0_a120 ext_data_rw 1841774 2024-02-22 13:23 /sdcard/Android/data/com.LuckyVR.PokerStarsVR/files/Oculus/Avatars2/A_655342009607073.glb
+-rw-rw---- 1 u0_a120 ext_data_rw 1947521 2024-02-22 13:23 /sdcard/Android/data/com.LuckyVR.PokerStarsVR/files/Oculus/Avatars2/A_1342866393202098.glb
+-rw-rw---- 1 u0_a120 ext_data_rw 2705003 2024-02-22 13:23 /sdcard/Android/data/com.LuckyVR.PokerStarsVR/files/Oculus/Avatars2/A_566020468874096.glb
+-rw-rw---- 1 u0_a120 ext_data_rw 3016350 2024-02-22 13:23 /sdcard/Android/data/com.LuckyVR.PokerStarsVR/files/Oculus/Avatars2/A_8431226706951412.glb
+-rw-rw---- 1 u0_a120 ext_data_rw 289674 2024-02-22 13:23 /sdcard/Android/data/com.LuckyVR.PokerStarsVR/files/Oculus/Avatars2/A_5745376728902771.glb
+-rw-rw---- 1 u0_a10 ext_data_rw 5085804 2024-02-22 12:56 /sdcard/Android/data/com.oculus.shellenv/files/Oculus/Avatars2/A_334854198922557.glb
+=== [1b] any *avatar*.glb specifically ===
+=== [2] Replays / extracted / cooked content dirs under the app files dir ===
+/sdcard/Android/data/com.TribeXR.TribeXR/files/UnrealGame/TribeXR/TribeXR/Content
+=== [2b] DefaultAvatar / MentorAvatar / DanceAvatar by name anywhere on /sdcard ===
+(scan complete)
+```
+
+### Phase B addendum — external .glb scan for the bundled reference (read-only)
+
+`find /sdcard/ -iname "*.glb"` (whole external storage). Result: the ONLY `.glb` files on disk are
+Meta Avatars2 caches (`.../files/Oculus/Avatars2/A_<metaId>.glb`) for TribeXR, PokerStarsVR and
+shellenv — Meta-avatar skeleton, NOT Ready Player Me. **DefaultAvatar.glb / MentorAvatar.glb /
+DanceAvatar.glb are NOT present anywhere on /sdcard** (searched by name and by `*avatar*.glb`); no
+`Replays/`, `extracted/`, `cooked/` or `Paks/` dir exists under the app files dir. So UE streams the
+bundled avatar GLBs from the Oodle-compressed pak into RAM (glTFRuntime via the mounted pak VFS) and
+never writes them to disk — there is no on-disk copy to grab. Nothing pulled (per instruction, only
+pull if the reference GLB is found). **Conclusion: the no-Oodle shortcut fails; the Oodle route is
+required to obtain the RPM reference GLB.**
