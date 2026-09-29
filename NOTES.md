@@ -2503,3 +2503,120 @@ used a pure-Rust Oodle decompressor (`oozextract` v0.5.5) — all on PC, read-on
   Hips at origin. Full joint list + bind-pose TRS in the report.
 - `extracted/assets/` (the GLBs + manifests) is gitignored (binaries); `skeleton_report.md`,
   `paklist.txt`, `avatar_asset_hits.txt` and the scripts are tracked.
+
+### [060] 2026-09-29 09:55:27 · exit 0
+
+```sh
+adb devices -l | grep -w device >/dev/null || { echo NO DEVICE; exit 1; }
+echo "=== every .ini / .cfg / .sav under the app external dir ==="
+adb shell "find /sdcard/Android/data/com.TribeXR.TribeXR/ \( -iname \"*.ini\" -o -iname \"*.cfg\" -o -iname \"*.sav\" -o -iname \"*.save\" \) -exec ls -la {} \; 2>/dev/null" | tr -d "\r"
+echo "=== any Config or SaveGames dirs under the app tree ==="
+adb shell "find /sdcard/Android/data/com.TribeXR.TribeXR/ -type d \( -iname \"Config\" -o -iname \"SaveGames\" -o -iname \"*Saved*\" \) 2>/dev/null" | tr -d "\r"
+echo "=== full recursive listing of files/UnrealGame and files/UE4Game (where Saved/Config would be) ==="
+adb shell "ls -laR /sdcard/Android/data/com.TribeXR.TribeXR/files/UnrealGame /sdcard/Android/data/com.TribeXR.TribeXR/files/UE4Game 2>/dev/null" | tr -d "\r"
+echo "(scan done)"
+```
+
+```text
+=== every .ini / .cfg / .sav under the app external dir ===
+=== any Config or SaveGames dirs under the app tree ===
+/sdcard/Android/data/com.TribeXR.TribeXR/files/UnrealGame/TribeXR/TribeXR/Saved
+/sdcard/Android/data/com.TribeXR.TribeXR/files/UE4Game/TribeXR/TribeXR/Saved
+=== full recursive listing of files/UnrealGame and files/UE4Game (where Saved/Config would be) ===
+/sdcard/Android/data/com.TribeXR.TribeXR/files/UE4Game:
+total 12
+drwxrws--- 3 u0_a107 ext_data_rw 4096 2024-02-22 12:57 .
+drwxrws--- 9 u0_a107 ext_data_rw 4096 2026-09-19 12:44 ..
+drwxrws--- 3 u0_a107 ext_data_rw 4096 2024-02-22 12:57 TribeXR
+
+/sdcard/Android/data/com.TribeXR.TribeXR/files/UE4Game/TribeXR:
+total 12
+drwxrws--- 3 u0_a107 ext_data_rw 4096 2024-02-22 12:57 .
+drwxrws--- 3 u0_a107 ext_data_rw 4096 2024-02-22 12:57 ..
+drwxrws--- 3 u0_a107 ext_data_rw 4096 2024-02-22 12:57 TribeXR
+
+/sdcard/Android/data/com.TribeXR.TribeXR/files/UE4Game/TribeXR/TribeXR:
+total 12
+drwxrws--- 3 u0_a107 ext_data_rw 4096 2024-02-22 12:57 .
+drwxrws--- 3 u0_a107 ext_data_rw 4096 2024-02-22 12:57 ..
+drwxrws--- 3 u0_a107 ext_data_rw 4096 2024-02-22 12:57 Saved
+
+/sdcard/Android/data/com.TribeXR.TribeXR/files/UE4Game/TribeXR/TribeXR/Saved:
+total 12
+drwxrws--- 3 u0_a107 ext_data_rw 4096 2024-02-22 12:57 .
+drwxrws--- 3 u0_a107 ext_data_rw 4096 2024-02-22 12:57 ..
+drwxrws--- 2 u0_a107 ext_data_rw 4096 2024-02-22 12:57 Logs
+
+/sdcard/Android/data/com.TribeXR.TribeXR/files/UE4Game/TribeXR/TribeXR/Saved/Logs:
+total 8
+drwxrws--- 2 u0_a107 ext_data_rw 4096 2024-02-22 12:57 .
+drwxrws--- 3 u0_a107 ext_data_rw 4096 2024-02-22 12:57 ..
+
+/sdcard/Android/data/com.TribeXR.TribeXR/files/UnrealGame:
+total 12
+drwxrws--- 3 u0_a107 ext_data_rw 4096 2025-06-03 16:42 .
+drwxrws--- 9 u0_a107 ext_data_rw 4096 2026-09-19 12:44 ..
+drwxrws--- 3 u0_a107 ext_data_rw 4096 2025-06-03 16:42 TribeXR
+
+
+... [26 lines omitted, full output in logs/060.log] ...
+
+total 12
+drwxrws--- 3 u0_a107 ext_data_rw 4096 2025-06-03 16:42 .
+drwxrws--- 4 u0_a107 ext_data_rw 4096 2025-06-03 16:42 ..
+drwxrws--- 2 u0_a107 ext_data_rw 4096 2025-06-03 16:42 Logs
+
+/sdcard/Android/data/com.TribeXR.TribeXR/files/UnrealGame/TribeXR/TribeXR/Saved/Logs:
+total 8
+drwxrws--- 2 u0_a107 ext_data_rw 4096 2025-06-03 16:42 .
+drwxrws--- 3 u0_a107 ext_data_rw 4096 2025-06-03 16:42 ..
+(scan done)
+```
+
+---
+
+## Phase — how ReadyPlayerMeAvatarUrl gets written (2026-09-29, static + read-only device)
+
+Ghidra: `scripts/ConfigTrace.java` + `scripts/CmdlineTrace.java` (out/config_trace.txt, out/cmdline.txt).
+
+### Backend: GConfig .ini, section [TribeAvatar]
+- `FUN_016a70bc` = `FConfigCacheIni::GetString`. `PTR_DAT_07ba1c58` = GConfig; `PTR_DAT_07ba2d90` =
+  the ini this section lives in (a distinct global from the engine ini `07ba1c60`). Runtime-set
+  (.bss), so the exact basename isn't in the static image; most likely `GameUserSettings.ini`
+  (user prefs) — confirm on-device.
+- `[TribeAvatar]` keys seen: `AvatarID` (current avatar; read in `FUN_0518ba70`),
+  `ReadyPlayerMeAvatarUrl`, `ReadyPlayerMeETag`, `bExperimentalTrackingEnabled`.
+- **Setter** = `FUN_016a851c` (`FConfigCacheIni::SetString`). The ONLY writer of the RPM keys is the
+  loader `FUN_050f49cc` writing `ReadyPlayerMeETag` after a successful download. The URL itself was
+  written by the (now-removed) RPM UI; no remaining code writes `ReadyPlayerMeAvatarUrl`.
+- No console command / exec UFUNCTION sets the url: `SetReadyPlayerMe`/`SetAvatarUrl` = 0 hits;
+  `SetAvatar*` present are visibility/scene-capture + reflection registration, not URL setters.
+  `SaveGameToSlot` exists but is unrelated (this is GConfig, not a SaveGame).
+
+### Storage location: INTERNAL (root needed to edit directly)
+- Device scan: NO `*.ini`/`*.cfg`/`*.sav` anywhere under the external app dir; external `Saved/`
+  dirs contain only empty `Logs/` (no `Config/`). `run-as` is blocked (release build). So the ini
+  is in internal storage `/data/data/com.TribeXR.TribeXR/.../Saved/Config/Android/` — root only.
+
+### Unrooted vector found: external UE command-line override
+- `FUN_04760484` reads bundled `assets/UECommandLine.txt` (= `-project="../../../TribeXR/TribeXR.uproject"`),
+  THEN builds `<ExternalFilesDir>/UnrealGame/<Project>/UECommandLine.txt` (strings `/UnrealGame/`,
+  `/UECommandLine.txt`) and `fopen(..., "r")` on it — **unconditionally, no `UE_BUILD_SHIPPING`
+  guard in the loader** (case-insensitive fallback to `uecommandline.txt` too). Likely path:
+  `/sdcard/Android/data/com.TribeXR.TribeXR/files/UnrealGame/TribeXR/UECommandLine.txt` (EXTERNAL,
+  writable unrooted) — confirm exact path via logcat ("APK Commandline: %s" is logged).
+- UE applies `-ini:<IniName>:[Section]:Key=Value` overrides into GConfig at startup, which the later
+  `GetString([TribeAvatar], ReadyPlayerMeAvatarUrl/AvatarID)` would return — so this can set the
+  value with no UI, no root, no binary patch. Unverified end-to-end; needs an on-device test.
+
+### Ranked ways to set ReadyPlayerMeAvatarUrl without the UI (cheapest first)
+1. **External `UECommandLine.txt` + `-ini:` override — no root, no patch, no UI.** Drop a text file
+   at the external path above containing (keep the original -project, then add overrides), e.g.:
+   `-project="../../../TribeXR/TribeXR.uproject" -ini:GameUserSettings:[TribeAvatar]:ReadyPlayerMeAvatarUrl="https://<host>/<name>.glb" -ini:GameUserSettings:[TribeAvatar]:AvatarID="https://<host>/<name>.glb"`
+   Try ini name `GameUserSettings` first, then `Game`. Verify via `adb logcat` (command line echo +
+   avatar load). Writes one file to the app's external data dir (not the game binary). TEST NEEDED.
+2. **Root the Quest → edit the internal ini** `[TribeAvatar] ReadyPlayerMeAvatarUrl=/AvatarID=`
+   directly. Reliable, survives updates, but Quest 3 has no public root.
+3. **Patch/hook `libUnreal.so`** (force the url/id or GetAvatarTypeForId). No root, but re-signs/
+   re-installs the app (breaks read-only-of-game) and breaks on each update. Last resort.
+- No console-command or SaveGame path exists.
