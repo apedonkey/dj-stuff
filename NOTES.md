@@ -3416,3 +3416,43 @@ slot whose body does ldrh ParmsSize@0xB6 + tst FunctionFlags&0x400 + dynamic sp 
 
 STOP — gate found (config string). Awaiting direction: decompile native ReadConfigString to decide
 file-drop vs runtime-set, then Session 3 hook (or no hook) accordingly.
+
+## Session 3a COMPLETE (read-only) — config backing = GameUserSettings.ini; mod = ini upsert (no hooks)
+
+Config .ini live at INTERNAL path (adb shell can't read; dumper as app UID copied them out):
+  /data/data/com.TribeXR.TribeXR/files/UnrealGame/TribeXR/TribeXR/Saved/Config/Android/
+    Game.ini (50B): [TribeStatus] LaunchCount/SubscriptionGroup
+    GameUserSettings.ini (375B): has [TribeSkins] Environment=/Decks=/OculusAvatar=OculusAvatar_Custom,
+      [TribeOculusAnchors], [TribeStatus], [TribeCameras], and **[TribeAvatar] bExperimentalTrackingEnabled=True**
+      -- NO ReadyPlayerMeAvatarUrl key => empty => Oculus fallback (matches observed Meta avatar).
+
+Native config read confirmed in Ghidra (FUN_050f584c, the spawn-time reader):
+  GConfig->GetString(GConfig, L"TribeAvatar", L"ReadyPlayerMeAvatarUrl", &out, PTR_DAT_07ba2d90)
+  GConfig->GetString(GConfig, L"TribeAvatar", L"ReadyPlayerMeETag",       &out, PTR_DAT_07ba2d90)
+  then builds cache filename L"%srpmavatar-%s" (dir, GetCleanFilename(url)) and checks existence.
+PTR_DAT_07ba2d90 = the ini-path FString global (ghidra 0x07d549b0 -> runtime rva 0x07c549b0; .bss, populated
+at PreInit). Since [TribeAvatar] lives only in GameUserSettings.ini and the game writes it there, that global
+== GGameUserSettingsIni. So both keys (URL, ETag) read from GameUserSettings.ini. 32-hex = MD5 ETag (reviewer),
+not an avatar id; inert on a file:// cache-hit.
+
+Native config API RVAs (Func@0xD8; all FUNC_Native): ReadConfigString ghidra 0x50a84b4, WriteConfigString
+0x50a9ac8, ForceSaveConfig 0x50a6574, IsValidReadyPlayerMeAvatarUrl 0x50a79dc. (Thunks lazy-init a static;
+the real work is the GConfig call as in FUN_050f584c.) LoadAvatarAtUrl is a BP wrapper (native=no,
+Func=ProcessInternal); its single call (HTTP vs native) still undecoded but NOT needed for the config path.
+
+'-ini:' wide string IS present @0x25c946 -> command-line ini override may NOT be fully compiled out
+(inconclusive; not needed). ReadyPlayerMeETag string present @0x20530c (confirms two keys).
+
+### THE MOD (reviewer's approach; confirmed viable) — libhook constructor upserts the ini, NO hooks
+At dlopen (before FEngineLoop::PreInit parses any ini), as app UID (can write internal storage):
+  upsert into <internal>/.../Saved/Config/Android/GameUserSettings.ini :
+    [TribeAvatar]
+    ReadyPlayerMeAvatarUrl=file:///sdcard/Android/data/com.TribeXR.TribeXR/files/Documents/Avatars/custom.glb
+  and pre-place custom.glb (+ the rpmavatar-<clean> cache file) so the spawn-time read hits cache -> glTF load
+  -> HandleAvatarLoaded -> InitMyRPMAvatarSkin (RPM branch) -> AddOrUpdateCachedRPMAvatarSkin -> ApplySkinToPlayer.
+Beats hooking (zero offsets/trampolines) and widget-replay (stock flow runs itself). Upsert idempotent; run each launch.
+Open items for 3b: (1) the RPM cache DIR (first %s of "%srpmavatar-%s"; decode FUN_0514ec88 or probe) so the
+cache file lands right; fallback Replays/DefaultAvatar.glb via _P pak. (2) stage DefaultAvatar.glb first
+(known-good rig) before a custom mesh. (3) gate the upsert on tribemod/avatar_url.txt (swap/disable w/o rebuild).
+
+STOP — 3a done (read-only). 3b (constructor ini upsert) is the FIRST state change -> needs explicit approval.

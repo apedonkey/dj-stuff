@@ -1,0 +1,26 @@
+[DIR ] /data/data/com.TribeXR.TribeXR/files
+    Engine
+    login-identifier.txt
+    UnrealGame
+[DIR ] /data/user/0/com.TribeXR.TribeXR/files
+    Engine
+    login-identifier.txt
+    UnrealGame
+[DIR ] /sdcard/Android/data/com.TribeXR.TribeXR/files
+    tribemod
+    CachedAvatars.zip
+    PresetAvatars_Quest2.zip
+    VulkanProgramBinaryCache
+    Documents
+    OvrAvatar2Assets.zip
+    beatport
+    UnrealGame
+    cacheFile.txt
+
+--- *.ini (recursive, copied to tribemod/ini/) ---
+INI /data/data/com.TribeXR.TribeXR/files/UnrealGame/TribeXR/Engine/Saved/Config/Android/Manifest.ini  (22 bytes)
+INI /data/data/com.TribeXR.TribeXR/files/UnrealGame/TribeXR/TribeXR/Saved/Config/CrashReportClient/UECC-Android-BEFAD393DE7446E4B4DBDA3F74A2CBCE/CrashReportClient.ini  (329 bytes)
+INI /data/data/com.TribeXR.TribeXR/files/UnrealGame/TribeXR/TribeXR/Saved/Config/Android/Game.ini  (50 bytes)
+INI /data/data/com.TribeXR.TribeXR/files/UnrealGame/TribeXR/TribeXR/Saved/Config/Android/GameUserSettings.ini  (375 bytes)
+
+(copied 4 ini files, walk_budget_left=299915)

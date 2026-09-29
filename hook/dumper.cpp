@@ -15,6 +15,7 @@
 #include <signal.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
+#include <dirent.h>
 #include <cstdarg>
 static inline pid_t my_tid(){ return (pid_t)syscall(SYS_gettid); }
 
@@ -285,8 +286,29 @@ static void dump_ufunction(FILE* fo,const char* fnPath){
         char ty[64],nm[128]; ffield_type(f,ty,sizeof ty); uint32_t id=rd32(f+FF_Name); fname_resolve(id,nm,sizeof nm);
         uint32_t off=rd32(f+FP_Offset), es=rd32(f+FP_ElemSize);
         fprintf(fo,"    +0x%04x %-22s %-28s elem=0x%x\n",off,ty,nm,es); }
+    // pinned UFunction fields (native functions carry FUNC_Native 0x400; Func is the C++ impl RVA)
+    uint32_t ff=rd32(fn+0xB0); uint32_t nparm=rd32(fn+0xB4)&0xFF; uint16_t psz=rd16(fn+0xB6);
+    uintptr_t func=rdptr(fn+0xD8);
+    fprintf(fo,"  FunctionFlags=0x%08x NumParms=%u ParmsSize=0x%x native=%s Func=0x%lx Func_rva=0x%lx (ghidra=0x%lx)\n",
+        ff,nparm,psz,(ff&0x400)?"YES":"no",(unsigned long)func,
+        (unsigned long)(func?func-g_base:0),(unsigned long)(func?func-g_base+0x100000:0));
     if(scriptData && scriptNum){ uint32_t cap=scriptNum<0x400?scriptNum:0x400; hexdump_to(fo,"  Script bytecode[0..cap]",scriptData,cap); }
 }
+
+// ---- read-only ini probe: find & copy the game's *.ini (config lives in the internal files dir) ----
+static int g_ini_ct=0, g_walk_budget=300000;
+static void copy_out(const char* src,const char* base){ char dst[720]; snprintf(dst,sizeof dst,"%s/ini/%02d_%s",OUTDIR,g_ini_ct++,base);
+    int in=open(src,O_RDONLY); if(in<0) return; int out=open(dst,O_WRONLY|O_CREAT|O_TRUNC,0666); if(out<0){close(in);return;}
+    char b[8192]; ssize_t n; while((n=read(in,b,sizeof b))>0){ if(write(out,b,n)!=n) break; } close(in); close(out); }
+static void list_dir(FILE* fo,const char* dir){ DIR* d=opendir(dir); fprintf(fo,"[%s] %s\n",d?"DIR ":"absent",dir); if(!d) return;
+    struct dirent* e; while((e=readdir(d))){ if(e->d_name[0]=='.') continue; fprintf(fo,"    %s\n",e->d_name); } closedir(d); }
+static bool ends_ini(const char* s){ size_t L=strlen(s); return L>4 && (strcmp(s+L-4,".ini")==0||strcmp(s+L-4,".INI")==0); }
+static void walk_ini(FILE* fo,const char* dir,int depth){ if(depth>12||g_walk_budget<0) return; DIR* d=opendir(dir); if(!d) return;
+    struct dirent* e; while((e=readdir(d))){ if(--g_walk_budget<0) break; if(e->d_name[0]=='.') continue;
+        char p[1024]; snprintf(p,sizeof p,"%s/%s",dir,e->d_name); struct stat st; if(lstat(p,&st)!=0) continue;
+        if(S_ISDIR(st.st_mode)) walk_ini(fo,p,depth+1);
+        else if(ends_ini(e->d_name)){ fprintf(fo,"INI %s  (%ld bytes)\n",p,(long)st.st_size); copy_out(p,e->d_name); } }
+    closedir(d); }
 
 // ---- the dump ----
 static void do_dump(){
@@ -435,9 +457,29 @@ static void do_dump(){
         "/Game/Visuals/BP_TribeVisualsManager.BP_TribeVisualsManager_C.AddOrUpdateCachedRPMAvatarSkin",
         "/Game/Visuals/BP_TribeVisualsManager.BP_TribeVisualsManager_C.ApplySkinToPlayer",
         "/Game/Menus/W_RPMAvatarCreator.W_RPMAvatarCreator_C.LoadAvatarAtUrl",
-        "/Game/Menus/W_RPMAvatarCreator.W_RPMAvatarCreator_C.HandleAvatarLoaded" };
+        "/Game/Menus/W_RPMAvatarCreator.W_RPMAvatarCreator_C.HandleAvatarLoaded",
+        // native config API (Func_rva -> Ghidra to find which G*Ini backs it)
+        "/Script/TribeXR.TribeBlueprintLibrary.ReadConfigString",
+        "/Script/TribeXR.TribeBlueprintLibrary.WriteConfigString",
+        "/Script/TribeXR.TribeBlueprintLibrary.ForceSaveConfig",
+        "/Script/TribeXR.TribeBlueprintLibrary.IsValidReadyPlayerMeAvatarUrl" };
       for(auto fp:fns) dump_ufunction(fs,fp);
       fclose(fs);
+    }
+
+    // ---- ini_report.txt (read-only): locate & copy the game's config .ini (internal files dir) ----
+    FILE* fi=fopen(op("ini_report.txt"),"w");
+    if(fi){ char od[600]; snprintf(od,sizeof od,"%s/ini",OUTDIR); mkdir(od,0777);
+      const char* P="com.TribeXR.TribeXR"; char root[256];
+      // list top-level of internal + external files dirs to see structure
+      snprintf(root,sizeof root,"/data/data/%s/files",P);           list_dir(fi,root);
+      snprintf(root,sizeof root,"/data/user/0/%s/files",P);          list_dir(fi,root);
+      snprintf(root,sizeof root,"/sdcard/Android/data/%s/files",P);  list_dir(fi,root);
+      fprintf(fi,"\n--- *.ini (recursive, copied to tribemod/ini/) ---\n");
+      snprintf(root,sizeof root,"/data/data/%s/files",P);            walk_ini(fi,root,0);
+      snprintf(root,sizeof root,"/sdcard/Android/data/%s/files/UnrealGame",P); walk_ini(fi,root,0);
+      fprintf(fi,"\n(copied %d ini files, walk_budget_left=%d)\n",g_ini_ct,g_walk_budget);
+      fclose(fi);
     }
 
     if(g_sc){ fprintf(g_sc,"\nTOTAL FAILS=%d\n",g_fails); fclose(g_sc); g_sc=0; }
