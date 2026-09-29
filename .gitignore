@@ -7,6 +7,10 @@ tools/
 obb_raw/
 __pycache__/
 
+# Signing key material — never commit
+*.keystore
+*.jks
+
 # Future binary asset extracts (keep text reports like skeleton.json / *.md / *.txt)
 extracted/assets/
 *.glb

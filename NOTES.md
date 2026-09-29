@@ -1,7 +1,12 @@
 # Tribe XR avatar-loading recon
 
-Read-only static analysis of Tribe XR as installed on my own Quest 3. Nothing on the headset is
-modified, re-signed or re-installed; all analysis runs on copies pulled to this PC.
+Read-only static analysis of Tribe XR as installed on my own Quest 3. (CONSTRAINT LIFTED 2026-09-29:
+the read-only / no-reinstall rule below held through the analysis phases; the re-sign gate has since
+passed [verdict a — a re-signed stock build launches, logs in past Meta entitlement, renders — burner
+account] and the injected-hook route is authorized. Keystore: tribe.keystore, pass tribexr. See the
+"Phase 1 (injected-hook route)" section at the end of this file.)
+Original rule: nothing on the headset is modified, re-signed or re-installed; all analysis runs on
+copies pulled to this PC.
 
 - Started 2026-09-28 on Windows 11 Home 10.0.26200.
 - From entry [001] on, every shell command was run through `scripts/logrun.sh`, which appends the
@@ -2811,3 +2816,62 @@ Device restored to stock (all staged UECommandLine.txt removed; server + adb rev
 Verified facts that stand: loader applies an external UECommandLine.txt unconditionally when FOUND
 (decompile, no shipping guard); the reference RPM rig is extracted; the config backend + cache path are
 mapped. What could not be shown: that a staged file is actually read at the tried paths on this build.
+
+## Phase 1 (injected-hook route) — pin the two hook contracts + spawn-trigger verdict (static)
+
+Goal shift: force Tribe to load a custom local GLB unconditionally via a runtime-injected .so
+(Dobby-style inline hook), not a byte-patch. Bodies re-read from out/avatar_impls.txt + out/callers.txt
+(no new Ghidra run needed). RVAs below are Ghidra image-based — **confirm libUnreal.so load base = 0
+(readelf -h) before computing runtime hook addresses.**
+
+### Hook contracts (verified from decompiled bodies)
+- **A. GetAvatarTypeForId = FUN_050fc054** (RVA 0x050FC054, size 128).
+  `int32 GetAvatarTypeForId(FString* id)` — x0 = FString* (id/url), enum returned in w0.
+  Body: `return 1` if IsValidRPMUrl(id)[FUN_04c5b250] OR (endsWith ".glb"[FUN_0157dedc] && FileExists
+  [FUN_016f26c4]); else `2` if isMetaId(id)[FUN_04b9efd8]; else `0`.
+  **Enum ints CONFIRMED from return constants: None=0, ReadyPlayerMe=1, MetaAvatar2=2.** Force RPM =
+  replace hook, `return 1` (no need to call original). Only caller = exec thunk FUN_05097618
+  (execGetAvatarTypeForId, writes result to BP return ptr) ⇒ **Blueprint-only, not on a native path.**
+- **Config reader FUN_050f584c** (0x050F584C): `void(FString* out /*x0*/, FString* id /*x1*/)`; GConfig
+  GetString([TribeAvatar] ReadyPlayerMeAvatarUrl / ReadyPlayerMeETag) via FUN_016a70bc; builds rpmavatar
+  path; FileExists gate.
+- **Path builder FUN_050fd620 = GetAvatarUrlCacheFilename** (0x050FD620): `void(FString* out /*x0*/,
+  FString* url /*x1*/)` = sprintf(out,"%srpmavatar-%s", GetAvatarsPath[FUN_0514EC88],
+  GetCleanFilename(url)[FUN_016F1D84]).
+- **RPM resolver FUN_050f49cc** (0x050F49CC): `void(this /*x0*/, long flag /*x1*/, FString* url /*x2*/)`.
+  Builds rpmavatar-<basename(url)>; if flag==0 && IsValidRPMUrl(url): FileExists(path) ?
+  FUN_050f4548(this,path) : FUN_050f4548(this,"Replays/DefaultAvatar.glb"[FUN_050f5e58]).
+- **B. glTF file-load CHOKE POINT FUN_050f4548** (0x050F4548, size 1156): `byte(this /*x0*/,
+  FString* path /*x1*/)`. Proceeds if IsValidRPMUrl(path) OR (endsWith ".glb" && FileExists); dedupes vs
+  this+0x2A8 (current loaded url); fires async glTF load via vtable (*+0x800). **Every RPM-path load
+  (cache-hit AND DefaultAvatar fallback) passes through here.**
+
+### Spawn-trigger verdict (Phase 1 step 3) — CORRECTS the "presets are RPM" assumption
+- The ~30 in-UI presets are **Meta** avatars (PresetAvatars_Quest2.zip → `zip://%s_quest2.glb` →
+  libovravatar2.so; L43-48), NOT ReadyPlayerMe. Selecting a preset drives the **Meta** pipeline, not the
+  RPM/glTF path. Corroborated by the headset-on runtime test (Meta zips touched, zero RPM activity).
+- All RPM native fns are Blueprint-callable primitives. GetAvatarTypeForId's only caller is its exec
+  thunk. RPM resolver FUN_050f49cc is invoked by component methods FUN_050f54c8 (set-url-if-changed) and
+  FUN_050f5a00 (reads this+0x2A8 url member from a provider object) — both Blueprint-driven. The Meta
+  loader (FUN_04ba868c) is a separate pipeline and is what runs at spawn today.
+- **Therefore forcing GetAvatarTypeForId→RPM is necessary but NOT proven sufficient.** Static analysis
+  cannot show whether Blueprint consults it at spawn (BP bytecode is Oodle-compressed in the paks; UE
+  logging is compiled out). Runtime shows the RPM path does not fire at spawn. If BP doesn't branch the
+  spawn load on the type, Hook A is inert and FUN_050f4548 is never reached.
+
+### Recommendation (before building both hooks blind)
+1. **Diagnostic-first:** ship ONLY Hook A, instrumented — `__android_log_print` TRIBEMOD the incoming id
+   + decision, then return (real value, or forced 1). One launch answers the question static analysis
+   can't: does GetAvatarTypeForId fire at spawn?
+   - Fires → two-hook plan viable: force→1, set [TribeAvatar]ReadyPlayerMeAvatarUrl to an RPM url whose
+     basename resolves to custom.glb, drop the glb at Documents/Avatars/rpmavatar-custom.glb; Hook B pins
+     the file.
+   - Does NOT fire → **minimal third touch:** redirect the spawn-load entry (FUN_050f5a00 /
+     UTribeAvatarComponent init) to call FUN_050f49cc(this,0,&customUrl) unconditionally. Needs tracing
+     FUN_050f5a00's caller (the guaranteed-at-spawn entry) — small extra RE.
+2. Single best "force my file" point = **hook FUN_050f4548, overwrite param_2 (x1)** with a persistent
+   FString = absolute /sdcard/Android/data/com.TribeXR.TribeXR/files/Documents/Avatars/rpmavatar-custom.glb
+   (passes the .glb + FileExists gate; no need to match a basename or defeat config/url plumbing).
+   Downstream of all url logic — but only fires if the RPM path is entered at spawn (see verdict).
+
+STOP — awaiting OK before Phase 2 (build).
