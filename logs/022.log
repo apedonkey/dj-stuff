@@ -1,0 +1,75 @@
+=== ReadyPlayerMe.uplugin (stored uncompressed in the pak):
+   0x28fcfa00 A Name": "OVRLipSync",
+   0x28fcfa16 A       "Type": "Runtime",
+   0x28fcfa30 A       "LoadingPhase": "Default",
+   0x28fcfa52 A       "WhitelistPlatforms" : [
+   0x28fcfa72 A         "Android",
+   0x28fcfa86 A         "Win64",
+   0x28fcfa98 A         "Mac"
+   0x28fcfaa7 A       ]
+   0x28fcfab0 A     },
+   0x28fcfab8 A     {
+   0x28fcfabf A       "Name": "OVRLipSyncEditor",
+   0x28fcfae2 A       "Type": "Editor",
+   0x28fcfafb A       "LoadingPhase": "PostEngineInit",
+   0x28fcfb24 A       "WhitelistPlatforms" : [
+   0x28fcfb44 A         "Win64",
+   0x28fcfb56 A         "Mac"
+   0x28fcfb65 A       ]
+   0x28fcfb6e A     }
+   0x28fcfbb5 A 	"FileVersion": 3,
+   0x28fcfbc9 A 	"Version": 1,
+   0x28fcfbd9 A 	"VersionName": "6.0",
+   0x28fcfbf1 A 	"FriendlyName": "ReadyPlayerMe",
+   0x28fcfc14 A 	"Description": "ReadyPlayerMe Avatar Toolkit",
+   0x28fcfc45 A 	"Category": "ReadyPlayerMe",
+   0x28fcfc64 A 	"CreatedBy": "Wolf3D",
+   0x28fcfc7d A 	"CreatedByURL": "",
+   0x28fcfc93 A 	"DocsURL": "https://docs.readyplayer.me/",
+   0x28fcfcc0 A 	"MarketplaceURL": "",
+   0x28fcfcd8 A 	"SupportURL": "",
+>> 0x28fcfcec A 	"CanContainContent": true,
+   0x28fcfd09 A 	"IsBetaVersion": false,
+   0x28fcfd23 A 	"IsExperimentalVersion": false,
+   0x28fcfd45 A 	"Installed": false,
+   0x28fcfd5b A 	"Modules": [
+   0x28fcfd6f A 			"Name": "ReadyPlayerMe",
+   0x28fcfd8c A 			"Type": "Runtime",
+   0x28fcfda3 A 			"LoadingPhase": "Default"
+   0x28fcfdcb A 	"Plugins": [
+   0x28fcfddf A 			"Name": "glTFRuntime",
+   0x28fcfdfa A 			"Enabled": true
+   0x28fcfe54 A 	"FileVersion": 3,
+   0x28fcfe68 A 	"Version": 1,
+   0x28fcfe78 A 	"VersionName": "1.0",
+   0x28fcfe90 A 	"FriendlyName": "SuperPowered",
+   0x28fcfeb2 A 	"Description": "SuperPowered Unreal integration",
+   0x28fcfee6 A 	"Category": "Other",
+   0x28fcfefd A 	"CreatedBy": "Tribe XR Inc",
+   0x28fcff1c A 	"CreatedByURL": "https://www.tribevr.io/",
+   0x28fcff49 A 	"DocsURL": "",
+   0x28fcff5a A 	"MarketplaceURL": "",
+   0x28fcff72 A 	"SupportURL": "",
+   0x28fcff86 A 	"EnabledByDefault" : true,
+   0x28fcffa3 A 	"CanContainContent": true,
+   0x28fcffc0 A 	"IsBetaVersion": false,
+   0x28fcffda A 	"Installed": false,
+   0x28fcfff0 A 	"Modules": [
+
+=== around TribeAvatar / ReadyPlayerMUrl:
+   0x227c608c A =r'-
+   0x227c60a3 A lJDi
+   0x227c60b2 A (Tp*
+   0x227c60d7 A 5>s34
+   0x227c619b A $TUB
+   0x227c61bc A C.9;Cb3?
+   0x227c61e9 A z~H\
+   0x227c621b A u||7G\
+   0x227c62dd A BPTYPE_Normal
+   0x227c633a A TribeAvatar
+>> 0x227c6347 A ReadyPlayerMUrl
+   0x227c6366 A Skins
+   0x227c636d A Oculus
+   0x227c641e A 5===
+   0x227c64a0 A =L}2
+   0x227c65c1 A !.i&	JRU

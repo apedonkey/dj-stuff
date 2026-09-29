@@ -1,0 +1,297 @@
+2	EglTFRuntimeTangentsGenerationStrategy
+2	EglTFRuntimeNormalsGenerationStrategy
+2	EglTFRuntimeMorphTargetsDuplicateStrategy
+2	glTFRuntimePhysicsBody
+2	glTFRuntimeBasisMatrix
+2	glTFRuntimePhysicsConstraint
+2	glTFRuntimeSocket
+2	glTFRuntimeMorphTarget
+2	glTFRuntimeAudioEmitter
+2	glTFRuntimeTextureSampler
+2	EglTFRuntimePivotPosition
+2	glTFRuntimePathItem
+2	glTFRuntimeBoneBoundsFilterHook
+2	glTFRuntimeSkeletalAnimationFrameRotationRemapperHook
+2	glTFRuntimeSkeletalAnimationFrameTranslationRemapperHook
+2	glTFRuntimeSkeletalAnimationCurveRemapperHook
+2	glTFRuntimeSkeletonBoneRemapperHook
+2	glTFRuntimePhysicsAssetAutoBodyConfig
+2	glTFRuntimeLightConfig
+2	glTFRuntimeMaterialsConfig
+2	glTFRuntimeImagesConfig
+2	glTFRuntimeAudioConfig
+2	glTFRuntimeSkeletonConfig
+2	glTFRuntimeSkeletalAnimationConfig
+2	glTFRuntimeSkeletalMeshConfig
+2	glTFRuntimeProceduralMeshConfig
+2	glTFRuntimeStaticMeshConfig
+2	glTFRuntimeConfig
+2	glTFRuntimeSphere
+2	EglTFRuntimePhysicsAssetAutoBodyCollisionType
+2	EglTFRuntimeMaterialType
+2	EglTFRuntimeTransformBaseType
+2	glTFRuntimeBone
+2	glTFRuntimeScene
+2	/Script/glTFRuntime
+2	glTFRuntimeCapsule
+2	glTFRuntimeNode
+2	EglTFRuntimePointsTriangulationMode
+2	EglTFRuntimeLinesTriangulationMode
+2	EglTFRuntimeRecursiveMode
+2	EglTFRuntimeCacheMode
+2	glTFRuntimeMeshLOD
+2	ovrAvatar2Prototype_Entity_LoadMemoryGLTFModel
+1	UglTFRuntimeTextureMipDataProviderFactory
+1	UglTFRuntimeFunctionLibrary
+1	/glTFRuntime/M_Unlit_glTFRuntimeTranslucent_Inst.M_Unlit_glTFRuntimeTranslucent_Inst
+1	/glTFRuntime/M_ClearCoat_glTFRuntimeTranslucent_Inst.M_ClearCoat_glTFRuntimeTranslucent_Inst
+1	/glTFRuntime/M_glTFRuntimeTranslucent_Inst.M_glTFRuntimeTranslucent_Inst
+1	/glTFRuntime/M_Unlit_glTFRuntimeTwoSidedTranslucent_Inst.M_Unlit_glTFRuntimeTwoSidedTranslucent_Inst
+1	/glTFRuntime/M_ClearCoat_glTFRuntimeTwoSidedTranslucent_Inst.M_ClearCoat_glTFRuntimeTwoSidedTranslucent_Inst
+1	/glTFRuntime/M_glTFRuntimeTwoSidedTranslucent_Inst.M_glTFRuntimeTwoSidedTranslucent_Inst
+1	/glTFRuntime/M_glTFRuntime_SG_TwoSidedTranslucent_Inst.M_glTFRuntime_SG_TwoSidedTranslucent_Inst
+1	/glTFRuntime/M_glTFRuntime_SG_Translucent_Inst.M_glTFRuntime_SG_Translucent_Inst
+1	/glTFRuntime/M_Unlit_glTFRuntimeMasked_Inst.M_Unlit_glTFRuntimeMasked_Inst
+1	/glTFRuntime/M_glTFRuntimeMasked_Inst.M_glTFRuntimeMasked_Inst
+1	/glTFRuntime/M_Unlit_glTFRuntimeTwoSidedMasked_Inst.M_Unlit_glTFRuntimeTwoSidedMasked_Inst
+1	/glTFRuntime/M_glTFRuntimeTwoSidedMasked_Inst.M_glTFRuntimeTwoSidedMasked_Inst
+1	/glTFRuntime/M_Unlit_glTFRuntimeTwoSided_Inst.M_Unlit_glTFRuntimeTwoSided_Inst
+1	/glTFRuntime/M_ClearCoat_glTFRuntimeTwoSided_Inst.M_ClearCoat_glTFRuntimeTwoSided_Inst
+1	/glTFRuntime/M_Transmission_glTFRuntimeTwoSided_Inst.M_Transmission_glTFRuntimeTwoSided_Inst
+1	/glTFRuntime/M_glTFRuntimeTwoSided_Inst.M_glTFRuntimeTwoSided_Inst
+1	/glTFRuntime/M_glTFRuntime_SG_TwoSided_Inst.M_glTFRuntime_SG_TwoSided_Inst
+1	UglTFRuntimeSkeletalMeshComponent
+1	UglTFRuntimeAsset
+1	glTFRuntime:NodeName:%s
+1	AglTFRuntimeAssetActor
+1	glTFRuntimeDraco
+1	UglTFRuntimeAnimationCurve
+1	UglTFRuntimeSoundWave
+1	/glTFRuntime/M_Unlit_glTFRuntimeBase.M_Unlit_glTFRuntimeBase
+1	/glTFRuntime/M_ClearCoat_glTFRuntimeBase.M_ClearCoat_glTFRuntimeBase
+1	/glTFRuntime/M_Transmission_glTFRuntimeBase.M_Transmission_glTFRuntimeBase
+1	/glTFRuntime/M_glTFRuntimeBase.M_glTFRuntimeBase
+1	/glTFRuntime/M_glTFRuntime_SG_Base.M_glTFRuntime_SG_Base
+1	glTFRuntime:NodeIndex:%d
+1	AglTFRuntimeAssetActorAsync
+1	UglTFAnimCurveCompressionCodec
+1	UglTFAnimBoneCompressionCodec
+1	UDatasmithGLTFSceneImportData
+1	UDatasmithStaticMeshGLTFImportData
+1	EglTFRuntimeTransformBaseType::Identity
+1	EglTFRuntimePhysicsAssetAutoBodyCollisionType::Box
+1	EglTFRuntimeTransformBaseType::BasisMatrix
+1	EglTFRuntimeTransformBaseType::Matrix
+1	glTFCurveAnimationIndex
+1	EglTFRuntimeMorphTargetsDuplicateStrategy::AppendMorphIndex
+1	EglTFRuntimeMaterialType::TwoSidedTranslucent
+1	EglTFRuntimeMaterialType::Translucent
+1	EglTFRuntimeTransformBaseType::Default
+1	gltfRuntimeAsset
+1	glTFRuntimeAsset
+1	EglTFRuntimePivotPosition::Asset
+1	EglTFRuntimeTangentsGenerationStrategy::Always
+1	EglTFRuntimeNormalsGenerationStrategy::Always
+1	glTFLoadAssetFromUrlWithProgress
+1	.glb .gltf .json .js
+1	glTFMergeRuntimeLODs
+1	EglTFRuntimeTangentsGenerationStrategy::Never
+1	EglTFRuntimeNormalsGenerationStrategy::Never
+1	EglTFRuntimeMorphTargetsDuplicateStrategy::AppendDuplicateCounter
+1	EglTFRuntimePivotPosition::Center
+1	FglTFRuntimeSkeletalMeshContext_Referencer
+1	FglTFRuntimeStaticMeshContext_Referencer
+1	FglTFRuntimeParser_Referencer
+1	EglTFRuntimePivotPosition::Top
+1	glTFLoadAssetFromFileMap
+1	EglTFRuntimePointsTriangulationMode::OpenedTetrahedron
+1	EglTFRuntimePointsTriangulationMode::Tetrahedron
+1	glTFCurveAnimationDuration
+1	EglTFRuntimeLinesTriangulationMode::OpenedTriangularPrism
+1	EglTFRuntimeLinesTriangulationMode::TriangularPrism
+1	EglTFRuntimeTransformBaseType::Transform
+1	EglTFRuntimePivotPosition::Bottom
+1	EglTFRuntimePointsTriangulationMode::Custom
+1	EglTFRuntimeLinesTriangulationMode::Custom
+1	glTFLoadAssetFromUrl
+1	Unable to find glTFRuntime Material, ensure it has been packaged, falling back to default material
+1	glTFRuntimePathItemArrayFromJSONPath
+1	EglTFRuntimeTangentsGenerationStrategy::IfMissing
+1	EglTFRuntimeNormalsGenerationStrategy::IfMissing
+1	glTFLoadAssetFromString
+1	GetPositionsAsBytesFromglTFRuntimeLODPrimitive
+1	GetNormalsAsBytesFromglTFRuntimeLODPrimitive
+1	GetIndicesAsBytesFromglTFRuntimeLODPrimitive
+1	EglTFRuntimeMaterialType::Opaque
+1	EglTFRuntimeCacheMode::ReadWrite
+1	EglTFRuntimeCacheMode::Write
+1	glTFRuntimeHttpProgress__DelegateSignature
+1	glTFRuntimeError__DelegateSignature
+1	glTFRuntimeBoneBoundsFilter__DelegateSignature
+1	glTFRuntimeAnimationFrameRotationRemapper__DelegateSignature
+1	glTFRuntimeAnimationFrameTranslationRemapper__DelegateSignature
+1	glTFRuntimeAnimationCurveRemapper__DelegateSignature
+1	glTFRuntimeBoneRemapper__DelegateSignature
+1	glTFRuntimeHttpResponse__DelegateSignature
+1	glTFRuntimeCommandResponse__DelegateSignature
+1	glTFRuntimeOnSkeletalMeshCreated__DelegateSignature
+1	glTFRuntimeOnStaticMeshCreated__DelegateSignature
+1	glTFRuntimeTexture2DArrayAsync__DelegateSignature
+1	glTFRuntimeSkeletalMeshAsync__DelegateSignature
+1	glTFRuntimeStaticMeshAsync__DelegateSignature
+1	glTFRuntimeTextureCubeAsync__DelegateSignature
+1	glTFRuntimeMeshLODAsync__DelegateSignature
+1	glTFRuntimeTexture2DAsync__DelegateSignature
+1	EglTFRuntimeMorphTargetsDuplicateStrategy::Ignore
+1	EglTFRuntimeRecursiveMode::Ignore
+1	EglTFRuntimePhysicsAssetAutoBodyCollisionType::Sphere
+1	EglTFRuntimeCacheMode::None
+1	glTFLoadAssetFromFilename
+1	glTFCurveAnimationName
+1	EglTFRuntimePhysicsAssetAutoBodyCollisionType::Capsule
+1	EglTFRuntimeLinesTriangulationMode::Rectangle
+1	EglTFRuntimePointsTriangulationMode::Triangle
+1	EglTFRuntimeMorphTargetsDuplicateStrategy::Merge
+1	EglTFRuntimeRecursiveMode::Tree
+1	EglTFRuntimeRecursiveMode::Node
+1	EglTFRuntimePointsTriangulationMode::Cube
+1	EglTFRuntimeTransformBaseType::YForward
+1	glTFLoadAssetFromClipboard
+1	glTFLoadAssetFromCommand
+1	EglTFRuntimeTransformBaseType::ForwardInverted
+1	EglTFRuntimeTransformBaseType::IdentityXInverted
+1	EglTFRuntimeMaterialType::TwoSidedMasked
+1	EglTFRuntimeMaterialType::Masked
+1	EglTFRuntimeTransformBaseType::LeftHanded
+1	EglTFRuntimeMaterialType::TwoSided
+1	EglTFRuntimePointsTriangulationMode::Quad
+1	EglTFRuntimeCacheMode::Read
+1	glTFLoadAssetFromFileMapAsync
+1	glTFLoadAssetFromUrlAsync
+1	glTFLoadAssetFromStringAsync
+1	glTFLoadAssetFromFilenameAsync
+1	glTFLoadAssetFromDataAsync
+1	glTFLoadAssetFromBase64Async
+1	glTFLoadAssetFromData
+1	glTFLoadAssetFromBase64
+1	EglTFRuntimePointsTriangulationMode::OpenedTetrahedronWithXYInUV1ZWInUV2
+1	EglTFRuntimePointsTriangulationMode::TetrahedronWithXYInUV1ZWInUV2
+1	EglTFRuntimeLinesTriangulationMode::OpenedTriangularPrismWithXYInUV1ZWInUV2
+1	EglTFRuntimeLinesTriangulationMode::TriangularPrismWithXYInUV1ZWInUV2
+1	EglTFRuntimeLinesTriangulationMode::RectangleWithXYInUV1ZWInUV2
+1	EglTFRuntimePointsTriangulationMode::TriangleWithXYInUV1ZWInUV2
+1	EglTFRuntimePointsTriangulationMode::CubeWithXYInUV1ZWInUV2
+1	EglTFRuntimePointsTriangulationMode::QuadWithXYInUV1ZWInUV2
+1	EglTFRuntimePointsTriangulationMode::TriangleWithXYInUV1
+1	EglTFRuntimePointsTriangulationMode::QuadWithXYInUV1
+1	Unable to retrieve Scenes from glTF Asset.
+1	Unable to retrieve Nodes from glTF Asset.
+1	UglTFRuntimeAsset::GetScenes()
+1	UglTFRuntimeAsset::LoadNodeCamera()
+1	_Z57ovrAvatar2Prototype_Entity_LoadMemoryGLTFModelShallowCopy19ovrAvatar2EntityId_ONSt6__ndk110shared_ptrIN4gltf5ModelEEENS0_17basic_string_viewIcNS0_11char_traitsIcEEEERK29ovrAvatar2EntityLoadSettings_P24ovrAvatar2LoadRequestId_RK37ovrAvatar2Prototype_ShallowCopyParams
+1	ovrAvatar2Prototype_Entity_UnloadMemoryGLTFModel
+1	model/gltf-binary
+1	ovrAvatar2Prototype_Entity_LoadMemoryGLTFModelShallowCopy
+1	Assets: glTF vertex buffer get
+1	Assets: glTF morph target buffer get
+1	Assets: glTF load nodes
+1	GltfItemCollection::releaseLoadingResources
+1	GltfMeshPrimitiveItem::getBounds
+1	glTF unsupported image format %s
+1	Failed to parse gltf asset: %s
+1	glTF load error: %s
+1	gltf asset is not a GltfItemCollection: %s
+1	Tried to load an Avatar with a null CDL gltf model: %s
+1	No views found for glTF mesh: %s
+1	No manifestations found for glTF mesh: %s
+1	No styles found for glTF mesh: %s
+1	No LODs found for glTF mesh: %s
+1	No primitives in glTF mesh: %s
+1	glTF load warning: %s
+1	Failed to load glTF: %s
+1	arvr/libraries/avatar/Libraries/Gltf/gltf/src/GltfBinary.cpp
+1	arvr/libraries/avatar/sdk/libraries/asset/default/item_collections/impl/src/GltfItemCollection.cpp
+1	arvr/libraries/avatar/sdk/libraries/asset/default/items/gltf/src/GltfVertexBufferItem.cpp
+1	arvr/libraries/avatar/sdk/libraries/asset/default/items/gltf/src/GltfSkinItem.cpp
+1	arvr/libraries/avatar/sdk/libraries/asset/default/items/gltf/src/GltfMaterialItem.cpp
+1	arvr/libraries/avatar/sdk/libraries/asset/default/items/gltf/src/GltfMeshItem.cpp
+1	arvr/libraries/avatar/sdk/libraries/asset/default/items/gltf/src/GltfMeshPrimitiveItem.cpp
+1	arvr/libraries/avatar/sdk/libraries/asset/default/items/gltf/src/GltfImageItem.cpp
+1	arvr/libraries/avatar/sdk/libraries/asset/default/items/gltf/src/GltfCompactSkinningDataItemImpl.cpp
+1	arvr/libraries/avatar/sdk/libraries/asset/default/items/gltf/src/GltfCompactSkinning.cpp
+1	tiny_gltf::JsonToString() failed rapidjson conversion
+1	Assets: glTF nodes connect children
+1	Image index %d out of bounds in glTF model
+1	Failed to unpack image %d in glTF model
+1	Failed to transcode image %d in glTF model
+1	.gltfModel
+1	arvr/libraries/avatar/sdk/libraries/asset/default/items/gltf/data_conversions/include/asset/items/gltf/GltfDataConversionShort.h
+1	arvr/libraries/avatar/sdk/libraries/asset/default/items/gltf/data_conversions/include/asset/items/gltf/GltfDataConversionFloat.h
+1	arvr/libraries/avatar/sdk/libraries/asset/default/items/gltf/data_conversions/include/asset/items/gltf/GltfDataConversion.h
+1	arvr/libraries/avatar/sdk/libraries/asset/default/items/gltf/data_conversions/include/asset/items/gltf/GltfDataConversionSnorm10.h
+1	Missing indices in glTF primitive
+1	Unsupported indices type (32-bit) in glTF primitive
+1	Assets: GltfCompactSkinningDataItem::create
+1	glTF texture index %d is not valid
+1	glTF image index %d not loaded
+1	Assets: gltf::io::load
+1	Assets: glTF Extras load
+1	Assets: glTF skin load
+1	Assets: glTF model load
+1	Assets: glTF material load
+1	Assets: glTF mesh load
+1	Assets: glTF mesh primitive load
+1	Assets: glTF image load
+1	Assets: glTF load
+1	glTF Load: invalid material index %d
+1	Unhandled data type in gltf data conversion %d
+1	Unhandled view type in glTF primitive: %d
+1	Unsupported primitive mode in glTF primitive: %d
+1	glTF load: child node already has parent?
+1	Invalid glTF binary.
+1	Too short data size for glTF Binary.
+1	glTF load: could not get inverse bind matrices.
+1	glTF load: skin index out of range.
+1	glTF load: mesh index out of range.
+1	glTF Load: material alpha mode field is not valid.
+1	glTF load: skin data sizes are mismatched.
+1	Cannot copy positions from the GLTF/GLB data - invalid source data.
+1	Invalid glTF binary. GLB data exceeds 4GB.
+1	data:application/gltf-buffer;base64,
+1	"bufferViews" object not found in .gltf
+1	"accessors" object not found in .gltf
+1	"buffers" object not found in .gltf
+1	"nodes" object not found in .gltf
+1	"scenes" object not found in .gltf or not an array type
+1	"asset" object not found in .gltf or not an object type
+1	'uri' is missing from non binary glTF file buffer.
+1	N6avatar3sdk6detail15WrappedWorkImplIZN12asset_loaderL32gltfModelLoadedCallbackImmediateERKNSt6__ndk112basic_stringIcNS4_11char_traitsIcEENS4_9allocatorIcEEEESC_RKNS4_7variantIJNS4_10shared_ptrIN4gltf5ModelEEEPKvEEERKNS3_8LoadInfoERNS4_6atomicIiEEE3$_0vEE
+1	ZN12asset_loaderL32gltfModelLoadedCallbackImmediateERKNSt6__ndk112basic_stringIcNS0_11char_traitsIcEENS0_9allocatorIcEEEES8_RKNS0_7variantIJNS0_10shared_ptrIN4gltf5ModelEEEPKvEEERKNS_8LoadInfoERNS0_6atomicIiEEE3$_0
+1	N6avatar3sdk6detail15WrappedWorkImplIZN12asset_loaderL18gltfModelLoadAsyncERKNSt6__ndk112basic_stringIcNS4_11char_traitsIcEENS4_9allocatorIcEEEESC_NS4_10shared_ptrIN4gltf5ModelEEERKNS3_8LoadInfoEE3$_0vEE
+1	ZN12asset_loaderL18gltfModelLoadAsyncERKNSt6__ndk112basic_stringIcNS0_11char_traitsIcEENS0_9allocatorIcEEEES8_NS0_10shared_ptrIN4gltf5ModelEEERKNS_8LoadInfoEE3$_0
+1	N6avatar3sdk6detail15WrappedWorkImplIZZN12asset_loaderL18gltfModelLoadAsyncERKNSt6__ndk112basic_stringIcNS4_11char_traitsIcEENS4_9allocatorIcEEEESC_NS4_10shared_ptrIN4gltf5ModelEEERKNS3_8LoadInfoEENK3$_0clEvEUlvE_vEE
+1	ZZN12asset_loaderL18gltfModelLoadAsyncERKNSt6__ndk112basic_stringIcNS0_11char_traitsIcEENS0_9allocatorIcEEEES8_NS0_10shared_ptrIN4gltf5ModelEEERKNS_8LoadInfoEENK3$_0clEvEUlvE_
+1	NSt6__ndk120__shared_ptr_emplaceIN6avatar3sdk6detail21QueueableFunctionImplIZN12asset_loader21loadByMemoryGLTFModelERKNS5_8LoadInfoERKNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEERKNS_7variantIJNS_10shared_ptrIN4gltf5ModelEEEPKvEEEE3$_0vJSG_RKNSI_IN5asset14ItemCollectionEEES8_EEENSC_ISX_EEEE
+1	N6avatar3sdk6detail21QueueableFunctionImplIZN12asset_loader21loadByMemoryGLTFModelERKNS3_8LoadInfoERKNSt6__ndk112basic_stringIcNS7_11char_traitsIcEENS7_9allocatorIcEEEERKNS7_7variantIJNS7_10shared_ptrIN4gltf5ModelEEEPKvEEEE3$_0vJSF_RKNSH_IN5asset14ItemCollectionEEES6_EEE
+1	N5asset18GltfItemCollectionE
+1	NSt6__ndk120__shared_ptr_emplaceIN4gltf5ModelENS_9allocatorIS2_EEEE
+1	NSt6__ndk120__shared_ptr_emplaceIN5asset18GltfItemCollectionENS_9allocatorIS2_EEEE
+1	N5asset14GltfExtrasItemE
+1	N5asset13GltfImageItemE
+1	N5asset16GltfMaterialItemE
+1	NSt6__ndk120__shared_ptr_emplaceIN5asset16GltfMaterialItemENS_9allocatorIS2_EEEE
+1	NSt6__ndk120__shared_ptr_emplaceIN8tinygltf4MeshENS_9allocatorIS2_EEEE
+1	NSt6__ndk120__shared_ptr_emplaceIN5asset12GltfMeshItemENS_9allocatorIS2_EEEE
+1	N5asset12GltfMeshItemE
+1	NSt6__ndk120__shared_ptr_emplaceIN5asset17GltfCollidersItemENS_9allocatorIS2_EEEE
+1	N5asset17GltfCollidersItemE
+1	N5asset21GltfMeshPrimitiveItemE
+1	N6avatar5asset27GltfCompactSkinningDataItemE
+1	NSt6__ndk120__shared_ptr_emplaceIN6avatar5asset27GltfCompactSkinningDataItemENS_9allocatorIS3_EEEE
+1	N6avatar5asset27GltfCompactSkinningDataItem4ImplE
+1	N5asset25GltfMorphTargetBufferItemE
+1	NSt6__ndk120__shared_ptr_emplaceIN5asset25GltfMorphTargetBufferItemENS_9allocatorIS2_EEEE
+1	N5asset12GltfNodeItemE
+1	N5asset12GltfSkinItemE
+1	N5asset20GltfVertexBufferItemE
+1	NSt6__ndk120__shared_ptr_emplaceIN5asset20GltfVertexBufferItemENS_9allocatorIS2_EEEE

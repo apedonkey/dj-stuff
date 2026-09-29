@@ -1,0 +1,86 @@
+=== grep of external_tree.txt for target patterns (\.glb|cache|Cache|Saved|Avatar|ETag|readyplayer): ===
+5:drwxrws---  2 u0_a107  ext_data_rw 4096 2024-02-22 13:00 cache
+8:/sdcard/Android/data/com.TribeXR.TribeXR/cache:
+19:-rwxrwx--- 1 u0_a107 ext_data_rw  3790959 2026-09-19 12:27 CachedAvatars.zip
+22:-rwxrwx--- 1 u0_a107 ext_data_rw  7877284 2026-09-19 12:27 OvrAvatar2Assets.zip
+23:-rwxrwx--- 1 u0_a107 ext_data_rw 63625279 2026-09-19 12:27 PresetAvatars_Quest2.zip
+26:drwxr-s--- 2 u0_a107 ext_data_rw     4096 2026-09-19 12:27 VulkanProgramBinaryCache
+47:-rw-rw---- 1 u0_a107 ext_data_rw       48 2026-09-05 14:12 cacheFile.txt
+55:drwxr-s--- 2 u0_a107 ext_data_rw 4096 2024-02-22 13:02 cache
+67:/sdcard/Android/data/com.TribeXR.TribeXR/files/Documents/cache:
+82:drwxrws--- 2 u0_a107 ext_data_rw 4096 2025-05-05 17:27 Avatars2
+84:/sdcard/Android/data/com.TribeXR.TribeXR/files/Oculus/Avatars2:
+89:-rw-rw---- 1 u0_a107 ext_data_rw  3601596 2025-05-05 17:27 A_1232362938473877.glb
+90:-rw-rw---- 1 u0_a107 ext_data_rw  3434756 2024-06-24 12:12 A_1426978754688935.glb
+91:-rw-rw---- 1 u0_a107 ext_data_rw  3246510 2024-06-24 12:05 A_1677002969771167.glb
+92:-rw-rw---- 1 u0_a107 ext_data_rw  3150026 2024-06-24 11:50 A_2546452168858501.glb
+93:-rw-rw---- 1 u0_a107 ext_data_rw  3516589 2024-03-16 15:15 A_258875507279586.glb
+94:-rw-rw---- 1 u0_a107 ext_data_rw  3464265 2025-01-08 22:05 A_2641865686006165.glb
+95:-rw-rw---- 1 u0_a107 ext_data_rw  2477639 2024-04-06 12:41 A_311473537933362.glb
+96:-rw-rw---- 1 u0_a107 ext_data_rw  3869262 2024-06-24 11:29 A_368505276218154.glb
+97:-rw-rw---- 1 u0_a107 ext_data_rw  3690510 2025-01-13 20:13 A_408029648751395.glb
+98:-rw-rw---- 1 u0_a107 ext_data_rw  3608863 2024-03-07 15:24 A_413060121118574.glb
+99:-rw-rw---- 1 u0_a107 ext_data_rw  3632409 2024-06-24 12:06 A_437208149136331.glb
+100:-rw-rw---- 1 u0_a107 ext_data_rw  2847602 2024-07-23 12:30 A_838591288205515.glb
+101:-rw-rw---- 1 u0_a107 ext_data_rw  3375551 2024-06-24 12:28 A_845683494085919.glb
+102:-rw-rw---- 1 u0_a107 ext_data_rw  4017176 2024-06-24 12:34 A_975825064240371.glb
+120:drwxrws--- 3 u0_a107 ext_data_rw 4096 2024-02-22 12:57 Saved
+122:/sdcard/Android/data/com.TribeXR.TribeXR/files/UE4Game/TribeXR/TribeXR/Saved:
+128:/sdcard/Android/data/com.TribeXR.TribeXR/files/UE4Game/TribeXR/TribeXR/Saved/Logs:
+150:drwxrws--- 3 u0_a107 ext_data_rw 4096 2025-06-03 16:42 Saved
+164:/sdcard/Android/data/com.TribeXR.TribeXR/files/UnrealGame/TribeXR/TribeXR/Saved:
+170:/sdcard/Android/data/com.TribeXR.TribeXR/files/UnrealGame/TribeXR/TribeXR/Saved/Logs:
+175:/sdcard/Android/data/com.TribeXR.TribeXR/files/VulkanProgramBinaryCache:
+
+=== files/compressed/ contents: ===
+/sdcard/Android/data/com.TribeXR.TribeXR/files/compressed:
+total 1928
+drwxr-s--- 2 u0_a107 ext_data_rw   4096 2026-09-19 12:43 .
+drwxrws--- 9 u0_a107 ext_data_rw   4096 2026-09-19 12:44 ..
+-rw-rw---- 1 u0_a107 ext_data_rw 765553 2026-09-19 12:34 20260905195738_20260919122857.zip
+-rw-rw---- 1 u0_a107 ext_data_rw 747616 2026-09-19 12:40 20260919122857_20260919123456.zip
+-rw-rw---- 1 u0_a107 ext_data_rw 447938 2026-09-19 12:43 20260919123456_20260919123831.zip
+=== files/UnrealGame/.../Content + Saved contents: ===
+/sdcard/Android/data/com.TribeXR.TribeXR/files/UnrealGame/TribeXR/TribeXR/Content:
+total 12
+drwxr-s--- 3 u0_a107 ext_data_rw 4096 2025-06-03 16:42 .
+drwxrws--- 4 u0_a107 ext_data_rw 4096 2025-06-03 16:42 ..
+drwxr-s--- 2 u0_a107 ext_data_rw 4096 2025-06-03 16:42 Certificates
+
+/sdcard/Android/data/com.TribeXR.TribeXR/files/UnrealGame/TribeXR/TribeXR/Content/Certificates:
+total 216
+drwxr-s--- 2 u0_a107 ext_data_rw   4096 2025-06-03 16:42 .
+drwxr-s--- 3 u0_a107 ext_data_rw   4096 2025-06-03 16:42 ..
+-rw-rw---- 1 u0_a107 ext_data_rw 211303 2025-06-03 16:42 cacert.pem
+
+/sdcard/Android/data/com.TribeXR.TribeXR/files/UnrealGame/TribeXR/TribeXR/Saved:
+total 12
+drwxrws--- 3 u0_a107 ext_data_rw 4096 2025-06-03 16:42 .
+drwxrws--- 4 u0_a107 ext_data_rw 4096 2025-06-03 16:42 ..
+drwxrws--- 2 u0_a107 ext_data_rw 4096 2025-06-03 16:42 Logs
+
+/sdcard/Android/data/com.TribeXR.TribeXR/files/UnrealGame/TribeXR/TribeXR/Saved/Logs:
+total 8
+drwxrws--- 2 u0_a107 ext_data_rw 4096 2025-06-03 16:42 .
+drwxrws--- 3 u0_a107 ext_data_rw 4096 2025-06-03 16:42 ..
+
+/sdcard/Android/data/com.TribeXR.TribeXR/files/VulkanProgramBinaryCache:
+total 4444
+drwxr-s--- 2 u0_a107 ext_data_rw    4096 2026-09-19 12:27 .
+drwxrws--- 9 u0_a107 ext_data_rw    4096 2026-09-19 12:44 ..
+-rw-rw---- 1 u0_a107 ext_data_rw 1593786 2025-08-18 10:47 VulkanPSO_78BA0277AB5B42B39D5B08C359A1AEE9.5143.43050b00
+-rw-rw---- 1 u0_a107 ext_data_rw 2941563 2026-09-05 14:12 VulkanPSO_E41F7D2E60D147D9B577FBAB5780CF0E.5143.43050b00
+
+/sdcard/Android/data/com.TribeXR.TribeXR/files/beatport:
+total 12
+drwxr-s--- 2 u0_a107 ext_data_rw 4096 2025-01-08 21:49 .
+drwxrws--- 9 u0_a107 ext_data_rw 4096 2026-09-19 12:44 ..
+-rw-rw---- 1 u0_a107 ext_data_rw   36 2025-01-08 21:49 d.txt
+
+/sdcard/Android/data/com.TribeXR.TribeXR/files/compressed:
+total 1928
+drwxr-s--- 2 u0_a107 ext_data_rw   4096 2026-09-19 12:43 .
+drwxrws--- 9 u0_a107 ext_data_rw   4096 2026-09-19 12:44 ..
+-rw-rw---- 1 u0_a107 ext_data_rw 765553 2026-09-19 12:34 20260905195738_20260919122857.zip
+-rw-rw---- 1 u0_a107 ext_data_rw 747616 2026-09-19 12:40 20260919122857_20260919123456.zip
+-rw-rw---- 1 u0_a107 ext_data_rw 447938 2026-09-19 12:43 20260919123456_20260919123831.zip

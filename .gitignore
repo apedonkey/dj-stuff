@@ -1,0 +1,16 @@
+# Proprietary binaries pulled from the headset and anything derived from them in bulk.
+# Only notes, scripts, logs, grep hits and text reports are tracked.
+pulled/
+unpacked/
+out/
+tools/
+obb_raw/
+__pycache__/
+
+# Future binary asset extracts (keep text reports like skeleton.json / *.md / *.txt)
+extracted/assets/
+*.glb
+*.fbx
+*.pak
+*.uasset
+*.uexp

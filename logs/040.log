@@ -1,0 +1,85 @@
+List of devices attached
+2G0YC1ZF96072F         device product:eureka model:Quest_3 device:eureka transport_id:8
+
+=== [1a] /sdcard/Android/data/com.TribeXR.TribeXR/ ===
+/sdcard/Android/data/com.TribeXR.TribeXR:
+total 16
+drwxrws---  4 u0_a107  ext_data_rw 4096 2024-02-22 12:57 .
+drwxrws--x 37 media_rw ext_data_rw 4096 2026-09-05 14:09 ..
+drwxrws---  2 u0_a107  ext_data_rw 4096 2024-02-22 13:00 cache
+drwxrws---  9 u0_a107  ext_data_rw 4096 2026-09-19 12:44 files
+
+/sdcard/Android/data/com.TribeXR.TribeXR/cache:
+total 52
+drwxrws--- 2 u0_a107 ext_data_rw  4096 2024-02-22 13:00 .
+drwxrws--- 4 u0_a107 ext_data_rw  4096 2024-02-22 12:57 ..
+-rw------- 1 u0_a107 ext_data_rw 40960 2026-09-19 12:44 ga.sqlite3
+-rw------- 1 u0_a107 ext_data_rw     0 2026-09-19 12:44 ga.sqlite3-journal
+
+/sdcard/Android/data/com.TribeXR.TribeXR/files:
+total 101156
+drwxrws--- 9 u0_a107 ext_data_rw     4096 2026-09-19 12:44 .
+drwxrws--- 4 u0_a107 ext_data_rw     4096 2024-02-22 12:57 ..
+-rwxrwx--- 1 u0_a107 ext_data_rw  3790959 2026-09-19 12:27 CachedAvatars.zip
+drwxr-s--- 5 u0_a107 ext_data_rw     4096 2024-02-22 13:02 Documents
+drwxrws--- 3 u0_a107 ext_data_rw     4096 2024-03-07 15:24 Oculus
+-rwxrwx--- 1 u0_a107 ext_data_rw  7877284 2026-09-19 12:27 OvrAvatar2Assets.zip
+-rwxrwx--- 1 u0_a107 ext_data_rw 63625279 2026-09-19 12:27 PresetAvatars_Quest2.zip
+drwxrws--- 3 u0_a107 ext_data_rw     4096 2024-02-22 12:57 UE4Game
+drwxrws--- 3 u0_a107 ext_data_rw     4096 2025-06-03 16:42 UnrealGame
+drwxr-s--- 2 u0_a107 ext_data_rw     4096 2026-09-19 12:27 VulkanProgramBinaryCache
+-rw-rw---- 1 u0_a107 ext_data_rw  2097060 2026-09-19 12:43 agoraapi.1.log
+-rw-rw---- 1 u0_a107 ext_data_rw  2097098 2026-09-19 12:40 agoraapi.2.log
+-rw-rw---- 1 u0_a107 ext_data_rw  2097092 2026-09-19 12:38 agoraapi.3.log
+-rw-rw---- 1 u0_a107 ext_data_rw  2097100 2026-09-19 12:36 agoraapi.4.log
+-rw-rw---- 1 u0_a107 ext_data_rw  1225296 2026-09-19 12:44 agoraapi.log
+-rw-rw---- 1 u0_a107 ext_data_rw  1048449 2026-09-19 12:44 agorartmsdk.1.log
+-rw-rw---- 1 u0_a107 ext_data_rw  1048421 2026-09-19 12:39 agorartmsdk.2.log
+-rw-rw---- 1 u0_a107 ext_data_rw  1048461 2026-09-19 12:35 agorartmsdk.3.log
+-rw-rw---- 1 u0_a107 ext_data_rw  1048514 2026-09-19 12:31 agorartmsdk.4.log
+-rw-rw---- 1 u0_a107 ext_data_rw    15493 2026-09-19 12:44 agorartmsdk.log
+-rw-rw---- 1 u0_a107 ext_data_rw  2097085 2026-09-19 12:43 agorasdk.1.log
+-rw-rw---- 1 u0_a107 ext_data_rw  2097109 2026-09-19 12:42 agorasdk.2.log
+-rw-rw---- 1 u0_a107 ext_data_rw  2097057 2026-09-19 12:40 agorasdk.3.log
+-rw-rw---- 1 u0_a107 ext_data_rw  2097117 2026-09-19 12:39 agorasdk.4.log
+-rw-rw---- 1 u0_a107 ext_data_rw  1626769 2026-09-19 12:44 agorasdk.log
+-rw-rw---- 1 u0_a107 ext_data_rw  1095303 2026-06-06 20:41 agorasdk_1.log
+-rw-rw---- 1 u0_a107 ext_data_rw  1090272 2026-06-06 20:53 agorasdk_2.log
+-rw-rw---- 1 u0_a107 ext_data_rw  1098797 2026-06-06 20:16 agorasdk_3.log
+-rw-rw---- 1 u0_a107 ext_data_rw  1095665 2026-06-06 20:29 agorasdk_4.log
+drwxr-s--- 2 u0_a107 ext_data_rw     4096 2025-01-08 21:49 beatport
+-rw-rw---- 1 u0_a107 ext_data_rw       48 2026-09-05 14:12 cacheFile.txt
+drwxr-s--- 2 u0_a107 ext_data_rw     4096 2026-09-19 12:43 compressed
+
+/sdcard/Android/data/com.TribeXR.TribeXR/files/Documents:
+total 20
+drwxr-s--- 5 u0_a107 ext_data_rw 4096 2024-02-22 13:02 .
+drwxrws--- 9 u0_a107 ext_data_rw 4096 2026-09-19 12:44 ..
+drwxr-s--- 2 u0_a107 ext_data_rw 4096 2026-06-06 20:08 TribeRecordings
+drwxr-s--- 2 u0_a107 ext_data_rw 4096 2024-02-22 13:02 cache
+drwxr-s--- 2 u0_a107 ext_data_rw 4096 2024-02-22 13:00 rekordbox
+
+/sdcard/Android/data/com.TribeXR.TribeXR/files/Documents/TribeRecordings:
+total 763832
+drwxr-s--- 2 u0_a107 ext_data_rw      4096 2026-06-06 20:08 .
+drwxr-s--- 5 u0_a107 ext_data_rw      4096 2024-02-22 13:02 ..
+-rw-rw---- 1 u0_a107 ext_data_rw 606367744 2026-06-06 21:00 .tribetemp
+-rw-rw---- 1 u0_a107 ext_data_rw         0 2026-06-06 20:08 .tribetemp.txt
+-rw-rw---- 1 u0_a107 ext_data_rw 175493164 2024-04-16 16:05 TribeRecording01.wav
+-rw-rw---- 1 u0_a107 ext_data_rw    280620 2025-10-05 09:06 TribeRecording02.wav
+
+/sdcard/Android/data/com.TribeXR.TribeXR/files/Documents/cache:
+total 12
+drwxr-s--- 2 u0_a107 ext_data_rw 4096 2024-02-22 13:02 .
+drwxr-s--- 5 u0_a107 ext_data_rw 4096 2024-02-22 13:02 ..
+-rw------- 1 u0_a107 ext_data_rw 1760 2025-09-06 10:29 LastTribeSessionAutosave.json
+
+/sdcard/Android/data/com.TribeXR.TribeXR/files/Documents/rekordbox:
+total 8
+drwxr-s--- 2 u0_a107 ext_data_rw 4096 2024-02-22 13:00 .
+drwxr-s--- 5 u0_a107 ext_data_rw 4096 2024-02-22 13:02 ..
+
+/sdcard/Android/data/com.TribeXR.TribeXR/files/Oculus:
+total 12
+drwxrws--- 3 u0_a107 ext_data_rw 4096 2024-03-07 15:24 .
+(external_tree.txt lines: 111)

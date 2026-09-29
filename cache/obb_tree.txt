@@ -1,0 +1,5 @@
+/sdcard/Android/obb/com.TribeXR.TribeXR:
+total 1986652
+drwxrws---  2 u0_a107  ext_obb_rw       4096 2026-09-28 22:59 .
+drwxrws--x 58 media_rw ext_obb_rw       4096 2026-08-04 12:42 ..
+-rwxrws---  1 u0_a107  ext_obb_rw 2034318982 2026-09-28 22:58 main.2304.com.TribeXR.TribeXR.obb

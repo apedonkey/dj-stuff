@@ -1,0 +1,136 @@
+scanned 786 files/entries, 2,123,841,180 bytes; 2394 hit strings
+  'readyplayer'    hits=    19  unique=16
+  'rpm'            hits=   742  unique=634
+  '.glb'           hits=   157  unique=90
+  'gltf'           hits=   217  unique=146
+  'avatarloader'   hits=     0  unique=0
+  'avatar'         hits=  1272  unique=1145
+hits per entry (readyplayer, rpm, .glb, gltf, avatarloader, avatar):
+  TribeXR/Content/Certificates/cacert.pem: 0 6 0 0 0 0
+  TribeXR/Content/Movies/All4ScreensBldgE_v02.mp4: 0 2 0 0 0 0
+  TribeXR/Content/Movies/EQ_Twist.mp4: 0 1 0 0 0 0
+  TribeXR/Content/Movies/PTDJA_Trailer.mp4: 0 5 0 0 0 0
+  TribeXR/Content/Movies/Selina.mp4: 0 4 0 0 0 0
+  TribeXR/Content/Movies/TribeTrailer.mp4: 0 12 0 0 0 11
+  TribeXR/Content/Paks/pakchunk0-Android_ASTC.pak: 19 281 69 213 0 281
+  TribeXR/Content/Paks/pakchunk0optional-Android_ASTC.pak: 0 34 0 1 0 0
+  TribeXR/Content/Paks/pakchunk1-Android_ASTC.pak: 0 158 1 1 0 1
+  TribeXR/Content/Paks/pakchunk1optional-Android_ASTC.pak: 0 47 0 0 0 0
+  TribeXR/Content/Tracks/5 Day DJ Challenge/036 - Eminence - Shapes & Shifts.mp3: 0 3 1 0 0 0
+  TribeXR/Content/Tracks/5 Day DJ Challenge/045 - PIXL - This Time.mp3: 0 3 0 0 0 0
+  TribeXR/Content/Tracks/5 Day DJ Challenge/057 - Tokyo Machine - PLAY.mp3: 0 1 0 0 0 0
+  TribeXR/Content/Tracks/5 Day DJ Challenge/098 - SMLE - Halo (feat. Helen Tess).mp3: 0 2 0 0 0 0
+  TribeXR/Content/Tracks/Ben Beiny/In_front.mp3: 0 1 0 0 0 0
+  TribeXR/Content/Tracks/Ben Beiny/come_together.mp3: 0 3 0 0 0 0
+  TribeXR/Content/Tracks/Ben Beiny/kick_back.mp3: 0 2 0 0 0 0
+  TribeXR/Content/Tracks/Desty/Elements.mp3: 0 1 0 0 0 0
+  TribeXR/Content/Tracks/Desty/Going Back.mp3: 0 4 0 0 0 0
+  TribeXR/Content/Tracks/Desty/Northern Streets.mp3: 0 5 0 0 0 0
+  TribeXR/Content/Tracks/Desty/Stress That.mp3: 0 1 0 0 0 0
+  TribeXR/Content/Tracks/Desty/You Know I Like It.mp3: 0 2 0 0 0 0
+  TribeXR/Content/Tracks/Julian Bell/boutique.mp3: 0 1 0 0 0 0
+  TribeXR/Content/Tracks/Julian Bell/fashion_beach.mp3: 0 2 0 0 0 0
+  TribeXR/Content/Tracks/Julian Bell/fashion_escapade.mp3: 0 1 0 0 0 0
+  TribeXR/Content/Tracks/Kryoman/Are You Ready.mp3: 0 3 0 0 0 0
+  TribeXR/Content/Tracks/Kryoman/Biggie Says.mp3: 0 1 0 0 0 0
+  TribeXR/Content/Tracks/Kryoman/Blaster.mp3: 0 1 0 0 0 0
+  TribeXR/Content/Tracks/Kryoman/Darkness.mp3: 0 2 0 0 0 0
+  TribeXR/Content/Tracks/Kryoman/Fast Lane.mp3: 0 1 0 0 0 0
+  TribeXR/Content/Tracks/Kryoman/Get Up.mp3: 0 3 0 0 0 0
+  TribeXR/Content/Tracks/Kryoman/Loaded.mp3: 0 1 0 0 0 0
+  TribeXR/Content/Tracks/Kryoman/My_Squads_Lit__feat__Shaq__Original_Mix.mp3: 0 4 0 0 0 0
+  TribeXR/Content/Tracks/Kryoman/Pomme De Terre.mp3: 0 2 0 0 0 0
+  TribeXR/Content/Tracks/Kryoman/Riddim_Bass_Feat__KimKat_Original_Mix.mp3: 0 3 0 0 0 0
+  TribeXR/Content/Tracks/LessonTracks/032 - Conro - Heartbeat.mp3: 0 1 0 0 0 0
+  TribeXR/Content/Tracks/LessonTracks/040 - Tisoki - HOLD ON ME.mp3: 0 1 0 0 0 0
+  TribeXR/Content/Tracks/LessonTracks/044 - Subtact - Tunnel Vision.mp3: 0 1 0 0 0 0
+  TribeXR/Content/Tracks/LessonTracks/047 - Reach & Slippy - That Sound.mp3: 0 1 0 0 0 0
+  TribeXR/Content/Tracks/LessonTracks/053 - SMLE & Nick Smith - Runnin.mp3: 0 2 0 0 0 0
+  TribeXR/Content/Tracks/LessonTracks/059 - Pixel Terror - Omega.mp3: 0 5 0 0 0 0
+  TribeXR/Content/Tracks/LessonTracks/061 - PROFF - Light Magic.mp3: 0 3 0 0 0 0
+  TribeXR/Content/Tracks/LessonTracks/069 - Slippy - Flow.mp3: 0 1 0 0 0 0
+  TribeXR/Content/Tracks/LessonTracks/076 - FWLR & A-SHO - Cave Me In.mp3: 0 1 1 0 0 0
+  TribeXR/Content/Tracks/LessonTracks/100 - FWLR - Bust It Out.mp3: 0 1 0 0 0 0
+  TribeXR/Content/Tracks/LessonTracks/About That Groove.mp3: 0 16 0 0 0 0
+  TribeXR/Content/Tracks/LessonTracks/BPM Supreme - Fancy (Acapella Intro Club Tool) (Clean).mp3: 0 1 0 0 0 0
+  TribeXR/Content/Tracks/LessonTracks/Crusy -  Love is The Answer (Radio Edit).mp3: 0 4 1 0 0 0
+  TribeXR/Content/Tracks/LessonTracks/DISTO - Gotta Get (Clean Extended).mp3: 0 2 0 0 0 0
+  TribeXR/Content/Tracks/LessonTracks/Desperado_95_Dm.mp3: 0 2 0 0 0 0
+  TribeXR/Content/Tracks/LessonTracks/Do_It_(Original Mix)_ Master_1.mp3: 0 3 0 0 0 0
+  TribeXR/Content/Tracks/LessonTracks/El Cumbion (Original Mix)_M1.mp3: 0 3 0 0 0 0
+  TribeXR/Content/Tracks/LessonTracks/HapKido - Close connections (Emby - Terry Waites Remix).mp3: 0 2 0 0 0 0
+  TribeXR/Content/Tracks/LessonTracks/IKE - WKND (Clean Extended).mp3: 0 2 0 0 0 0
+  TribeXR/Content/Tracks/LessonTracks/Muzik Junkies - Party (Clean Extended).mp3: 0 0 0 1 0 0
+  TribeXR/Content/Tracks/LessonTracks/Sansixto X JP Candela - Space Kitty (Extended Mix).mp3: 0 4 0 0 0 0
+  TribeXR/Content/Tracks/LessonTracks/Scotty Boy - Let's Kick It (Extended Mix).mp3: 0 3 0 0 0 0
+  TribeXR/Content/Tracks/LessonTracks/Superchip, Kryoman, MR PIG - Combo 69 [IM MASTER].mp3: 0 1 0 0 0 0
+  TribeXR/Content/Tracks/Samples/SW_SubImpact.wav: 0 1 0 0 0 0
+  TribeXR/Content/Visuals/Videos/Lighting1.mp4: 0 2 0 0 0 0
+  TribeXR/Content/Visuals/Videos/Lighting6.mp4: 0 1 0 0 0 0
+  TribeXR/Content/Visuals/Videos/cleanroom_1.mp4: 0 2 0 0 0 0
+  TribeXR/Content/Visuals/Videos/dvde_1.mp4: 0 3 0 0 0 0
+  TribeXR/Content/Visuals/Videos/farkedpattern.mp4: 0 5 0 0 0 0
+  TribeXR/Content/Visuals/Videos/hotboxxx_1.mp4: 0 2 0 0 0 0
+  TribeXR/Content/Visuals/Videos/okkkk_1.mp4: 0 8 0 0 0 0
+  TribeXR/Content/Visuals/Videos/scream.mp4: 0 2 0 0 0 0
+  TribeXR/Content/Visuals/Videos/unplug_1.mp4: 0 2 0 0 0 0
+  TribeXR/Content/Visuals/Videos/wrmmm.mp4: 0 3 0 0 0 0
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/CachedAvatars.zip: 0 0 4 0 0 0
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/OvrAvatar2Assets.zip: 0 2 10 0 0 2
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/OvrAvatar2Assets.zip!/Manifest_Avatar2.json: 0 0 6 0 0 1
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/OvrAvatar2Assets.zip!/chr00000CharS00.rig.zip: 0 0 0 0 0 4
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/OvrAvatar2Assets.zip!/default.behavior.zip: 0 2 0 0 0 882
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/OvrAvatar2Assets.zip!/default.behavior.zip!/locomotion_prototype/avatar_utils.behavior: 0 0 0 0 0 20
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/OvrAvatar2Assets.zip!/default.behavior.zip!/locomotion_prototype/avatar_utils.behavior.editor: 0 0 0 0 0 20
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/OvrAvatar2Assets.zip!/default.behavior.zip!/locomotion_prototype/clips/loco_neutral_walk_right_backpedal_anim.anim: 0 1 0 0 0 0
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/OvrAvatar2Assets.zip!/default.behavior.zip!/locomotion_prototype/footlock_hold.behavior: 0 0 0 0 0 2
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/OvrAvatar2Assets.zip!/default.behavior.zip!/locomotion_prototype/footlock_hold.behavior.editor: 0 0 0 0 0 1
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/OvrAvatar2Assets.zip!/default.behavior.zip!/locomotion_prototype/procedural_lean.behavior: 0 0 0 0 0 2
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/OvrAvatar2Assets.zip!/default.behavior.zip!/locomotion_prototype/sitting_dataflow.behavior: 0 0 0 0 0 1
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/OvrAvatar2Assets.zip!/default.behavior.zip!/locomotion_prototype/state_machine.behavior: 0 0 0 0 0 3
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/OvrAvatar2Assets.zip!/default.behavior.zip!/locomotion_prototype/state_machine_sit.behavior: 0 0 0 0 0 1
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/OvrAvatar2Assets.zip!/default.behavior.zip!/locomotion_prototype/tracking_cloner.behavior: 0 0 0 0 0 1
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/OvrAvatar2Assets.zip!/default.behavior.zip!/ovrAvatar2/body_selector.behavior: 0 0 0 0 0 2
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/OvrAvatar2Assets.zip!/default.behavior.zip!/ovrAvatar2/default_face.behavior: 0 0 0 0 0 11
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/OvrAvatar2Assets.zip!/default.behavior.zip!/ovrAvatar2/default_root.behavior: 0 0 0 0 0 3
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/OvrAvatar2Assets.zip!/default.behavior.zip!/ovrAvatar2/legacy_body.behavior: 0 0 0 0 0 1
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/OvrAvatar2Assets.zip!/default.behavior.zip!/ovrAvatar2/sample_animtags.behavior: 0 0 0 0 0 1
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/OvrAvatar2Assets.zip!/default.behavior.zip!/ovrAvatar2/sample_app_pose_node.behavior: 0 0 0 0 0 3
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/OvrAvatar2Assets.zip!/default.behavior.zip!/ovrAvatar2/sample_divergence.behavior: 0 0 0 0 0 1
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/OvrAvatar2Assets.zip!/default.behavior.zip!/ovrAvatar2/sample_jump.behavior: 0 0 0 0 0 1
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/OvrAvatar2Assets.zip!/default.behavior.zip!/ovrAvatar2/sample_locomotion.behavior: 0 0 0 0 0 4
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/OvrAvatar2Assets.zip!/default.behavior.zip!/ovrAvatar2/sample_rest_pose.behavior: 0 0 0 0 0 1
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/OvrAvatar2Assets.zip!/default.behavior.zip!/ovrAvatar2/sample_sitting.behavior: 0 0 0 0 0 3
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/OvrAvatar2Assets.zip!/default.behavior.zip!/ovrAvatar2/sample_state_machine.behavior: 0 0 0 0 0 1
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/OvrAvatar2Assets.zip!/default.behavior.zip!/ovrAvatar2/sample_state_machine_conditions.behavior: 0 0 0 0 0 1
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/OvrAvatar2Assets.zip!/default.behavior.zip!/ovrAvatar2/sample_state_machine_snapshotting.behavior: 0 0 0 0 0 2
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/OvrAvatar2Assets.zip!/default.behavior.zip!/ovrAvatar2/sample_tracked_intentionality.behavior: 0 0 0 0 0 3
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/OvrAvatar2Assets.zip!/models/blank.glb.zst: 0 1 0 0 0 0
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/OvrAvatar2Assets.zip!/models/props/controllers/controller_crystal.glb.zst: 0 0 0 1 0 1
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/PresetAvatars_Quest2.zip: 0 21 64 0 0 0
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/PresetAvatars_Quest2.zip!/10_quest2.glb: 0 1 0 0 0 0
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/PresetAvatars_Quest2.zip!/11_quest2.glb: 0 1 0 0 0 0
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/PresetAvatars_Quest2.zip!/14_quest2.glb: 0 1 0 0 0 0
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/PresetAvatars_Quest2.zip!/15_quest2.glb: 0 1 0 0 0 0
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/PresetAvatars_Quest2.zip!/17_quest2.glb: 0 1 0 0 0 0
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/PresetAvatars_Quest2.zip!/19_quest2.glb: 0 1 0 0 0 0
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/PresetAvatars_Quest2.zip!/1_quest2.glb: 0 1 0 0 0 0
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/PresetAvatars_Quest2.zip!/21_quest2.glb: 0 2 0 0 0 0
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/PresetAvatars_Quest2.zip!/25_quest2.glb: 0 1 0 0 0 0
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/PresetAvatars_Quest2.zip!/26_quest2.glb: 0 1 0 0 0 0
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/PresetAvatars_Quest2.zip!/28_quest2.glb: 0 1 0 0 0 0
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/PresetAvatars_Quest2.zip!/2_quest2.glb: 0 1 0 0 0 0
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/PresetAvatars_Quest2.zip!/3_quest2.glb: 0 1 0 0 0 0
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/PresetAvatars_Quest2.zip!/4_quest2.glb: 0 2 0 0 0 0
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/PresetAvatars_Quest2.zip!/5_quest2.glb: 0 1 0 0 0 0
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/PresetAvatars_Quest2.zip!/7_quest2.glb: 0 2 0 0 0 0
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/PresetAvatars_Quest2.zip!/8_quest2.glb: 0 1 0 0 0 0
+  TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/PresetAvatars_Quest2.zip!/9_quest2.glb: 0 1 0 0 0 0
+
+real	0m29.541s
+user	0m0.015s
+sys	0m0.015s
+--- Unreal engine version strings (grep -a, independent of the scanner):
+     74 ++UE4+Release-4.26
+    291 ++UE4+Release-4.27
+     36 ++UE5+Release-5.4

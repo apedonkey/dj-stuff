@@ -1,0 +1,226 @@
+=== every readyplayer hit, with neighbouring strings:
+== pulled/main.2300.com.TribeXR.TribeXR.obb :: TribeXR/Content/Paks/pakchunk0-Android_ASTC.pak @0x133fab20 [ascii] terms=readyplayer
+   )`"4
+   Acto
+   Page
+>> ReadyPlayerMe
+   keletal
+   VRReplica;
+   Origi
+
+== pulled/main.2300.com.TribeXR.TribeXR.obb :: TribeXR/Content/Paks/pakchunk0-Android_ASTC.pak @0x227c5964 [ascii] terms=readyplayer,avatar
+>> </Game/Visuals/Skins/OculusAvatar/BP_ReadyPlayerMe
+   c"2:*
+   mage
+   BlueprintType
+
+== pulled/main.2300.com.TribeXR.TribeXR.obb :: TribeXR/Content/Paks/pakchunk0-Android_ASTC.pak @0x227c6347 [ascii] terms=readyplayer
+   BPTYPE_Normal
+   TribeAvatar
+>> ReadyPlayerMUrl
+   Skins
+   Oculus
+   5===
+
+== pulled/main.2300.com.TribeXR.TribeXR.obb :: TribeXR/Content/Paks/pakchunk0-Android_ASTC.pak @0x227e5254 [ascii] terms=readyplayer,avatar
+   #,40
+   !8811.))34*
+>> /Game/Visuals/Skins/OculusAvatar/PreviewImages/T_SkinPreview_ReadyPlayerMe_Custom
+   None
+   PF_ASTC_6x6
+   /Game/Visuals/Skins/OculusAvatar/Previ
+
+== pulled/main.2300.com.TribeXR.TribeXR.obb :: TribeXR/Content/Paks/pakchunk0-Android_ASTC.pak @0x227e537f [ascii] terms=readyplayer,avatar
+   ges/T_SkinPreview_ReadyPlayerMe_Custom
+   None
+   PF_ASTC_6x6
+>> /Game/Visuals/Skins/OculusAvatar/PreviewImages/T_SkinPreview_ReadyPlayerMe_Custom
+   /Script/CoreUObject
+   /Script/Engine
+   Class
+
+== pulled/main.2300.com.TribeXR.TribeXR.obb :: TribeXR/Content/Paks/pakchunk0-Android_ASTC.pak @0x227e5445 [ascii] terms=readyplayer
+   Class
+   Default__Texture2D
+   Package
+>> T_SkinPreview_ReadyPlayerMe_Custom
+   Texture2D
+
+== pulled/main.2300.com.TribeXR.TribeXR.obb :: TribeXR/Content/Paks/pakchunk0-Android_ASTC.pak @0x28fcfbf1 [ascii] terms=readyplayer
+   \t"FileVersion": 3,
+   \t"Version": 1,
+   \t"VersionName": "6.0",
+>> \t"FriendlyName": "ReadyPlayerMe",
+   \t"Description": "ReadyPlayerMe Avatar Toolkit",
+   \t"Category": "ReadyPlayerMe",
+   \t"CreatedBy": "Wolf3D",
+
+== pulled/main.2300.com.TribeXR.TribeXR.obb :: TribeXR/Content/Paks/pakchunk0-Android_ASTC.pak @0x28fcfc14 [ascii] terms=readyplayer,avatar
+   \t"Version": 1,
+   \t"VersionName": "6.0",
+   \t"FriendlyName": "ReadyPlayerMe",
+>> \t"Description": "ReadyPlayerMe Avatar Toolkit",
+   \t"Category": "ReadyPlayerMe",
+   \t"CreatedBy": "Wolf3D",
+   \t"CreatedByURL": "",
+
+== pulled/main.2300.com.TribeXR.TribeXR.obb :: TribeXR/Content/Paks/pakchunk0-Android_ASTC.pak @0x28fcfc45 [ascii] terms=readyplayer
+   \t"VersionName": "6.0",
+   \t"FriendlyName": "ReadyPlayerMe",
+   \t"Description": "ReadyPlayerMe Avatar Toolkit",
+>> \t"Category": "ReadyPlayerMe",
+   \t"CreatedBy": "Wolf3D",
+   \t"CreatedByURL": "",
+   \t"DocsURL": "https://docs.readyplayer.me/",
+
+== pulled/main.2300.com.TribeXR.TribeXR.obb :: TribeXR/Content/Paks/pakchunk0-Android_ASTC.pak @0x28fcfc93 [ascii] terms=readyplayer
+   \t"Category": "ReadyPlayerMe",
+   \t"CreatedBy": "Wolf3D",
+   \t"CreatedByURL": "",
+>> \t"DocsURL": "https://docs.readyplayer.me/",
+   \t"MarketplaceURL": "",
+   \t"SupportURL": "",
+   \t"CanContainContent": true,
+
+== pulled/main.2300.com.TribeXR.TribeXR.obb :: TribeXR/Content/Paks/pakchunk0-Android_ASTC.pak @0x28fcfd6f [ascii] terms=readyplayer
+   \t"IsExperimentalVersion": false,
+   \t"Installed": false,
+   \t"Modules": [
+>> \t\t\t"Name": "ReadyPlayerMe",
+   \t\t\t"Type": "Runtime",
+   \t\t\t"LoadingPhase": "Default"
+   \t"Plugins": [
+
+== pulled/main.2300.com.TribeXR.TribeXR.obb :: TribeXR/Content/Paks/pakchunk0-Android_ASTC.pak @0x2903e8ea [ascii] terms=readyplayer
+   OnlineSubsystemOculus.ini
+   TribeXR/Plugins/OVRLipSync/
+   OVRLipSync.uplugin
+>> TribeXR/Plugins/ReadyPlayerMe/
+   ReadyPlayerMe.uplugin
+   TribeXR/Plugins/SuperPowered/
+   SuperPowered.uplugin
+
+== pulled/main.2300.com.TribeXR.TribeXR.obb :: TribeXR/Content/Paks/pakchunk0-Android_ASTC.pak @0x2903e911 [ascii] terms=readyplayer
+   TribeXR/Plugins/OVRLipSync/
+   OVRLipSync.uplugin
+   TribeXR/Plugins/ReadyPlayerMe/
+>> ReadyPlayerMe.uplugin
+   TribeXR/Plugins/SuperPowered/
+   SuperPowered.uplugin
+   TribeXR/Plugins/ToxMod/
+
+== pulled/main.2300.com.TribeXR.TribeXR.obb :: TribeXR/Content/Paks/pakchunk0-Android_ASTC.pak @0x2909dddb [ascii] terms=readyplayer,avatar
+   TribeXR/Content/Visuals/Skins/OculusAvatar/
+   BP_OculusAvatarSkin.uasset
+   BP_OculusAvatarSkin.uexp
+>> BP_ReadyPlayerMeAvatarSkin.uasset
+   BP_ReadyPlayerMeAvatarSkin.uexp
+   DT_OculusAvatarSkins.uasset
+   DT_OculusAvatarSkins.uexp
+
+== pulled/main.2300.com.TribeXR.TribeXR.obb :: TribeXR/Content/Paks/pakchunk0-Android_ASTC.pak @0x2909de05 [ascii] terms=readyplayer,avatar
+   BP_OculusAvatarSkin.uasset
+   BP_OculusAvatarSkin.uexp
+   BP_ReadyPlayerMeAvatarSkin.uasset
+>> BP_ReadyPlayerMeAvatarSkin.uexp
+   DT_OculusAvatarSkins.uasset
+   DT_OculusAvatarSkins.uexp
+   F_OculusAvatarSkinEntry.uasset
+
+== pulled/main.2300.com.TribeXR.TribeXR.obb :: TribeXR/Content/Paks/pakchunk0-Android_ASTC.pak @0x2909df5b [ascii] terms=readyplayer
+   T_DefaultAvatar.uasset
+   T_DefaultAvatar.ubulk
+   T_DefaultAvatar.uexp
+>> T_SkinPreview_ReadyPlayerMe_Custom.uasset
+   T_SkinPreview_ReadyPlayerMe_Custom.uexp
+   TribeXR/Content/Visuals/Skins/Rig/
+   BP_CustomRigSkin.uasset
+
+== pulled/main.2300.com.TribeXR.TribeXR.obb :: TribeXR/Content/Paks/pakchunk0-Android_ASTC.pak @0x2909df8d [ascii] terms=readyplayer
+   T_DefaultAvatar.ubulk
+   T_DefaultAvatar.uexp
+   T_SkinPreview_ReadyPlayerMe_Custom.uasset
+>> T_SkinPreview_ReadyPlayerMe_Custom.uexp
+   TribeXR/Content/Visuals/Skins/Rig/
+   BP_CustomRigSkin.uasset
+   BP_CustomRigSkin.uexp
+
+== pulled/main.2300.com.TribeXR.TribeXR.obb :: TribeXR/Content/Paks/pakchunk0-Android_ASTC.pak @0x290a26c5 [ascii] terms=readyplayer
+   OnlineSubsystemOculus.ini
+   TribeXR/Plugins/OVRLipSync/
+   OVRLipSync.uplugin
+>> TribeXR/Plugins/ReadyPlayerMe/
+   ReadyPlayerMe.uplugin
+   TribeXR/Plugins/SuperPowered/
+   SuperPowered.uplugin
+
+== pulled/main.2300.com.TribeXR.TribeXR.obb :: TribeXR/Content/Paks/pakchunk0-Android_ASTC.pak @0x290a26ec [ascii] terms=readyplayer
+   TribeXR/Plugins/OVRLipSync/
+   OVRLipSync.uplugin
+   TribeXR/Plugins/ReadyPlayerMe/
+>> ReadyPlayerMe.uplugin
+   TribeXR/Plugins/SuperPowered/
+   SuperPowered.uplugin
+   TribeXR/Plugins/ToxMod/
+
+=== unique gltf strings in the paks (count, string):
+      5 M_Unlit_glTFRuntimeBase
+      5 M_glTFRuntimeBase
+      5 /glTFRuntime/M_Unlit_glTFRuntimeBase
+      5 /glTFRuntime/M_glTFRuntimeBase
+      3 M_glTFRuntime_SG_Base
+      3 M_ClearCoat_glTFRuntimeBase
+      3 glTF
+      3 /glTFRuntime/M_glTFRuntime_SG_Base
+      3 /glTFRuntime/M_ClearCoat_glTFRuntimeBase
+      2 TribeXR/Plugins/glTFRuntime/Content/
+      2 TribeXR/Plugins/glTFRuntime/Config/
+      2 TribeXR/Plugins/glTFRuntime/
+      2 glTFRuntime.uplugin
+      2 GLTFExporter.uplugin
+      2 Engine/Plugins/Enterprise/GLTFExporter/Config/
+      2 Engine/Plugins/Enterprise/GLTFExporter/
+      2 DefaultGLTFExporter.ini
+      2 BaseGLTFExporter.ini
+      2 +PackageRedirects=(OldName="/Script/GLTFExporterRuntime",NewName="/Script/GLTFExporter")
+      2 /glTFRuntime/T_glTFRuntimeZero_sRGB
+      2 /glTFRuntime/T_glTFRuntimeZero
+      2 /glTFRuntime/T_glTFRuntimeOne_sRGB
+      2 /glTFRuntime/T_glTFRuntimeOne
+      2 /glTFRuntime/T_glTFRuntimeNormal
+      2 /glTFRuntime/MF_SolveMetallicFromSpecular
+      2 /glTFRuntime/MF_GetTexCoords
+      2 /glTFRuntime/MF_GetSpecular
+      2 /glTFRuntime/MF_GetPerceivedBrightness
+      2 /glTFRuntime/MF_GetPBR
+      2 /glTFRuntime/MF_GetOcclusion
+      2 /glTFRuntime/MF_GetNormal
+      2 /glTFRuntime/MF_GetMetallicRoughness
+      2 /glTFRuntime/MF_GetMaxComponent
+      2 /glTFRuntime/MF_GetEmissive
+      2 /glTFRuntime/MF_GetBaseColorAndOpacity
+      2 /glTFRuntime/MF_BaseColorFromDSM
+      2 /glTFRuntime/M_Unlit_glTFRuntimeTwoSidedTranslucent_Inst
+      2 /glTFRuntime/M_Unlit_glTFRuntimeTwoSidedMasked_Inst
+      2 /glTFRuntime/M_Unlit_glTFRuntimeTwoSided_Inst
+      2 /glTFRuntime/M_Unlit_glTFRuntimeTranslucent_Inst
+      2 /glTFRuntime/M_Unlit_glTFRuntimeMasked_Inst
+      2 /glTFRuntime/M_Transmission_glTFRuntimeTwoSided_Inst
+      2 /glTFRuntime/M_glTFRuntimeTwoSidedTranslucent_Inst
+      2 /glTFRuntime/M_glTFRuntimeTwoSidedMasked_Inst
+      2 /glTFRuntime/M_glTFRuntimeTwoSided_Inst
+      2 /glTFRuntime/M_glTFRuntimeTranslucent_Inst
+      2 /glTFRuntime/M_glTFRuntimeMasked_Inst
+      2 /glTFRuntime/M_glTFRuntime_SG_TwoSidedTranslucent_Inst
+      2 /glTFRuntime/M_glTFRuntime_SG_Twosided_Inst
+      2 /glTFRuntime/M_glTFRuntime_SG_Translucent_Inst
+      2 /glTFRuntime/M_ClearCoat_glTFRuntimeTwoSidedTranslucent_Inst
+      2 /glTFRuntime/M_ClearCoat_glTFRuntimeTwoSided_Inst
+      2 /glTFRuntime/M_ClearCoat_glTFRuntimeTranslucent_Inst
+      1 T_glTFRuntimeZero_sRGB.uexp
+      1 T_glTFRuntimeZero_sRGB.uasset
+      1 T_glTFRuntimeZero_sRGB
+      1 T_glTFRuntimeZero.uexp
+      1 T_glTFRuntimeZero.uasset
+      1 T_glTFRuntimeZero
+      1 T_glTFRuntimeOne_sRGB.uexp

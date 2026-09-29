@@ -1,0 +1,70 @@
+--- OBB entries other than audio tracks/samples:
+Archive:  pulled/main.2300.com.TribeXR.TribeXR.obb
+      2300
+  Length      Date    Time    Name
+---------  ---------- -----   ----
+   259568  2024-10-19 22:39   Engine/Content/Renderer/TessellationTable.bin
+      916  2024-10-19 22:35   Engine/Content/SlateDebug/Fonts/LastResort.tps
+  5395052  2022-11-03 01:47   Engine/Content/SlateDebug/Fonts/LastResort.ttf
+   211303  2025-04-08 15:43   TribeXR/Content/Certificates/cacert.pem
+  4121281  2025-09-08 15:39   TribeXR/Content/Movies/All4ScreensBldgE_v02.mp4
+  6379278  2022-11-03 13:28   TribeXR/Content/Movies/EQ_Twist.mp4
+   774303  2025-09-08 15:39   TribeXR/Content/Movies/NeonsLines_v01.mp4
+  6509007  2025-05-16 15:49   TribeXR/Content/Movies/PTDJA_Trailer.mp4
+ 15563910  2025-09-08 15:39   TribeXR/Content/Movies/Selina.mp4
+ 37792038  2026-06-22 16:01   TribeXR/Content/Movies/TribeTrailer.mp4
+  1171885  2025-04-28 22:12   TribeXR/Content/Movies/videoHipHop_A_B_2.mp4
+688531677  2026-09-01 12:05   TribeXR/Content/Paks/pakchunk0-Android_ASTC.pak
+103093146  2026-09-01 12:05   TribeXR/Content/Paks/pakchunk0optional-Android_ASTC.pak
+403562810  2026-09-01 12:05   TribeXR/Content/Paks/pakchunk1-Android_ASTC.pak
+142888023  2026-09-01 12:05   TribeXR/Content/Paks/pakchunk1optional-Android_ASTC.pak
+ 10033207  2026-06-22 16:01   TribeXR/Content/Visuals/Videos/cleanroom_1.mp4
+ 10017709  2026-06-22 16:01   TribeXR/Content/Visuals/Videos/dvde_1.mp4
+ 15001910  2026-06-22 16:01   TribeXR/Content/Visuals/Videos/farkedpattern.mp4
+  9382430  2026-06-22 16:01   TribeXR/Content/Visuals/Videos/hotboxxx_1.mp4
+  4911951  2026-06-22 16:01   TribeXR/Content/Visuals/Videos/Lighting1.mp4
+  4912006  2026-06-22 16:01   TribeXR/Content/Visuals/Videos/Lighting4.mp4
+  4910177  2026-06-22 16:01   TribeXR/Content/Visuals/Videos/Lighting6.mp4
+ 10017483  2026-06-22 16:01   TribeXR/Content/Visuals/Videos/okkkk_1.mp4
+  4998479  2026-06-22 16:01   TribeXR/Content/Visuals/Videos/scream.mp4
+  4906831  2026-06-22 16:01   TribeXR/Content/Visuals/Videos/Techno-Tunnel2.mp4
+  9986483  2026-06-22 16:01   TribeXR/Content/Visuals/Videos/unplug_1.mp4
+ 12020317  2026-06-22 16:01   TribeXR/Content/Visuals/Videos/wrmmm.mp4
+  3790959  2025-04-08 15:43   TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/CachedAvatars.zip
+  7877284  2026-06-22 16:01   TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/OvrAvatar2Assets.zip
+ 63625279  2025-04-08 15:43   TribeXR/Plugins/MetaAvatar2/Source/ThirdParty/MetaAvatar2NativeSDK/assets/PresetAvatars_Quest2.zip
+---------                     -------
+2032880796                     157 files
+--- pak footers:
+pulled/main.2300.com.TribeXR.TribeXR.obb :: TribeXR/Content/Paks/pakchunk0-Android_ASTC.pak  (688,531,677 bytes)
+    pak_version: 11
+    index_offset: 687686720
+    index_size: 270666
+    encrypted_index: False
+    encryption_key_guid: 00000000000000000000000000000000 (all zero = default key)
+    compression_methods: ['Oodle']
+    bytes_between_primary_index_and_footer: 574070
+pulled/main.2300.com.TribeXR.TribeXR.obb :: TribeXR/Content/Paks/pakchunk0optional-Android_ASTC.pak  (103,093,146 bytes)
+    pak_version: 11
+    index_offset: 103079365
+    index_size: 13022
+    encrypted_index: False
+    encryption_key_guid: 00000000000000000000000000000000 (all zero = default key)
+    compression_methods: ['Oodle']
+    bytes_between_primary_index_and_footer: 538
+pulled/main.2300.com.TribeXR.TribeXR.obb :: TribeXR/Content/Paks/pakchunk1-Android_ASTC.pak  (403,562,810 bytes)
+    pak_version: 11
+    index_offset: 403462897
+    index_size: 73022
+    encrypted_index: False
+    encryption_key_guid: 00000000000000000000000000000000 (all zero = default key)
+    compression_methods: ['Oodle']
+    bytes_between_primary_index_and_footer: 26670
+pulled/main.2300.com.TribeXR.TribeXR.obb :: TribeXR/Content/Paks/pakchunk1optional-Android_ASTC.pak  (142,888,023 bytes)
+    pak_version: 11
+    index_offset: 142870212
+    index_size: 16690
+    encrypted_index: False
+    encryption_key_guid: 00000000000000000000000000000000 (all zero = default key)
+    compression_methods: ['Oodle']
+    bytes_between_primary_index_and_footer: 900

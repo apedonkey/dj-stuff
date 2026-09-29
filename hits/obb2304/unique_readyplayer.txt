@@ -1,0 +1,16 @@
+2	/Game/Visuals/Skins/OculusAvatar/PreviewImages/T_SkinPreview_ReadyPlayerMe_Custom
+2	TribeXR/Plugins/ReadyPlayerMe/
+2	ReadyPlayerMe.uplugin
+1	ReadyPlayerMe
+1	</Game/Visuals/Skins/OculusAvatar/BP_ReadyPlayerMe
+1	ReadyPlayerMUrl
+1	T_SkinPreview_ReadyPlayerMe_Custom
+1	\t"FriendlyName": "ReadyPlayerMe",
+1	\t"Description": "ReadyPlayerMe Avatar Toolkit",
+1	\t"Category": "ReadyPlayerMe",
+1	\t"DocsURL": "https://docs.readyplayer.me/",
+1	\t\t\t"Name": "ReadyPlayerMe",
+1	BP_ReadyPlayerMeAvatarSkin.uasset
+1	BP_ReadyPlayerMeAvatarSkin.uexp
+1	T_SkinPreview_ReadyPlayerMe_Custom.uasset
+1	T_SkinPreview_ReadyPlayerMe_Custom.uexp

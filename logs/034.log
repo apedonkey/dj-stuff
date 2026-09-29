@@ -1,0 +1,72 @@
+unzip exit: 0
+--- top level:
+total 5826
+drwxr-xr-x 1 Chris 197121       0 Sep 28 23:18 .
+drwxr-xr-x 1 Chris 197121       0 Sep 28 23:18 ..
+-rw-r--r-- 1 Chris 197121   24864 Jan  1  1981 AndroidManifest.xml
+drwxr-xr-x 1 Chris 197121       0 Sep 28 23:18 assets
+-rw-r--r-- 1 Chris 197121 5221312 Jan  1  1981 classes.dex
+drwxr-xr-x 1 Chris 197121       0 Sep 28 23:18 lib
+drwxr-xr-x 1 Chris 197121       0 Sep 28 23:18 META-INF
+-rw-r--r-- 1 Chris 197121      78 Jan  1  1981 play-services-appset.properties
+-rw-r--r-- 1 Chris 197121      74 Jan  1  1981 play-services-auth.properties
+-rw-r--r-- 1 Chris 197121      94 Jan  1  1981 play-services-auth-api-phone.properties
+-rw-r--r-- 1 Chris 197121      84 Jan  1  1981 play-services-auth-base.properties
+-rw-r--r-- 1 Chris 197121      74 Jan  1  1981 play-services-base.properties
+-rw-r--r-- 1 Chris 197121      82 Jan  1  1981 play-services-basement.properties
+-rw-r--r-- 1 Chris 197121      76 Jan  1  1981 play-services-drive.properties
+-rw-r--r-- 1 Chris 197121      74 Jan  1  1981 play-services-fido.properties
+-rw-r--r-- 1 Chris 197121      82 Jan  1  1981 play-services-games-v2.properties
+-rw-r--r-- 1 Chris 197121      76 Jan  1  1981 play-services-tasks.properties
+drwxr-xr-x 1 Chris 197121       0 Sep 28 23:18 res
+-rw-r--r-- 1 Chris 197121  544676 Jan  1  1981 resources.arsc
+--- native libs:
+total 254924
+-rw-r--r-- 1 Chris 197121    722960 Jan  1  1981 libacidsynth.so
+-rw-r--r-- 1 Chris 197121    575712 Jan  1  1981 libagora_video_decoder_extension.so
+-rw-r--r-- 1 Chris 197121    608480 Jan  1  1981 libagora_video_encoder_extension.so
+-rw-r--r-- 1 Chris 197121    690336 Jan  1  1981 libagora-fdkaac.so
+-rw-r--r-- 1 Chris 197121   6006520 Jan  1  1981 libagora-ffmpeg.so
+-rw-r--r-- 1 Chris 197121  28034448 Jan  1  1981 libagora-rtc-sdk.so
+-rw-r--r-- 1 Chris 197121   8996512 Jan  1  1981 libagora-rtm-sdk.so
+-rw-r--r-- 1 Chris 197121    198496 Jan  1  1981 libagora-soundtouch.so
+-rw-r--r-- 1 Chris 197121    561176 Jan  1  1981 libaosl.so
+-rw-r--r-- 1 Chris 197121   5585976 Jan  1  1981 libbeatport-sdk.so
+-rw-r--r-- 1 Chris 197121    636944 Jan  1  1981 libdrummachine.so
+-rw-r--r-- 1 Chris 197121  22344936 Jan  1  1981 libEOSSDK.so
+-rw-r--r-- 1 Chris 197121    432000 Jan  1  1981 libmrutilitykitshared.so
+-rw-r--r-- 1 Chris 197121    480224 Jan  1  1981 libopenxr_loader.so
+-rw-r--r-- 1 Chris 197121   7268552 Jan  1  1981 libovravatar2.so
+-rw-r--r-- 1 Chris 197121   9195920 Jan  1  1981 libovrbody.so
+-rw-r--r-- 1 Chris 197121    137552 Jan  1  1981 libovrgpuskinning.so
+-rw-r--r-- 1 Chris 197121  28892000 Jan  1  1981 libOVRLipSync.so
+-rw-r--r-- 1 Chris 197121    821344 Jan  1  1981 libovrplatformloader.so
+-rw-r--r-- 1 Chris 197121   5328744 Jan  1  1981 libOVRPlugin.so
+-rw-r--r-- 1 Chris 197121     67456 Jan  1  1981 libovrplugintracking.so
+-rw-r--r-- 1 Chris 197121    243376 Jan  1  1981 libpsoservice.so
+-rw-r--r-- 1 Chris 197121 129868152 Jan  1  1981 libUnreal.so
+-rw-r--r-- 1 Chris 197121   1210888 Jan  1  1981 libvideo_dec.so
+-rw-r--r-- 1 Chris 197121   1399320 Jan  1  1981 libvideo_enc.so
+-rw-r--r-- 1 Chris 197121    483520 Jan  1  1981 libVkLayer_OverrideLib.so
+-rw-r--r-- 1 Chris 197121    190728 Jan  1  1981 libxrtracking.so
+--- Unity markers (libil2cpp.so, global-metadata.dat, Managed/*.dll, assets/bin/Data):
+(end of Unity markers)
+--- assets/ (depth 2):
+unpacked/base/assets
+unpacked/base/assets/UECommandLine.txt
+--- largest files:
+129868152	unpacked/base/lib/arm64-v8a/libUnreal.so
+28892000	unpacked/base/lib/arm64-v8a/libOVRLipSync.so
+28034448	unpacked/base/lib/arm64-v8a/libagora-rtc-sdk.so
+22344936	unpacked/base/lib/arm64-v8a/libEOSSDK.so
+9195920	unpacked/base/lib/arm64-v8a/libovrbody.so
+8996512	unpacked/base/lib/arm64-v8a/libagora-rtm-sdk.so
+7268552	unpacked/base/lib/arm64-v8a/libovravatar2.so
+6006520	unpacked/base/lib/arm64-v8a/libagora-ffmpeg.so
+5585976	unpacked/base/lib/arm64-v8a/libbeatport-sdk.so
+5328744	unpacked/base/lib/arm64-v8a/libOVRPlugin.so
+5221312	unpacked/base/classes.dex
+1399320	unpacked/base/lib/arm64-v8a/libvideo_enc.so
+--- libUnreal.so:
+unpacked/base/lib/arm64-v8a/libUnreal.so: ELF 64-bit LSB shared object, ARM aarch64, version 1 (SYSV), dynamically linked, for Android 29, built by NDK r25b (8937393), BuildID[sha1]=41f08cd5b2674368a0e3b1c849a00c554f214030, stripped
+--- engine version strings in libUnreal.so (ASCII, then UTF-16LE):

@@ -1,0 +1,11 @@
+1	#VideoFrameRotator.glBindFramebuffer
+1	zip://models/blank.glb.zst
+1	Replays/DefaultAvatar.glb
+1	zip:\/\/([0-9]*)\.glb
+1	zip://99.glb
+1	zip://%s_quest2.glb
+1	.glb .gltf .json .js
+1	.glb.zst
+1	.glb
+1	models/Cube.glb
+1	models/Cube.glbPK

@@ -1,0 +1,119 @@
+=== context of the URL and of the .glb hits in libUnreal.so:
+== pulled/base.apk :: lib/arm64-v8a/libUnreal.so @0x9984c [utf16le] terms=.glb
+   MeshPlaneCut
+   bCameraCut
+   Do Plane Cut
+>> zip://models/blank.glb.zst
+   AmbientCubemapMipAdjust
+   InQuadAdjust
+   InUVAdjust
+
+== pulled/base.apk :: lib/arm64-v8a/libUnreal.so @0x2c4f46 [utf16le] terms=.glb,avatar
+   GreatJob
+   NiceJob
+   GoodJob
+>> Replays/DefaultAvatar.glb
+   zip:\/\/([0-9]*)\.glb
+   zip://99.glb
+   zip://%s_quest2.glb
+
+== pulled/base.apk :: lib/arm64-v8a/libUnreal.so @0x2c4f7a [utf16le] terms=.glb
+   NiceJob
+   GoodJob
+   Replays/DefaultAvatar.glb
+>> zip:\/\/([0-9]*)\.glb
+   zip://99.glb
+   zip://%s_quest2.glb
+   RefCountSize %llu  FreeSize %llu  FreeMem %llukb
+
+== pulled/base.apk :: lib/arm64-v8a/libUnreal.so @0x2c4fa6 [utf16le] terms=.glb
+   GoodJob
+   Replays/DefaultAvatar.glb
+   zip:\/\/([0-9]*)\.glb
+>> zip://99.glb
+   zip://%s_quest2.glb
+   RefCountSize %llu  FreeSize %llu  FreeMem %llukb
+   ListSize %llu  Blocks Count %d  Free %llu  Mem %llukb   Li
+
+== pulled/base.apk :: lib/arm64-v8a/libUnreal.so @0x2c4fc0 [utf16le] terms=.glb
+   Replays/DefaultAvatar.glb
+   zip:\/\/([0-9]*)\.glb
+   zip://99.glb
+>> zip://%s_quest2.glb
+   RefCountSize %llu  FreeSize %llu  FreeMem %llukb
+   ListSize %llu  Blocks Count %d  Free %llu  Mem %llukb   Linked Mem %llukb
+   Zlib
+
+== pulled/base.apk :: lib/arm64-v8a/libUnreal.so @0x4b2280 [ascii] terms=.glb,gltf
+   bNotifyGlobalBreaks
+   Peaks
+   QuickMountingPaks
+>> .glb .gltf .json .js
+   touchaxis
+   PrimaryAxis
+   SecondaryAxis
+
+   Movies/
+   Currencies/
+   operator/
+=== strings around the URL (python strings_at, +-0x300):
+offset in libUnreal.so: 0x5be61d
+   0x005be320 A DATA: stream_id == 0
+   0x005be335 A (stream->flags & NGHTTP2_STREAM_FLAG_DEFERRED_ALL) == 0
+   0x005be36d A assertion failed: (bit & 1) == 0
+   0x005be38e A assertion failed: (d & 1) == 0
+   0x005be3ad A assertion failed: ((ptr - sh.arena) & ((sh.arena_size >> list) - 1)) == 0
+   0x005be3f7 A assertion failed: ( length & 3 ) == 0
+   0x005be41d A assertion failed: ( LPC_order & 1 ) == 0
+   0x005be446 A assertion failed: ( order & 1 ) == 0
+   0x005be46b A assertion failed: ( shapingLPCOrder & 1 ) == 0
+   0x005be49a A assertion failed: ( D & 1 ) == 0
+   0x005be4bb A GOAWAY: stream_id != 0
+   0x005be4d2 A SETTINGS: stream_id != 0
+   0x005be4eb A PING: stream_id != 0
+   0x005be500 A SETTINGS: ACK and payload != 0
+   0x005be51f A assertion failed: 0
+   0x005be533 A posix/
+   0x005be53a A https://api.twitch.tv/helix/
+   0x005be557 A /input/
+   0x005be55f A localhost/
+   0x005be56a A https://mixreality.tribexr.com/beatport/
+   0x005be593 A unitsShort/
+   0x005be59f A multipart/
+   0x005be5aa A /Script/
+   0x005be5b3 A right/
+   0x005be5ba A NumberElements/
+   0x005be5ca A /patterns/
+   0x005be5d5 A Tracks/LessonTracks/
+   0x005be5ea A Replays/LessonPacks/
+   0x005be5ff A Movies/
+   0x005be607 A Currencies/
+   0x005be613 A operator/
+>> 0x005be61d A https://readyplayer.me/api/avatar/
+   0x005be640 A calendar/
+   0x005be64a A rtmp://sfo.contribute.live-video.net/app/
+   0x005be674 A resource.frk/
+   0x005be682 A -processing-api.modulate.ai/
+   0x005be69f A /.debug/
+   0x005be6a8 A Checking device support for profile %s (%s). You may find the details of the capabilities of this device on https://vulkan.gpuinfo.org/
+   0x005be730 A /UnrealGame/
+   0x005be73d A .AppleDouble/
+   0x005be74b A .resource/
+   0x005be756 A /user/hand/
+   0x005be762 A HTTP/
+   0x005be768 A RTSP/
+   0x005be76e A /Content/UI/
+   0x005be77b A 127.0.0.1/
+   0x005be786 A ipod-library://
+   0x005be796 A https://
+   0x005be79f A hls://
+   0x005be7a6 A http://
+   0x005be7ae A file://
+   0x005be7b6 A ;sha256//
+   0x005be7c0 A 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz./
+   0x005be805 A /../
+   0x005be80a A ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/
+   0x005be84b A SOCKS5: the destination hostname is too long to be resolved remotely by the proxy.
+   0x005be89e A Confirmation dialog failed due to null Android Activity.
+   0x005be8d7 A infinity.
+   0x005be8e1 A Check that the Java PlayCore AAR is included and that PlayCo
