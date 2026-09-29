@@ -2990,3 +2990,34 @@ Next: rebuild with Hook B guarded (skip num<=0), Hook A unchanged; re-test heads
 dispatcher fires and loads our file.
 
 STOP — awaiting OK to build the guarded version.
+
+## Phase 2d (guarded build test) — Option A REFUTED for initial spawn
+
+Guarded build: Hook B passes empty-path (num<=0) calls through untouched; Hook A forces type=1 + our
+FString on the dispatcher. Uninstalled the (store-reinstalled) Meta build, installed the sideload,
+re-pushed OBB + staged rpmavatar-custom.glb. Launched headset-on, user drove fully into a session.
+
+Result (logs/hookAB_guarded.txt, tag-filtered):
+- Guard works — NO crash. App stable through full in-session load (pid alive, no SIGSEGV).
+- **dispatcher FIRED = 0** even fully in-session with the avatar rendering. **choke FIRED = 1**, the same
+  early empty-path init call (~2.7 s), now passed through harmlessly.
+- User confirms: **their Meta avatar shows** (unchanged). The initial avatar load bypassed both hooks.
+
+**Conclusion: FUN_050fc2d4 is NOT the initial-spawn apply point.** The choke hook firing proves addressing
++ hooking are correct, so this is a real finding, not a hook bug. The initial (Meta) avatar loads via a
+path that does not call FUN_050fc2d4 (FUN_04ba81a8 reached from a Meta-SDK/init caller, or a serialized
+component load). FUN_050fc2d4 is likely the runtime avatar-CHANGE apply point (UI/network), not spawn.
+
+Also confirmed: the RPM component's ONLY spawn-time loader call is the empty-URL init at ~2.7 s, and it is
+too early to hijack — forcing a load there dereferences the not-yet-attached glTF context (this+0x90) →
+the earlier SIGSEGV (#00 pc 0x20 [anon:.bss]).
+
+Net: injection toolchain + inline-hook mechanism fully proven; addressing bug (Ghidra +0x100000) fixed.
+But no identified point yet forces the avatar at INITIAL spawn. Open questions for the next trace:
+(i) what supplies the avatar id/type at spawn (to make it resolve to an RPM URL so the normal path loads
+ours), and (ii) where/when the RPM component's glTF context (this+0x90) is initialized (a safe, not-too-
+early injection point).
+
+Device restored to clean re-signed build.
+
+STOP — awaiting direction (targeted spawn-load trace, or reassess approach).

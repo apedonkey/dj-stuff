@@ -77,9 +77,15 @@ extern "C" int64_t repl_dispatcher(void *thisptr, void *id, int64_t type) {
 typedef int64_t (*choke_t)(void *, void *);
 static choke_t orig_choke = nullptr;
 extern "C" int64_t repl_choke(void *thisptr, void *path) {
-    char b[600]; decode_fstring((const FString *)path, b, sizeof b);
-    LOGI("choke FIRED: path='%s'", b);
-    LOGI("choke: forcing path='%s' -> calling original", TARGET_PATH);
+    const FString *p = (const FString *)path;
+    // GUARD: early init/reset calls pass an empty path; forcing a load there crashes
+    // (uninitialized avatar-loaded callback). Pass those straight through, unchanged.
+    if (!p || !p->data || p->num <= 0) {
+        LOGI("choke FIRED: empty path (num=%d) -> pass-through, NOT forcing", p ? p->num : -1);
+        return orig_choke(thisptr, path);
+    }
+    char b[600]; decode_fstring(p, b, sizeof b);
+    LOGI("choke FIRED: path='%s' -> forcing '%s' -> calling original", b, TARGET_PATH);
     return orig_choke(thisptr, &g_fstr);
 }
 
