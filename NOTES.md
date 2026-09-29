@@ -3375,3 +3375,44 @@ same-named class object) — non-blocking for the decision but tighten find_stru
 Outer is the /Game/... package, skip SKEL_/REINST_) before relying on pawn property offsets in S3.
 
 STOP — Session 2 done; awaiting direction on Session 3 (ProcessEvent-driven RPM replay).
+
+## Session 3a-prep (read-only) — the GATE is a config-string read; pipeline fully mapped
+
+sdk.txt emitted (logs/scan_final/sdk.txt). Path-resolved (find_by_path: exact full path + FName Number==0
++ meta-class in {BlueprintGeneratedClass,WidgetBlueprintGeneratedClass,Class}) — replaces the flaky find_struct.
+
+### UFunction layout PINNED (from raw dumps; UStruct part already known)
+Script(TArray u8)@0x60 {Data@0x60,Num@0x68,Max@0x6C}; FunctionFlags(u32)@0xB0; NumParms(u8)@0xB4;
+ParmsSize(u16)@0xB6; ReturnValueOffset(u16)@0xB8 (0xFFFF=no return); Func(native ptr)@0xD8.
+BP function Func == UObject::ProcessInternal (ApplySkinToPlayer Func=0x7c03282248 this run -> RVA=Func-base;
+one static hop to ProcessLocalScriptFunction for a full VM trace, per reviewer).
+
+### THE GATE (decoded by hand from InitMyRPMAvatarSkin bytecode, Script.Num=671)
+InitMyRPMAvatarSkin calls TribeBlueprintLibrary.ReadConfigString(section="TribeAvatar",
+key="ReadyPlayerMeAvatarUrl") -> if a URL is present, SpawnObject(BP_ReadyPlayerMeAvatarSkin); else falls
+back to Oculus. EX_StringConst literals in the bytecode: "TribeAvatar", "ReadyPlayerMeAvatarUrl",
+"My Ready Player Me Avatar", "793D20064B49A061A726F1AC4F790732" (fallback/default RPM id),
+"Use your latest custom avatar from tribexr.readyplayer.me".
+=> The lever is config[TribeAvatar][ReadyPlayerMeAvatarUrl] = file:///... .glb. **ReadConfigString is NATIVE**
+   (/Script/TribeXR.TribeBlueprintLibrary.ReadConfigString) — next read-only step: decompile it (Func@0xD8 -> RVA
+   -> Ghidra) to learn the config backing. If a writable .ini/save file -> the mod is a FILE DROP, no injection.
+
+### Pipeline call graph (from ChildProperties local names CallFunc_<callee>_<param>)
+- LoadAvatarAtUrl(AvatarUrl:Str) — 44 bytes, thin wrapper (one call; HTTP-vs-native TBD by disasm).
+- HandleAvatarLoaded(AvatarComponent, CachedAvatarFilename) -> calls InitMyRPMAvatarSkin.
+- InitMyRPMAvatarSkin -> ReadConfigString + SpawnObject(RPM skin).
+- AddOrUpdateCachedRPMAvatarSkin(OldFilename,NewFilename) -> GetCleanFilename, cast BP_ReadyPlayerMeAvatarSkin,
+  update VisualsManager.RPMAvatarSkins map.
+- ApplySkinToPlayer(Skin) [NumParms=1,ParmsSize=8] -> GetSkinClass, IsValidClass, Map_Find.
+
+### VisualsManager skin registry (BP_TribeVisualsManager_C props)
+Skins@0x400, RigSkins@0x450, CustomSkins@0x4a0, OculusAvatarSkins@0x538(Map), RPMAvatarSkins@0x588(Map),
+ActiveSkins@0x5d8(Map), EnvironmentSkins@0x7c0(Map); key strings K_OculusAvatarSkin@0x528, K_EnvironmentSkin@0x7b0.
+GameInstance: AvatarId StrProperty @0x318 on native TribeGameInstance (16-digit Meta id currently).
+
+### L3 ProcessEvent prep
+Default__Object vtable_rva=0x06D537B0 (Ghidra 0x06E537B0). 96 slots dumped in sdk.txt; ProcessEvent is the
+slot whose body does ldrh ParmsSize@0xB6 + tst FunctionFlags&0x400 + dynamic sp adjust — ID it in Ghidra next.
+
+STOP — gate found (config string). Awaiting direction: decompile native ReadConfigString to decide
+file-drop vs runtime-set, then Session 3 hook (or no hook) accordingly.

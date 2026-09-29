@@ -247,6 +247,47 @@ static bool np_scan_stride(uint32_t stride){
 }
 static bool scan_namepool(){ g_np_hits=0; g_lead_blocks=0; if(np_scan_stride(64)) return true; return np_scan_stride(8); }
 
+// ---- Session-3 prep (read-only): path-resolved classes/functions, props, UFunction sdk ----
+// Resolve by exact full path; for classes require Number==0 and a *GeneratedClass/Class meta-class.
+static uintptr_t find_by_path(const char* path, int wantClass){
+    char fp[512], cn[128];
+    for(uint32_t i=0;i<g_numElements;i++){ uintptr_t o=obj_at(i); if(!o) continue;
+        if(rd32(o+OFF_Name+4)!=0) continue;                     // FName Number must be 0
+        full_path(o,fp,sizeof fp); if(strcmp(fp,path)!=0) continue;
+        if(wantClass){ class_name(o,cn,sizeof cn);
+            if(strcmp(cn,"BlueprintGeneratedClass")&&strcmp(cn,"WidgetBlueprintGeneratedClass")&&strcmp(cn,"Class")) continue; }
+        return o; }
+    return 0;
+}
+static void dump_props(FILE* fo,const char* clsPath){
+    uintptr_t cls=find_by_path(clsPath,1);
+    fprintf(fo,"\n==== properties of %s  (class=0x%lx) ====\n",clsPath,(unsigned long)cls);
+    if(!cls){ fprintf(fo,"  (class not found)\n"); return; }
+    int depth=0;
+    for(uintptr_t c=cls; c && depth<14; c=rdptr(c+OFF_Super),depth++){
+        char cnm[128]; obj_name(c,cnm,sizeof cnm); uint32_t ps=rd32(c+OFF_PropSize);
+        fprintf(fo,"  [%s] PropertiesSize=0x%x\n",cnm,ps);
+        int n=0; for(uintptr_t f=rdptr(c+OFF_ChildProps); f && n<256; f=rdptr(f+FF_Next),n++){
+            char ty[64],nm[128]; ffield_type(f,ty,sizeof ty); uint32_t id=rd32(f+FF_Name); fname_resolve(id,nm,sizeof nm);
+            uint32_t off=rd32(f+FP_Offset), es=rd32(f+FP_ElemSize);
+            fprintf(fo,"    +0x%04x  %-26s %-40s elem=0x%x\n",off,ty,nm,es); }
+    }
+}
+static void dump_ufunction(FILE* fo,const char* fnPath){
+    uintptr_t fn=find_by_path(fnPath,0);
+    fprintf(fo,"\n==== UFunction %s  (0x%lx) ====\n",fnPath,(unsigned long)fn);
+    if(!fn){ fprintf(fo,"  (not found)\n"); return; }
+    hexdump_to(fo,"  raw[0..0xE0]",fn,0xE0);                     // pin FunctionFlags/ParmsSize/Func offsets
+    uintptr_t scriptData=rdptr(fn+0x60); uint32_t scriptNum=rd32(fn+0x68), scriptMax=rd32(fn+0x6C);
+    fprintf(fo,"  UStruct.Script @0x60: Data=0x%lx Num=%u Max=%u\n",(unsigned long)scriptData,scriptNum,scriptMax);
+    fprintf(fo,"  ChildProperties (params+locals):\n"); int n=0;
+    for(uintptr_t f=rdptr(fn+OFF_ChildProps); f && n<40; f=rdptr(f+FF_Next),n++){
+        char ty[64],nm[128]; ffield_type(f,ty,sizeof ty); uint32_t id=rd32(f+FF_Name); fname_resolve(id,nm,sizeof nm);
+        uint32_t off=rd32(f+FP_Offset), es=rd32(f+FP_ElemSize);
+        fprintf(fo,"    +0x%04x %-22s %-28s elem=0x%x\n",off,ty,nm,es); }
+    if(scriptData && scriptNum){ uint32_t cap=scriptNum<0x400?scriptNum:0x400; hexdump_to(fo,"  Script bytecode[0..cap]",scriptData,cap); }
+}
+
 // ---- the dump ----
 static void do_dump(){
     load_maps();
@@ -368,6 +409,35 @@ static void do_dump(){
       fprintf(fv,"\nTribeGameInstanceBP_C inst=0x%lx AvatarId@0x%x\n",(unsigned long)gi,offGIA);
       if(gi&&offGIA>=0){ char s[256]; read_fstring(gi+offGIA,s,sizeof s); fprintf(fv,"  AvatarId='%s'\n",s); }
       fclose(fv);
+    }
+
+    // ---- sdk.txt (Session-3 prep: vtable for L3, class props, UFunction layouts) ----
+    FILE* fs=(r1&&r3&&canWalk)?fopen(op("sdk.txt"),"w"):0;
+    if(fs){
+      // Default__Object vtable -> RVA + slots (find ProcessEvent in Ghidra from these)
+      uintptr_t objCDO=find_by_path("/Script/CoreUObject.Default__Object",0);
+      if(!objCDO){ for(uint32_t i=0;i<g_numElements;i++){ uintptr_t o=obj_at(i); if(!o)continue; char cn[128]; class_name(o,cn,sizeof cn);
+          if(strcmp(cn,"Object")==0 && (rd32(o+OFF_Flags)&RF_ClassDefaultObject)){ objCDO=o; break; } } }
+      uintptr_t vt=objCDO?rdptr(objCDO):0;
+      fprintf(fs,"Default__Object=0x%lx vtable=0x%lx vtable_rva=0x%lx (ghidra=0x%lx)\n",
+        (unsigned long)objCDO,(unsigned long)vt,(unsigned long)(vt?vt-g_base:0),(unsigned long)(vt?vt-g_base+0x100000:0));
+      for(int s=0;s<96 && vt;s++){ uintptr_t sl=rdptr(vt+(uintptr_t)s*8);
+        fprintf(fs,"  vt[%02d] rva=0x%08lx ghidra=0x%08lx\n",s,(unsigned long)(sl?sl-g_base:0),(unsigned long)(sl?sl-g_base+0x100000:0)); }
+
+      // full property layouts (AvatarId neighbors, cached RPM url/skin map)
+      dump_props(fs,"/Game/GameModes/TribeGameInstanceBP.TribeGameInstanceBP_C");
+      dump_props(fs,"/Game/Visuals/BP_TribeVisualsManager.BP_TribeVisualsManager_C");
+      dump_props(fs,"/Game/Pawn/TribePawnBP.TribePawnBP_C");
+
+      // the five RPM-pipeline UFunctions (params/offsets/types, Script.Num, raw layout, bytecode)
+      const char* fns[]={
+        "/Game/Visuals/BP_TribeVisualsManager.BP_TribeVisualsManager_C.InitMyRPMAvatarSkin",
+        "/Game/Visuals/BP_TribeVisualsManager.BP_TribeVisualsManager_C.AddOrUpdateCachedRPMAvatarSkin",
+        "/Game/Visuals/BP_TribeVisualsManager.BP_TribeVisualsManager_C.ApplySkinToPlayer",
+        "/Game/Menus/W_RPMAvatarCreator.W_RPMAvatarCreator_C.LoadAvatarAtUrl",
+        "/Game/Menus/W_RPMAvatarCreator.W_RPMAvatarCreator_C.HandleAvatarLoaded" };
+      for(auto fp:fns) dump_ufunction(fs,fp);
+      fclose(fs);
     }
 
     if(g_sc){ fprintf(g_sc,"\nTOTAL FAILS=%d\n",g_fails); fclose(g_sc); g_sc=0; }

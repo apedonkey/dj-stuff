@@ -1,0 +1,757 @@
+Default__Object=0x7bf5e9e140 vtable=0x7c0877d7b0 vtable_rva=0x6d537b0 (ghidra=0x6e537b0)
+  vt[00] rva=0x0188b840 ghidra=0x0198b840
+  vt[01] rva=0x0187bb64 ghidra=0x0197bb64
+  vt[02] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[03] rva=0x0187bbcc ghidra=0x0197bbcc
+  vt[04] rva=0x0146a6e8 ghidra=0x0156a6e8
+  vt[05] rva=0x01447068 ghidra=0x01547068
+  vt[06] rva=0x0187e890 ghidra=0x0197e890
+  vt[07] rva=0x0187e8ac ghidra=0x0197e8ac
+  vt[08] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[09] rva=0x016d337c ghidra=0x017d337c
+  vt[10] rva=0x01885140 ghidra=0x01985140
+  vt[11] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[12] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[13] rva=0x01447068 ghidra=0x01547068
+  vt[14] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[15] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[16] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[17] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[18] rva=0x017d3d28 ghidra=0x018d3d28
+  vt[19] rva=0x01447068 ghidra=0x01547068
+  vt[20] rva=0x01447060 ghidra=0x01547060
+  vt[21] rva=0x017d1488 ghidra=0x018d1488
+  vt[22] rva=0x017d3794 ghidra=0x018d3794
+  vt[23] rva=0x017cf134 ghidra=0x018cf134
+  vt[24] rva=0x01447060 ghidra=0x01547060
+  vt[25] rva=0x017d33d4 ghidra=0x018d33d4
+  vt[26] rva=0x017d3f3c ghidra=0x018d3f3c
+  vt[27] rva=0x017d06e0 ghidra=0x018d06e0
+  vt[28] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[29] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[30] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[31] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[32] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[33] rva=0x016d338c ghidra=0x017d338c
+  vt[34] rva=0x017d3364 ghidra=0x018d3364
+  vt[35] rva=0x017d3054 ghidra=0x018d3054
+  vt[36] rva=0x01447060 ghidra=0x01547060
+  vt[37] rva=0x01447068 ghidra=0x01547068
+  vt[38] rva=0x01447068 ghidra=0x01547068
+  vt[39] rva=0x01447068 ghidra=0x01547068
+  vt[40] rva=0x01447068 ghidra=0x01547068
+  vt[41] rva=0x01447068 ghidra=0x01547068
+  vt[42] rva=0x017d3d38 ghidra=0x018d3d38
+  vt[43] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[44] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[45] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[46] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[47] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[48] rva=0x017d105c ghidra=0x018d105c
+  vt[49] rva=0x016d33a0 ghidra=0x017d33a0
+  vt[50] rva=0x017d3478 ghidra=0x018d3478
+  vt[51] rva=0x01447068 ghidra=0x01547068
+  vt[52] rva=0x017d5474 ghidra=0x018d5474
+  vt[53] rva=0x016d33b0 ghidra=0x017d33b0
+  vt[54] rva=0x0145cb10 ghidra=0x0155cb10
+  vt[55] rva=0x01447060 ghidra=0x01547060
+  vt[56] rva=0x017d4a68 ghidra=0x018d4a68
+  vt[57] rva=0x017d4560 ghidra=0x018d4560
+  vt[58] rva=0x017d5580 ghidra=0x018d5580
+  vt[59] rva=0x017d5644 ghidra=0x018d5644
+  vt[60] rva=0x017d56ec ghidra=0x018d56ec
+  vt[61] rva=0x017d5778 ghidra=0x018d5778
+  vt[62] rva=0x017d57b8 ghidra=0x018d57b8
+  vt[63] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[64] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[65] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[66] rva=0x017d93c0 ghidra=0x018d93c0
+  vt[67] rva=0x017d9428 ghidra=0x018d9428
+  vt[68] rva=0x017d9478 ghidra=0x018d9478
+  vt[69] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[70] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[71] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[72] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[73] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[74] rva=0x017d43a8 ghidra=0x018d43a8
+  vt[75] rva=0x0145cb10 ghidra=0x0155cb10
+  vt[76] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[77] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[78] rva=0x01858dd4 ghidra=0x01958dd4
+  vt[79] rva=0x01505a34 ghidra=0x01605a34
+  vt[80] rva=0x01447068 ghidra=0x01547068
+  vt[81] rva=0x016d3408 ghidra=0x017d3408
+  vt[82] rva=0x0145cb10 ghidra=0x0155cb10
+  vt[83] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[84] rva=0x017d444c ghidra=0x018d444c
+  vt[85] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[86] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[87] rva=0x014c208c ghidra=0x015c208c
+  vt[88] rva=0x00000000 ghidra=0x00000000
+  vt[89] rva=0x00000000 ghidra=0x00000000
+  vt[90] rva=0x01615bd8 ghidra=0x01715bd8
+  vt[91] rva=0x014c952c ghidra=0x015c952c
+  vt[92] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[93] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[94] rva=0x016141ac ghidra=0x017141ac
+  vt[95] rva=0x0145cb10 ghidra=0x0155cb10
+
+==== properties of /Game/GameModes/TribeGameInstanceBP.TribeGameInstanceBP_C  (class=0x7b593c0400) ====
+  [TribeGameInstanceBP_C] PropertiesSize=0x4e9
+    +0x04a0  StructProperty             UberGraphFrame                           elem=0x740065
+    +0x04a8  ByteProperty               HMD                                      elem=0x70006d
+    +0x04b0  StrProperty                InitialDefaultRenderDeviceId             elem=0x6d0073
+    +0x04c0  StrProperty                CurrentDefaultRenderDeviceId             elem=0x6e0065
+    +0x04d0  BoolProperty               bThirdPersonSpectator                    elem=0x650072
+    +0x04d8  MulticastInlineDelegateProperty OnSpectateModeChanged                    elem=0x0
+    +0x04e8  ByteProperty               DisplayMirrorMode                        elem=0x0
+  [TribeGameInstance] PropertiesSize=0x4a0
+    +0x01c0  MulticastInlineDelegateProperty OnVROriginRecentered                     elem=0x0
+    +0x01d0  MulticastInlineDelegateProperty OnLoadingScreenToggled                   elem=0x0
+    +0x01e0  MulticastInlineDelegateProperty OnOnlineStatusChanged                    elem=0x0
+    +0x01f0  MulticastInlineDelegateProperty OnOnlinePlatformLoginChanged             elem=0x0
+    +0x0200  MulticastInlineDelegateProperty OnTribeBackendLoginChanged               elem=0x0
+    +0x0210  MulticastInlineDelegateProperty OnCurrentCultureChanged                  elem=0x0
+    +0x0220  MulticastInlineDelegateProperty OnTribeInviteSent                        elem=0x0
+    +0x0230  MulticastInlineDelegateProperty OnTribeInviteReceived                    elem=0x0
+    +0x0240  MulticastInlineDelegateProperty OnFriendsRefreshedDelegate               elem=0x0
+    +0x0250  MulticastInlineDelegateProperty OnTribeSessionsFound                     elem=0x0
+    +0x0260  MulticastInlineDelegateProperty OnSessionStateChanged                    elem=0x0
+    +0x0270  MulticastInlineDelegateProperty OnTribeLeaderboardRead                   elem=0x0
+    +0x0280  MulticastInlineDelegateProperty OnTribeLocalUserLeaderboardRead          elem=0x0
+    +0x0290  MulticastInlineDelegateProperty OnTribeDLCLoaded                         elem=0x0
+    +0x02a0  MulticastInlineDelegateProperty OnTribeSubscriptionUpdated               elem=0x0
+    +0x02b0  MulticastInlineDelegateProperty OnTribeSubscriptionStatusConfirmed       elem=0x0
+    +0x02c0  MulticastInlineDelegateProperty OnTribeAddonDownloaded                   elem=0x0
+    +0x02d0  MulticastInlineDelegateProperty OnExperimentalTrackingToggled            elem=0x0
+    +0x02e0  MulticastInlineDelegateProperty OnTribePointsAdded                       elem=0x0
+    +0x02f0  MulticastInlineDelegateProperty OnLeaderboardsReady                      elem=0x0
+    +0x0300  BoolProperty               bIsOnline                                elem=0x0
+    +0x0308  StrProperty                OnlineId                                 elem=0x0
+    +0x0318  StrProperty                AvatarId                                 elem=0x0
+    +0x0328  ArrayProperty              PendingErrorMessages                     elem=0x0
+    +0x0338  ArrayProperty              AvailableAddons                          elem=0x0
+    +0x0348  IntProperty                ActiveLeaderboardQueries                 elem=0x0
+    +0x0350  ObjectProperty             TribeOnlineSessionInterface              elem=0x0
+    +0x0360  ObjectProperty             TribeAccountsManager                     elem=0x0
+    +0x03a0  StructProperty             PlayerStats                              elem=0x0
+    +0x03f0  MapProperty                CachedLeaderboardRanks                   elem=0x8
+  [GameInstance] PropertiesSize=0x1c0
+    +0x0038  ArrayProperty              LocalPlayers                             elem=0x0
+    +0x0048  ObjectProperty             OnlineSession                            elem=0x0
+    +0x0050  ArrayProperty              ReferencedObjects                        elem=0x0
+    +0x0078  MulticastInlineDelegateProperty OnPawnControllerChangedDelegates         elem=0x0
+    +0x00a0  MulticastInlineDelegateProperty OnInputDeviceConnectionChange            elem=0x0
+    +0x00b0  MulticastInlineDelegateProperty OnUserInputDevicePairingChange           elem=0x0
+  [Object] PropertiesSize=0x28
+
+==== properties of /Game/Visuals/BP_TribeVisualsManager.BP_TribeVisualsManager_C  (class=0x7b1a47b530) ====
+  [BP_TribeVisualsManager_C] PropertiesSize=0x8d0
+    +0x03e0  StructProperty             UberGraphFrame                           elem=0x7b
+    +0x03e8  ObjectProperty             DefaultSceneRoot                         elem=0x0
+    +0x03f0  ObjectProperty             CurrentBeatmatchTrack                    elem=0x0
+    +0x03f8  ObjectProperty             CurrentBeatmatchDeck                     elem=0x0
+    +0x0400  MapProperty                Skins                                    elem=0x0
+    +0x0450  MapProperty                RigSkins                                 elem=0x0
+    +0x04a0  MapProperty                CustomSkins                              elem=0x0
+    +0x04f0  ObjectProperty             ActiveRigSkin                            elem=0x0
+    +0x04f8  MulticastInlineDelegateProperty OnActiveSkinChanged                      elem=0x0
+    +0x0508  StrProperty                K_SkinsSection                           elem=0x0
+    +0x0518  StrProperty                K_DeckSkin                               elem=0x0
+    +0x0528  StrProperty                K_OculusAvatarSkin                       elem=0x0
+    +0x0538  MapProperty                OculusAvatarSkins                        elem=0x0
+    +0x0588  MapProperty                RPMAvatarSkins                           elem=0x0
+    +0x05d8  MapProperty                ActiveSkins                              elem=0x0
+    +0x0628  MulticastInlineDelegateProperty OnSkinsLoaded                            elem=0x0
+    +0x0638  BoolProperty               bSkinsLoaded                             elem=0x0
+    +0x0639  BoolProperty               bSkinsReadyToApply                       elem=0x0
+    +0x0640  ArrayProperty              LockedSkins                              elem=0x0
+    +0x0650  MapProperty                EquipmentSkins                           elem=0x0
+    +0x06a0  SoftObjectProperty         BoothSpotlight                           elem=0x0
+    +0x06c8  SoftObjectProperty         BackdropSpotlight                        elem=0x0
+    +0x06f0  SoftObjectProperty         RoomSkyLight                             elem=0x0
+    +0x0718  DoubleProperty             RoomSkyLightIntensity                    elem=0x0
+    +0x0720  DoubleProperty             BoothSpotlightIntensity                  elem=0x0
+    +0x0728  DoubleProperty             LightDimFactor                           elem=0x0
+    +0x0730  StructProperty             LastBackdropColor                        elem=0x0
+    +0x0740  ObjectProperty             TribeGameState                           elem=0x0
+    +0x0748  MapProperty                PropSkins                                elem=0x0
+    +0x0798  MulticastInlineDelegateProperty OnSkinsReadyToApply                      elem=0x0
+    +0x07a8  BoolProperty               bLightingDisabled                        elem=0x0
+    +0x07b0  StrProperty                K_EnvironmentSkin                        elem=0x0
+    +0x07c0  MapProperty                EnvironmentSkins                         elem=0x0
+    +0x0810  StrProperty                K_AvatarPropSkin                         elem=0x0
+    +0x0820  SoftObjectProperty         NDIInputTexture                          elem=0x0
+    +0x0848  MapProperty                LessonPackSkins                          elem=0x0
+    +0x0898  StrProperty                K_LessonPackSkin                         elem=0x0
+    +0x08a8  BoolProperty               bRadialFXEnabled                         elem=0x0
+    +0x08b0  ArrayProperty              RadialFXComponents                       elem=0x0
+    +0x08c0  ArrayProperty              RadialFXMaterials                        elem=0x0
+  [TribeVisualsManager] PropertiesSize=0x3e0
+    +0x0290  MulticastInlineDelegateProperty OnGifPlayed                              elem=0x0
+    +0x02a0  ObjectProperty             BackdropImagesRenderTarget               elem=0x0
+    +0x02a8  ObjectProperty             BackdropTextRenderTarget                 elem=0x0
+    +0x02b0  ObjectProperty             HeaderFont                               elem=0x0
+    +0x02b8  IntProperty                MaxGifsDownloading                       elem=0x0
+    +0x02bc  BoolProperty               bSaveGifDownloads                        elem=0x0
+    +0x02c0  StrProperty                VideoUrl                                 elem=0x0
+    +0x02d0  ObjectProperty             BackdropStaticMeshActor                  elem=0x0
+    +0x02d8  ObjectProperty             BackdropMediaPlayer                      elem=0x0
+    +0x02e0  ObjectProperty             BackdropVideoMaterialInterface           elem=0x0
+    +0x02e8  ObjectProperty             BackdropGifMaterialInterface             elem=0x0
+    +0x02f0  ObjectProperty             NdiStreamMaterialInterface               elem=0x0
+    +0x02f8  ObjectProperty             DefaultMaterialInterface                 elem=0x0
+    +0x0300  MulticastInlineDelegateProperty OnMediaPlayerOpenSuccess                 elem=0x0
+    +0x0310  ObjectProperty             MediaFolder                              elem=0x0
+    +0x0318  ObjectProperty             GifFolder                                elem=0x0
+    +0x0320  ObjectProperty             GifDownloadsFolder                       elem=0x0
+    +0x0328  ObjectProperty             VideoFolder                              elem=0x0
+    +0x0330  ObjectProperty             SphereVideoFolder                        elem=0x0
+    +0x0338  ObjectProperty             DLCFolder                                elem=0x0
+    +0x0340  ObjectProperty             NdiSourceFile                            elem=0x0
+    +0x0348  ArrayProperty              InstalledVisualsPackAddons               elem=0x0
+    +0x0358  ArrayProperty              InstalledVideoSphereAddons               elem=0x0
+    +0x0390  ArrayProperty              BackdropGifs                             elem=0x0
+    +0x03a0  ArrayProperty              PendingGifs                              elem=0xd
+  [Actor] PropertiesSize=0x290
+    +0x0028  StructProperty             PrimaryActorTick                         elem=0x0
+    +0x0058  BoolProperty               bNetTemporary                            elem=0x0
+    +0x0058  BoolProperty               bOnlyRelevantToOwner                     elem=0x0
+    +0x0058  BoolProperty               bAlwaysRelevant                          elem=0x0
+    +0x0058  BoolProperty               bReplicateMovement                       elem=0x0
+    +0x0058  BoolProperty               bCallPreReplication                      elem=0x0
+    +0x0058  BoolProperty               bCallPreReplicationForReplay             elem=0x0
+    +0x0058  BoolProperty               bHidden                                  elem=0x0
+    +0x0059  BoolProperty               bTearOff                                 elem=0x0
+    +0x0059  BoolProperty               bForceNetAddressable                     elem=0x0
+    +0x0059  BoolProperty               bExchangedRoles                          elem=0x0
+    +0x0059  BoolProperty               bNetLoadOnClient                         elem=0x0
+    +0x0059  BoolProperty               bNetUseOwnerRelevancy                    elem=0x0
+    +0x0059  BoolProperty               bRelevantForNetworkReplays               elem=0x0
+    +0x0059  BoolProperty               bRelevantForLevelBounds                  elem=0x0
+    +0x0059  BoolProperty               bReplayRewindable                        elem=0x0
+    +0x005a  BoolProperty               bAllowTickBeforeBeginPlay                elem=0x0
+    +0x005a  BoolProperty               bAutoDestroyWhenFinished                 elem=0x0
+    +0x005a  BoolProperty               bCanBeDamaged                            elem=0x0
+    +0x005a  BoolProperty               bBlockInput                              elem=0x0
+    +0x005a  BoolProperty               bCollideWhenPlacing                      elem=0x0
+    +0x005a  BoolProperty               bFindCameraComponentWhenViewTarget       elem=0x0
+    +0x005a  BoolProperty               bGenerateOverlapEventsDuringLevelStreaming elem=0x0
+    +0x005a  BoolProperty               bIgnoresOriginShifting                   elem=0x0
+    +0x005b  BoolProperty               bEnableAutoLODGeneration                 elem=0x0
+    +0x005b  BoolProperty               bIsEditorOnlyActor                       elem=0x0
+    +0x005b  BoolProperty               bActorSeamlessTraveled                   elem=0x0
+    +0x005b  BoolProperty               bReplicates                              elem=0x0
+    +0x005b  BoolProperty               bCanBeInCluster                          elem=0x0
+    +0x005b  BoolProperty               bAllowReceiveTickEventOnDedicatedServer  elem=0x0
+    +0x005b  BoolProperty               bReplicateUsingRegisteredSubObjectList   elem=0x0
+    +0x005c  BoolProperty               bActorEnableCollision                    elem=0x0
+    +0x005d  BoolProperty               bActorIsBeingDestroyed                   elem=0x0
+    +0x005d  BoolProperty               bAsyncPhysicsTickEnabled                 elem=0x0
+    +0x005e  EnumProperty               UpdateOverlapsMethodDuringLevelStreaming elem=0x0
+    +0x005f  EnumProperty               DefaultUpdateOverlapsMethodDuringLevelStreaming elem=0x0
+    +0x0060  ByteProperty               RemoteRole                               elem=0x0
+    +0x0064  FloatProperty              InitialLifeSpan                          elem=0x0
+    +0x0068  FloatProperty              CustomTimeDilation                       elem=0x0
+    +0x006c  IntProperty                RayTracingGroupId                        elem=0x0
+    +0x0070  StructProperty             AttachmentReplication                    elem=0x0
+    +0x00d0  StructProperty             ReplicatedMovement                       elem=0x0
+    +0x0140  ObjectProperty             Owner                                    elem=0x0
+    +0x0148  NameProperty               NetDriverName                            elem=0x0
+    +0x0150  ByteProperty               Role                                     elem=0x0
+    +0x0151  ByteProperty               NetDormancy                              elem=0x0
+    +0x0152  EnumProperty               SpawnCollisionHandlingMethod             elem=0x0
+    +0x0153  ByteProperty               AutoReceiveInput                         elem=0x0
+    +0x0154  IntProperty                InputPriority                            elem=0x0
+    +0x0160  ObjectProperty             InputComponent                           elem=0x0
+    +0x0168  FloatProperty              NetCullDistanceSquared                   elem=0x0
+    +0x016c  IntProperty                NetTag                                   elem=0x0
+    +0x0170  FloatProperty              NetUpdateFrequency                       elem=0x0
+    +0x0174  FloatProperty              MinNetUpdateFrequency                    elem=0x0
+    +0x0178  FloatProperty              NetPriority                              elem=0x0
+    +0x017c  EnumProperty               PhysicsReplicationMode                   elem=0x0
+    +0x0188  ObjectProperty             Instigator                               elem=0x0
+    +0x0190  ArrayProperty              Children                                 elem=0x0
+    +0x01a0  ObjectProperty             RootComponent                            elem=0x0
+    +0x01b0  ArrayProperty              Layers                                   elem=0x0
+    +0x01c0  WeakObjectProperty         ParentComponent                          elem=0x0
+    +0x01c8  ArrayProperty              Tags                                     elem=0x0
+    +0x01d8  MulticastSparseDelegateProperty OnTakeAnyDamage                          elem=0x0
+    +0x01d9  MulticastSparseDelegateProperty OnTakePointDamage                        elem=0x0
+    +0x01da  MulticastSparseDelegateProperty OnTakeRadialDamage                       elem=0x0
+    +0x01db  MulticastSparseDelegateProperty OnActorBeginOverlap                      elem=0x0
+    +0x01dc  MulticastSparseDelegateProperty OnActorEndOverlap                        elem=0x0
+    +0x01dd  MulticastSparseDelegateProperty OnBeginCursorOver                        elem=0x0
+    +0x01de  MulticastSparseDelegateProperty OnEndCursorOver                          elem=0x0
+    +0x01df  MulticastSparseDelegateProperty OnClicked                                elem=0x0
+    +0x01e0  MulticastSparseDelegateProperty OnReleased                               elem=0x0
+    +0x01e1  MulticastSparseDelegateProperty OnInputTouchBegin                        elem=0x0
+    +0x01e2  MulticastSparseDelegateProperty OnInputTouchEnd                          elem=0x0
+    +0x01e3  MulticastSparseDelegateProperty OnInputTouchEnter                        elem=0x0
+    +0x01e4  MulticastSparseDelegateProperty OnInputTouchLeave                        elem=0x0
+    +0x01e5  MulticastSparseDelegateProperty OnActorHit                               elem=0x0
+    +0x01e6  MulticastSparseDelegateProperty OnDestroyed                              elem=0x0
+    +0x01e7  MulticastSparseDelegateProperty OnEndPlay                                elem=0x0
+    +0x0268  ArrayProperty              InstanceComponents                       elem=0x0
+    +0x0278  ArrayProperty              BlueprintCreatedComponents               elem=0x0
+  [Object] PropertiesSize=0x28
+
+==== properties of /Game/Pawn/TribePawnBP.TribePawnBP_C  (class=0x7b1a47e080) ====
+  [TribePawnBP_C] PropertiesSize=0x5e2
+    +0x03c0  StructProperty             UberGraphFrame                           elem=0x0
+    +0x03c8  ObjectProperty             TribeAvatar                              elem=0x0
+    +0x03d0  ObjectProperty             VRBodyReplication                        elem=0x0
+    +0x03d8  ObjectProperty             AvatarPropMesh                           elem=0x0
+    +0x03e0  ObjectProperty             HeadCollisionSphere                      elem=0x0
+    +0x03e8  ObjectProperty             VROrigin                                 elem=0x0
+    +0x03f0  ObjectProperty             MotionControllerR                        elem=0x0
+    +0x03f8  ObjectProperty             MotionControllerL                        elem=0x0
+    +0x0400  ObjectProperty             Camera                                   elem=0x0
+    +0x0408  ObjectProperty             LeftHand                                 elem=0x0
+    +0x0410  ObjectProperty             RightHand                                elem=0x0
+    +0x0418  StructProperty             PlayerInfo                               elem=0x0
+    +0x0440  BoolProperty               bPossessed                               elem=0x0
+    +0x0441  BoolProperty               bHost                                    elem=0x0
+    +0x0448  ObjectProperty             ActiveWidgetHand                         elem=0x0
+    +0x0450  ObjectProperty             OwnedRig                                 elem=0x0
+    +0x0458  ClassProperty              TribeHandsClass                          elem=0x0
+    +0x0460  DoubleProperty             ReducedInteractSensitivity               elem=0x0
+    +0x0468  BoolProperty               bDJing                                   elem=0x0
+    +0x0469  BoolProperty               bDancing                                 elem=0x0
+    +0x0470  MapProperty                ActiveSkinClasses                        elem=0x0
+    +0x04c0  ArrayProperty              ActiveSkins                              elem=0x0
+    +0x04d0  ObjectProperty             TribeGameState                           elem=0x0
+    +0x04d8  MulticastInlineDelegateProperty OnDJModeToggled                          elem=0x0
+    +0x04e8  DoubleProperty             ScrollBias                               elem=0x0
+    +0x04f0  BoolProperty               bMenuInteractionDisabled                 elem=0x0
+    +0x04f1  BoolProperty               bIndexLeftGrip                           elem=0x0
+    +0x04f2  BoolProperty               bIndexRightGrip                          elem=0x0
+    +0x04f8  ObjectProperty             CurrentAttachedRecord                    elem=0x0
+    +0x0500  BoolProperty               bHasVRInputFocus                         elem=0x0
+    +0x0501  BoolProperty               bVirtualHeadphonesEnabled                elem=0x0
+    +0x0508  DoubleProperty             MouseScale                               elem=0x0
+    +0x0510  StructProperty             CameraInputDir                           elem=0x0
+    +0x0528  StructProperty             CameraLocation                           elem=0x0
+    +0x0540  StructProperty             SpectateLocation                         elem=0x0
+    +0x0558  StructProperty             SpectateRotation                         elem=0x0
+    +0x0570  DoubleProperty             CameraMoveSpeed                          elem=0x0
+    +0x0578  DoubleProperty             CameraZoomSpeed                          elem=0x0
+    +0x0580  BoolProperty               bCameraOverview                          elem=0x0
+    +0x0588  ObjectProperty             DJMouseMesh                              elem=0x0
+    +0x0590  ObjectProperty             MenuMouseMesh                            elem=0x0
+    +0x0598  BoolProperty               bViewportMenuHovered                     elem=0x0
+    +0x05a0  MulticastInlineDelegateProperty OnInputModeChanged                       elem=0x0
+    +0x05b0  BoolProperty               bScrollMenuHovered                       elem=0x0
+    +0x05b1  BoolProperty               bShiftAll                                elem=0x0
+    +0x05b8  ObjectProperty             DesktopViewportWidget                    elem=0x0
+    +0x05c0  ArrayProperty              bShifted                                 elem=0x0
+    +0x05d0  ObjectProperty             DesktopAvatarMesh                        elem=0x0
+    +0x05d8  ObjectProperty             DesktopAvatarTexture                     elem=0x0
+    +0x05e0  BoolProperty               bHandTrackingEnabled                     elem=0x0
+    +0x05e1  BoolProperty               bPrivacyBubbleEnabled                    elem=0x0
+  [TribePawn] PropertiesSize=0x3c0
+    +0x0318  ObjectProperty             InputReplay                              elem=0x0
+    +0x0320  EnumProperty               InputMode                                elem=0x0
+    +0x0321  EnumProperty               AttachMode                               elem=0x0
+    +0x0328  ObjectProperty             AttachActor                              elem=0x0
+    +0x0330  FloatProperty              HeightOffset                             elem=0x0
+    +0x0340  StructProperty             CustomAnchorOffset                       elem=0x0
+    +0x03a0  MulticastInlineDelegateProperty OnPlayerStateReplicated                  elem=0x0
+    +0x03b0  StructProperty             CameraInput                              elem=0x0
+  [Pawn] PropertiesSize=0x318
+    +0x0298  BoolProperty               bUseControllerRotationPitch              elem=0x0
+    +0x0298  BoolProperty               bUseControllerRotationYaw                elem=0x0
+    +0x0298  BoolProperty               bUseControllerRotationRoll               elem=0x0
+    +0x0298  BoolProperty               bCanAffectNavigationGeneration           elem=0x0
+    +0x0298  BoolProperty               bIsLocalViewTarget                       elem=0x0
+    +0x029c  FloatProperty              BaseEyeHeight                            elem=0x0
+    +0x02a0  ByteProperty               AutoPossessPlayer                        elem=0x0
+    +0x02a1  EnumProperty               AutoPossessAI                            elem=0x0
+    +0x02a2  ByteProperty               RemoteViewPitch                          elem=0x0
+    +0x02a8  ClassProperty              AIControllerClass                        elem=0x0
+    +0x02b0  ObjectProperty             PlayerState                              elem=0x0
+    +0x02c0  ObjectProperty             LastHitBy                                elem=0x0
+    +0x02c8  ObjectProperty             Controller                               elem=0x0
+    +0x02d0  ObjectProperty             PreviousController                       elem=0x0
+    +0x02dc  MulticastSparseDelegateProperty ReceiveControllerChangedDelegate         elem=0x0
+    +0x02dd  MulticastSparseDelegateProperty ReceiveRestartedDelegate                 elem=0x0
+    +0x02e0  StructProperty             ControlInputVector                       elem=0x0
+    +0x02f8  StructProperty             LastControlInputVector                   elem=0x0
+    +0x0310  ClassProperty              OverrideInputComponentClass              elem=0x0
+  [Actor] PropertiesSize=0x290
+    +0x0028  StructProperty             PrimaryActorTick                         elem=0x0
+    +0x0058  BoolProperty               bNetTemporary                            elem=0x0
+    +0x0058  BoolProperty               bOnlyRelevantToOwner                     elem=0x0
+    +0x0058  BoolProperty               bAlwaysRelevant                          elem=0x0
+    +0x0058  BoolProperty               bReplicateMovement                       elem=0x0
+    +0x0058  BoolProperty               bCallPreReplication                      elem=0x0
+    +0x0058  BoolProperty               bCallPreReplicationForReplay             elem=0x0
+    +0x0058  BoolProperty               bHidden                                  elem=0x0
+    +0x0059  BoolProperty               bTearOff                                 elem=0x0
+    +0x0059  BoolProperty               bForceNetAddressable                     elem=0x0
+    +0x0059  BoolProperty               bExchangedRoles                          elem=0x0
+    +0x0059  BoolProperty               bNetLoadOnClient                         elem=0x0
+    +0x0059  BoolProperty               bNetUseOwnerRelevancy                    elem=0x0
+    +0x0059  BoolProperty               bRelevantForNetworkReplays               elem=0x0
+    +0x0059  BoolProperty               bRelevantForLevelBounds                  elem=0x0
+    +0x0059  BoolProperty               bReplayRewindable                        elem=0x0
+    +0x005a  BoolProperty               bAllowTickBeforeBeginPlay                elem=0x0
+    +0x005a  BoolProperty               bAutoDestroyWhenFinished                 elem=0x0
+    +0x005a  BoolProperty               bCanBeDamaged                            elem=0x0
+    +0x005a  BoolProperty               bBlockInput                              elem=0x0
+    +0x005a  BoolProperty               bCollideWhenPlacing                      elem=0x0
+    +0x005a  BoolProperty               bFindCameraComponentWhenViewTarget       elem=0x0
+    +0x005a  BoolProperty               bGenerateOverlapEventsDuringLevelStreaming elem=0x0
+    +0x005a  BoolProperty               bIgnoresOriginShifting                   elem=0x0
+    +0x005b  BoolProperty               bEnableAutoLODGeneration                 elem=0x0
+    +0x005b  BoolProperty               bIsEditorOnlyActor                       elem=0x0
+    +0x005b  BoolProperty               bActorSeamlessTraveled                   elem=0x0
+    +0x005b  BoolProperty               bReplicates                              elem=0x0
+    +0x005b  BoolProperty               bCanBeInCluster                          elem=0x0
+    +0x005b  BoolProperty               bAllowReceiveTickEventOnDedicatedServer  elem=0x0
+    +0x005b  BoolProperty               bReplicateUsingRegisteredSubObjectList   elem=0x0
+    +0x005c  BoolProperty               bActorEnableCollision                    elem=0x0
+    +0x005d  BoolProperty               bActorIsBeingDestroyed                   elem=0x0
+    +0x005d  BoolProperty               bAsyncPhysicsTickEnabled                 elem=0x0
+    +0x005e  EnumProperty               UpdateOverlapsMethodDuringLevelStreaming elem=0x0
+    +0x005f  EnumProperty               DefaultUpdateOverlapsMethodDuringLevelStreaming elem=0x0
+    +0x0060  ByteProperty               RemoteRole                               elem=0x0
+    +0x0064  FloatProperty              InitialLifeSpan                          elem=0x0
+    +0x0068  FloatProperty              CustomTimeDilation                       elem=0x0
+    +0x006c  IntProperty                RayTracingGroupId                        elem=0x0
+    +0x0070  StructProperty             AttachmentReplication                    elem=0x0
+    +0x00d0  StructProperty             ReplicatedMovement                       elem=0x0
+    +0x0140  ObjectProperty             Owner                                    elem=0x0
+    +0x0148  NameProperty               NetDriverName                            elem=0x0
+    +0x0150  ByteProperty               Role                                     elem=0x0
+    +0x0151  ByteProperty               NetDormancy                              elem=0x0
+    +0x0152  EnumProperty               SpawnCollisionHandlingMethod             elem=0x0
+    +0x0153  ByteProperty               AutoReceiveInput                         elem=0x0
+    +0x0154  IntProperty                InputPriority                            elem=0x0
+    +0x0160  ObjectProperty             InputComponent                           elem=0x0
+    +0x0168  FloatProperty              NetCullDistanceSquared                   elem=0x0
+    +0x016c  IntProperty                NetTag                                   elem=0x0
+    +0x0170  FloatProperty              NetUpdateFrequency                       elem=0x0
+    +0x0174  FloatProperty              MinNetUpdateFrequency                    elem=0x0
+    +0x0178  FloatProperty              NetPriority                              elem=0x0
+    +0x017c  EnumProperty               PhysicsReplicationMode                   elem=0x0
+    +0x0188  ObjectProperty             Instigator                               elem=0x0
+    +0x0190  ArrayProperty              Children                                 elem=0x0
+    +0x01a0  ObjectProperty             RootComponent                            elem=0x0
+    +0x01b0  ArrayProperty              Layers                                   elem=0x0
+    +0x01c0  WeakObjectProperty         ParentComponent                          elem=0x0
+    +0x01c8  ArrayProperty              Tags                                     elem=0x0
+    +0x01d8  MulticastSparseDelegateProperty OnTakeAnyDamage                          elem=0x0
+    +0x01d9  MulticastSparseDelegateProperty OnTakePointDamage                        elem=0x0
+    +0x01da  MulticastSparseDelegateProperty OnTakeRadialDamage                       elem=0x0
+    +0x01db  MulticastSparseDelegateProperty OnActorBeginOverlap                      elem=0x0
+    +0x01dc  MulticastSparseDelegateProperty OnActorEndOverlap                        elem=0x0
+    +0x01dd  MulticastSparseDelegateProperty OnBeginCursorOver                        elem=0x0
+    +0x01de  MulticastSparseDelegateProperty OnEndCursorOver                          elem=0x0
+    +0x01df  MulticastSparseDelegateProperty OnClicked                                elem=0x0
+    +0x01e0  MulticastSparseDelegateProperty OnReleased                               elem=0x0
+    +0x01e1  MulticastSparseDelegateProperty OnInputTouchBegin                        elem=0x0
+    +0x01e2  MulticastSparseDelegateProperty OnInputTouchEnd                          elem=0x0
+    +0x01e3  MulticastSparseDelegateProperty OnInputTouchEnter                        elem=0x0
+    +0x01e4  MulticastSparseDelegateProperty OnInputTouchLeave                        elem=0x0
+    +0x01e5  MulticastSparseDelegateProperty OnActorHit                               elem=0x0
+    +0x01e6  MulticastSparseDelegateProperty OnDestroyed                              elem=0x0
+    +0x01e7  MulticastSparseDelegateProperty OnEndPlay                                elem=0x0
+    +0x0268  ArrayProperty              InstanceComponents                       elem=0x0
+    +0x0278  ArrayProperty              BlueprintCreatedComponents               elem=0x0
+  [Object] PropertiesSize=0x28
+
+==== UFunction /Game/Visuals/BP_TribeVisualsManager.BP_TribeVisualsManager_C.InitMyRPMAvatarSkin  (0x7b1a54d520) ====
+  raw[0..0xE0] @0x7b1a54d520:
+  +000: 28 5d 76 08 7c 00 00 00 01 00 28 00 0f a4 00 00  (]v.|.....(.....
+  +010: 80 c6 a0 f5 7b 00 00 00 88 3f 17 00 00 00 00 00  ....{....?......
+  +020: 30 b5 47 1a 7b 00 00 00 60 d3 54 1a 7b 00 00 00  0.G.{...`.T.{...
+  +030: d0 f4 17 1a 7b 00 00 00 00 00 00 00 00 00 00 00  ....{...........
+  +040: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +050: 80 07 34 1a 7b 00 00 00 28 00 00 00 08 00 00 00  ..4.{...(.......
+  +060: 40 dc d5 1a 7b 00 00 00 9f 02 00 00 c0 02 00 00  @...{...........
+  +070: 80 07 34 1a 7b 00 00 00 80 07 34 1a 7b 00 00 00  ..4.{.....4.{...
+  +080: 00 07 34 1a 7b 00 00 00 80 07 34 1a 7b 00 00 00  ..4.{.....4.{...
+  +090: c0 04 d0 20 7b 00 00 00 08 00 00 00 18 00 00 00  ... {...........
+  +0a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0b0: 00 00 42 0c 01 00 08 00 ff ff 00 00 00 00 00 00  ..B.............
+  +0c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0d0: 00 00 00 00 00 00 00 00 48 22 28 03 7c 00 00 00  ........H"(.|...
+  UStruct.Script @0x60: Data=0x7b1ad5dc40 Num=671 Max=704
+  ChildProperties (params+locals):
+    +0x0000 ObjectProperty         AvatarSkin                   elem=0x0
+    +0x0008 StrProperty            CallFunc_ReadConfigString_OutValue elem=0x0
+    +0x0018 BoolProperty           CallFunc_ReadConfigString_ReturnValue elem=0x0
+    +0x0020 ObjectProperty         CallFunc_SpawnObject_ReturnValue elem=0x0
+  Script bytecode[0..cap] @0x7b1ad5dc40:
+  +000: 14 00 80 06 34 1a 7b 00 00 00 68 20 26 f8 67 7b  ....4.{...h &.g{
+  +010: 00 00 00 1f 54 72 69 62 65 41 76 61 74 61 72 00  ....TribeAvatar.
+  +020: 1f 52 65 61 64 79 50 6c 61 79 65 72 4d 65 41 76  .ReadyPlayerMeAv
+  +030: 61 74 61 72 55 72 6c 00 00 00 07 34 1a 7b 00 00  atarUrl....4.{..
+  +040: 00 16 07 91 02 00 00 00 80 06 34 1a 7b 00 00 00  ..........4.{...
+  +050: 5f 00 00 06 34 1a 7b 00 00 00 68 60 01 ca 67 7b  _...4.{...h`..g{
+  +060: 00 00 00 20 e0 c8 47 1a 7b 00 00 00 17 16 0f 00  ... ..G.{.......
+  +070: ac 14 1a 7b 00 00 00 19 00 00 06 34 1a 7b 00 00  ...{.......4.{..
+  +080: 00 09 00 00 00 00 ac 14 1a 7b 00 00 00 01 00 ac  .........{......
+  +090: 14 1a 7b 00 00 00 00 00 07 34 1a 7b 00 00 00 19  ..{......4.{....
+  +0a0: 00 00 06 34 1a 7b 00 00 00 1c 00 00 00 00 00 00  ...4.{..........
+  +0b0: 00 00 00 00 00 45 a4 3f 17 00 00 00 00 00 00 00  .....E.?........
+  +0c0: 00 00 21 e8 42 17 00 00 00 00 00 00 00 00 00 27  ..!.B..........'
+  +0d0: 16 0f 80 4a 14 1a 7b 00 00 00 42 80 4a 14 1a 7b  ...J..{...B.J..{
+  +0e0: 00 00 00 19 00 00 06 34 1a 7b 00 00 00 09 00 00  .......4.{......
+  +0f0: 00 80 b2 14 1a 7b 00 00 00 01 80 b2 14 1a 7b 00  .....{........{.
+  +100: 00 00 29 01 1f 4d 79 20 52 65 61 64 79 20 50 6c  ..)..My Ready Pl
+  +110: 61 79 65 72 20 4d 65 20 41 76 61 74 61 72 00 1f  ayer Me Avatar..
+  +120: 37 39 33 44 32 30 30 36 34 42 34 39 41 30 36 31  793D20064B49A061
+  +130: 41 37 32 36 46 31 41 43 34 46 37 39 30 37 33 32  A726F1AC4F790732
+  +140: 00 1f 00 0f 00 4a 14 1a 7b 00 00 00 42 00 4a 14  .....J..{...B.J.
+  +150: 1a 7b 00 00 00 19 00 00 06 34 1a 7b 00 00 00 09  .{.......4.{....
+  +160: 00 00 00 80 b2 14 1a 7b 00 00 00 01 80 b2 14 1a  .......{........
+  +170: 7b 00 00 00 29 01 1f 55 73 65 20 79 6f 75 72 20  {...)..Use your 
+  +180: 6c 61 74 65 73 74 20 63 75 73 74 6f 6d 20 61 76  latest custom av
+  +190: 61 74 61 72 20 66 72 6f 6d 20 74 72 69 62 65 78  atar from tribex
+  +1a0: 72 2e 72 65 61 64 79 70 6c 61 79 65 72 2e 6d 65  r.readyplayer.me
+  +1b0: 0d 0a 54 68 69 73 20 69 73 20 74 68 65 20 61 76  ..This is the av
+  +1c0: 61 74 61 72 20 6f 74 68 65 72 73 20 77 69 6c 6c  atar others will
+  +1d0: 20 73 65 65 20 69 6e 20 6d 75 6c 74 69 70 6c 61   see in multipla
+  +1e0: 79 65 72 00 1f 33 38 34 41 38 43 42 37 34 44 31  yer..384A8CB74D1
+  +1f0: 46 46 38 34 35 37 43 30 37 42 32 39 32 44 31 46  FF8457C07B292D1F
+  +200: 46 30 33 39 34 00 1f 00 5f 42 80 49 14 1a 7b 00  F0394..._B.I..{.
+  +210: 00 00 19 00 00 06 34 1a 7b 00 00 00 09 00 00 00  ......4.{.......
+  +220: 80 b2 14 1a 7b 00 00 00 01 80 b2 14 1a 7b 00 00  ....{........{..
+  +230: 00 20 00 8e 69 20 7b 00 00 00 45 af 37 17 00 00  . ..i {...E.7...
+  +240: 00 00 00 00 00 00 00 01 60 c3 f5 19 7b 00 00 00  ........`...{...
+  +250: 19 00 00 06 34 1a 7b 00 00 00 09 00 00 00 00 b3  ....4.{.........
+  +260: 14 1a 7b 00 00 00 01 00 b3 14 1a 7b 00 00 00 00  ..{........{....
+  +270: 00 06 34 1a 7b 00 00 00 16 5f 48 80 07 34 1a 7b  ..4.{...._H..4.{
+  +280: 00 00 00 00 00 06 34 1a 7b 00 00 00 06 9c 02 00  ......4.{.......
+  +290: 00 5f 48 80 07 34 1a 7b 00 00 00 2a 04 0b 53  ._H..4.{...*..S
+
+==== UFunction /Game/Visuals/BP_TribeVisualsManager.BP_TribeVisualsManager_C.AddOrUpdateCachedRPMAvatarSkin  (0x7b1a54b220) ====
+  raw[0..0xE0] @0x7b1a54b220:
+  +000: 28 5d 76 08 7c 00 00 00 01 00 28 00 f6 a3 00 00  (]v.|.....(.....
+  +010: 80 c6 a0 f5 7b 00 00 00 9f 37 17 00 00 00 00 00  ....{....7......
+  +020: 30 b5 47 1a 7b 00 00 00 e0 b3 54 1a 7b 00 00 00  0.G.{.....T.{...
+  +030: 20 ef 17 1a 7b 00 00 00 00 00 00 00 00 00 00 00   ...{...........
+  +040: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +050: 00 c4 14 1a 7b 00 00 00 11 01 00 00 08 00 00 00  ....{...........
+  +060: 50 f2 fe 19 7b 00 00 00 71 04 00 00 90 04 00 00  P...{...q.......
+  +070: 00 c4 14 1a 7b 00 00 00 00 c3 14 1a 7b 00 00 00  ....{.......{...
+  +080: 00 c4 14 1a 7b 00 00 00 00 c4 14 1a 7b 00 00 00  ....{.......{...
+  +090: 80 56 ef 19 7b 00 00 00 0e 00 00 00 18 00 00 00  .V..{...........
+  +0a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0b0: 00 00 c2 0c 03 00 28 00 ff ff 00 00 00 00 00 00  ......(.........
+  +0c0: 00 bf 14 1a 7b 00 00 00 00 00 00 00 00 00 00 00  ....{...........
+  +0d0: 00 00 00 00 00 00 00 00 48 22 28 03 7c 00 00 00  ........H"(.|...
+  UStruct.Script @0x60: Data=0x7b19fef250 Num=1137 Max=1168
+  ChildProperties (params+locals):
+    +0x0000 StrProperty            OldFilename                  elem=0x2b
+    +0x0010 StrProperty            NewFilename                  elem=0x0
+    +0x0020 ObjectProperty         UpdatedSkin                  elem=0x0
+    +0x0028 ObjectProperty         UpdatedAvatarSkin            elem=0x0
+    +0x0030 NameProperty           OldSkinName                  elem=0x0
+    +0x0038 ObjectProperty         CallFunc_AddCachedRPMAvatarSkin_NewSkin elem=0x0
+    +0x0040 StrProperty            CallFunc_GetCleanFilename_ReturnValue elem=0x0
+    +0x0050 NameProperty           CallFunc_Conv_StringToName_ReturnValue elem=0x0
+    +0x0058 BoolProperty           CallFunc_NotEqual_ObjectObject_ReturnValue elem=0x0
+    +0x0060 StrProperty            CallFunc_GetCleanFilename_ReturnValue elem=0x0
+    +0x0070 TextProperty           CallFunc_Conv_NameToText_ReturnValue elem=0x0
+    +0x0080 NameProperty           CallFunc_Conv_StringToName_ReturnValue elem=0x0
+    +0x0088 StructProperty         K2Node_MakeStruct_FormatArgumentData elem=0x0
+    +0x00d0 ArrayProperty          K2Node_MakeArray_Array       elem=0x0
+    +0x00e0 TextProperty           CallFunc_Format_ReturnValue  elem=0x0
+    +0x00f0 BoolProperty           CallFunc_Map_Remove_ReturnValue elem=0x0
+    +0x00f8 ObjectProperty         CallFunc_Map_Find_Value      elem=0x0
+    +0x0100 BoolProperty           CallFunc_Map_Find_ReturnValue elem=0x0
+    +0x0108 ObjectProperty         K2Node_DynamicCast_AsBP_Ready_Player_Me_Avatar_Skin elem=0x0
+    +0x0110 BoolProperty           K2Node_DynamicCast_bSuccess  elem=0x0
+  Script bytecode[0..cap] @0x7b19fef250:
+  +000: 4c 6e 04 00 00 4c 35 04 00 00 0f 00 c1 14 1a 7b  Ln...L5........{
+  +010: 00 00 00 00 00 c1 14 1a 7b 00 00 00 68 c0 ec d3  ........{...h...
+  +020: 67 7b 00 00 00 48 00 c4 14 1a 7b 00 00 00 16 0f  g{...H....{.....
+  +030: 80 c0 14 1a 7b 00 00 00 00 80 c0 14 1a 7b 00 00  ....{........{..
+  +040: 00 68 20 c7 d3 67 7b 00 00 00 00 00 c1 14 1a 7b  .h ..g{........{
+  +050: 00 00 00 16 0f 00 c2 14 1a 7b 00 00 00 00 00 c2  .........{......
+  +060: 14 1a 7b 00 00 00 00 80 c0 14 1a 7b 00 00 00 14  ..{........{....
+  +070: 00 00 bb 14 1a 7b 00 00 00 19 20 50 80 97 f5 7b  .....{.... P...{
+  +080: 00 00 00 25 00 00 00 00 bb 14 1a 7b 00 00 00 1c  ...%.......{....
+  +090: 40 f0 bc 67 7b 00 00 00 01 60 c3 f5 19 7b 00 00  @..g{....`...{..
+  +0a0: 00 00 00 c2 14 1a 7b 00 00 00 00 80 bb 14 1a 7b  ......{........{
+  +0b0: 00 00 00 16 0f 00 00 00 00 00 00 00 00 00 80 ba  ................
+  +0c0: 14 1a 7b 00 00 00 2e e0 c8 47 1a 7b 00 00 00 00  ..{......G.{....
+  +0d0: 80 bb 14 1a 7b 00 00 00 0f 00 00 00 00 00 00 00  ....{...........
+  +0e0: 00 00 00 ba 14 1a 7b 00 00 00 38 01 00 80 ba 14  ......{...8.....
+  +0f0: 1a 7b 00 00 00 5f 00 80 c2 14 1a 7b 00 00 00 00  .{..._.....{....
+  +100: 80 ba 14 1a 7b 00 00 00 14 00 00 c0 14 1a 7b 00  ....{.........{.
+  +110: 00 00 68 40 79 d0 67 7b 00 00 00 00 80 c2 14 1a  ..h@y.g{........
+  +120: 7b 00 00 00 2a 16 07 4d 04 00 00 00 00 c0 14 1a  {...*..M........
+  +130: 7b 00 00 00 14 00 00 bc 14 1a 7b 00 00 00 19 20  {.........{.... 
+  +140: 50 80 97 f5 7b 00 00 00 1c 00 00 00 00 bc 14 1a  P...{...........
+  +150: 7b 00 00 00 1c e0 eb bc 67 7b 00 00 00 01 60 c3  {.......g{....`.
+  +160: f5 19 7b 00 00 00 00 00 c2 14 1a 7b 00 00 00 16  ..{........{....
+  +170: 0f 00 ac 14 1a 7b 00 00 00 19 00 80 c2 14 1a 7b  .....{.........{
+  +180: 00 00 00 09 00 00 00 00 ac 14 1a 7b 00 00 00 01  ...........{....
+  +190: 00 ac 14 1a 7b 00 00 00 00 80 c3 14 1a 7b 00 00  ....{........{..
+  +1a0: 00 0f 80 bf 14 1a 7b 00 00 00 00 80 bf 14 1a 7b  ......{........{
+  +1b0: 00 00 00 68 c0 ec d3 67 7b 00 00 00 00 80 c3 14  ...h...g{.......
+  +1c0: 1a 7b 00 00 00 16 0f 80 be 14 1a 7b 00 00 00 00  .{.........{....
+  +1d0: 80 be 14 1a 7b 00 00 00 68 20 c7 d3 67 7b 00 00  ....{...h ..g{..
+  +1e0: 00 00 80 bf 14 1a 7b 00 00 00 16 0f 00 b3 14 1a  ......{.........
+  +1f0: 7b 00 00 00 19 00 80 c2 14 1a 7b 00 00 00 09 00  {.........{.....
+  +200: 00 00 00 b3 14 1a 7b 00 00 00 01 00 b3 14 1a 7b  ......{........{
+  +210: 00 00 00 00 80 be 14 1a 7b 00 00 00 19 20 50 80  ........{.... P.
+  +220: 97 f5 7b 00 00 00 3b 00 00 00 00 00 00 00 00 00  ..{...;.........
+  +230: 00 00 1c e0 f2 bc 67 7b 00 00 00 01 60 c3 f5 19  ......g{....`...
+  +240: 7b 00 00 00 19 00 80 c2 14 1a 7b 00 00 00 09 00  {.........{.....
+  +250: 00 00 00 b3 14 1a 7b 00 00 00 01 00 b3 14 1a 7b  ......{........{
+  +260: 00 00 00 00 80 c2 14 1a 7b 00 00 00 16 0f 00 bf  ........{.......
+  +270: 14 1a 7b 00 00 00 00 00 bf 14 1a 7b 00 00 00 68  ..{........{...h
+  +280: 40 3a b5 67 7b 00 00 00 19 00 80 c2 14 1a 7b 00  @:.g{.........{.
+  +290: 00 00 09 00 00 00 00 b3 14 1a 7b 00 00 00 01 00  ..........{.....
+  +2a0: b3 14 1a 7b 00 00 00 16 0f 80 d9 6f 70 7b 00 00  ...{.......op{..
+  +2b0: 00 42 80 d9 6f 70 7b 00 00 00 00 00 be 14 1a 7b  .B..op{........{
+  +2c0: 00 00 00 1f 66 69 6c 65 6e 61 6d 65 00 0f 80 d8  ....filename....
+  +2d0: 6f 70 7b 00 00 00 42 80 d8 6f 70 7b 00 00 00 00  op{...B..op{....
+  +2e0: 00 be 14 1a 7b 00 00 00 24 04 0f 80 da 6f 70 7b  ....{...$....op{
+  +2f0: 00 00 00 42 80 da 6f 70 7b 00 00 00 00 00 be 14  ...B..op{.......
+  +300: 1a 7b 00 00 00 00 00 bf 14 1a 7b 00 00 00 0f 80  .{........{.....
+  +310: db 6f 70 7b 00 00 00 42 80 db 6f 70 7b 00 00 00  .op{...B..op{...
+  +320: 00 00 be 14 1a 7b 00 00 00 35 00 00 00 00 00 00  .....{...5......
+  +330: 00 00 0f 00 dc 6f 70 7b 00 00 00 42 00 dc 6f 70  .....op{...B..op
+  +340: 7b 00 00 00 00 00 be 14 1a 7b 00 00 00 1e 00 00  {........{......
+  +350: 00 00 0f 80 dc 6f 70 7b 00 00 00 42 80 dc 6f 70  .....op{...B..op
+  +360: 7b 00 00 00 00 00 be 14 1a 7b 00 00 00 37 00 00  {........{...7..
+  +370: 00 00 00 00 00 00 0f 00 de 6f 70 7b 00 00 00 42  .........op{...B
+  +380: 00 de 6f 70 7b 00 00 00 00 00 be 14 1a 7b 00 00  ..op{........{..
+  +390: 00 24 00 31 00 80 bd 14 1a 7b 00 00 00 00 00 be  .$.1.....{......
+  +3a0: 14 1a 7b 00 00 00 32 0f 80 bc 14 1a 7b 00 00 00  ..{...2.....{...
+  +3b0: 00 80 bc 14 1a 7b 00 00 00 68 80 69 b5 67 7b 00  .....{...h.i.g{.
+  +3c0: 00 00 29 04 00 00 00 00 00 00 00 00 1f 53 54 5f  ..)..........ST_
+  +3d0: 54 72 69 62 65 43 6f 6d 6d 6f 6e 50 68 72 61 73  TribeCommonPhras
+  +3e0: 65 73 00 1f 53 61 76 65 64 41 76 61 74 61 72 00  es..SavedAvatar.
+  +3f0: 00 80 bd 14 1a 7b 00 00 00 16 0f 00 4a 14 1a 7b  .....{......J..{
+
+==== UFunction /Game/Visuals/BP_TribeVisualsManager.BP_TribeVisualsManager_C.ApplySkinToPlayer  (0x7b1a54aea0) ====
+  raw[0..0xE0] @0x7b1a54aea0:
+  +000: 28 5d 76 08 7c 00 00 00 01 00 28 00 f9 a3 00 00  (]v.|.....(.....
+  +010: 80 c6 a0 f5 7b 00 00 00 cd 37 17 00 00 00 00 00  ....{....7......
+  +020: 30 b5 47 1a 7b 00 00 00 60 f6 54 1a 7b 00 00 00  0.G.{...`.T.{...
+  +030: 40 f9 17 1a 7b 00 00 00 00 00 00 00 00 00 00 00  @...{...........
+  +040: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +050: 00 39 34 1a 7b 00 00 00 39 00 00 00 08 00 00 00  .94.{...9.......
+  +060: 00 bc 2d 59 7b 00 00 00 e8 01 00 00 00 02 00 00  ..-Y{...........
+  +070: 00 39 34 1a 7b 00 00 00 00 39 34 1a 7b 00 00 00  .94.{....94.{...
+  +080: 00 00 00 00 00 00 00 00 00 39 34 1a 7b 00 00 00  .........94.{...
+  +090: 80 c8 93 1a 7b 00 00 00 09 00 00 00 18 00 00 00  ....{...........
+  +0a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0b0: 00 00 02 0c 01 00 08 00 ff ff 00 00 00 00 00 00  ................
+  +0c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0d0: 00 00 00 00 00 00 00 00 48 22 28 03 7c 00 00 00  ........H"(.|...
+  UStruct.Script @0x60: Data=0x7b592dbc00 Num=488 Max=512
+  ChildProperties (params+locals):
+    +0x0000 ObjectProperty         Skin                         elem=0x7b
+    +0x0008 ClassProperty          NewSkinClass                 elem=0x0
+    +0x0010 ObjectProperty         PrevSkin                     elem=0x0
+    +0x0018 ObjectProperty         LocalPawn                    elem=0x0
+    +0x0020 ClassProperty          CallFunc_GetSkinClass_SkinClass elem=0x0
+    +0x0028 BoolProperty           CallFunc_IsValidClass_ReturnValue elem=0x0
+    +0x0030 ObjectProperty         CallFunc_Map_Find_Value      elem=0x0
+    +0x0038 BoolProperty           CallFunc_Map_Find_ReturnValue elem=0x0
+  Script bytecode[0..cap] @0x7b592dbc00:
+  +000: 4c e5 01 00 00 4c 4e 00 00 00 19 00 00 39 34 1a  L....LN......94.
+  +010: 7b 00 00 00 2d 00 00 00 00 00 00 00 00 00 00 00  {...-...........
+  +020: 45 c7 37 17 00 00 00 00 00 00 00 00 00 19 01 80  E.7.............
+  +030: a4 34 1a 7b 00 00 00 09 00 00 00 80 d3 e2 1a 7b  .4.{...........{
+  +040: 00 00 00 01 80 d3 e2 1a 7b 00 00 00 16 4d 19 00  ........{....M..
+  +050: 00 39 34 1a 7b 00 00 00 17 00 00 00 00 00 00 00  .94.{...........
+  +060: 00 00 00 00 45 fd 3e 17 00 00 00 00 00 00 00 00  ....E.>.........
+  +070: 00 00 80 51 34 1a 7b 00 00 00 16 5f 00 00 32 34  ...Q4.{...._..24
+  +080: 1a 7b 00 00 00 00 80 51 34 1a 7b 00 00 00 14 00  .{.....Q4.{.....
+  +090: 00 51 34 1a 7b 00 00 00 68 a0 99 81 70 7b 00 00  .Q4.{...h...p{..
+  +0a0: 00 00 00 32 34 1a 7b 00 00 00 16 4f 00 00 51 34  ...24.{....O..Q4
+  +0b0: 1a 7b 00 00 00 14 00 00 50 34 1a 7b 00 00 00 19  .{......P4.{....
+  +0c0: 20 50 80 97 f5 7b 00 00 00 25 00 00 00 00 50 34   P...{...%....P4
+  +0d0: 1a 7b 00 00 00 1c 40 f0 bc 67 7b 00 00 00 01 c0  .{....@..g{.....
+  +0e0: c2 f5 19 7b 00 00 00 00 00 32 34 1a 7b 00 00 00  ...{.....24.{...
+  +0f0: 00 80 50 34 1a 7b 00 00 00 16 07 84 01 00 00 00  ..P4.{..........
+  +100: 00 50 34 1a 7b 00 00 00 14 00 00 50 34 1a 7b 00  .P4.{......P4.{.
+  +110: 00 00 19 20 50 80 97 f5 7b 00 00 00 25 00 00 00  ... P...{...%...
+  +120: 00 50 34 1a 7b 00 00 00 1c 40 f0 bc 67 7b 00 00  .P4.{....@..g{..
+  +130: 00 01 c0 c2 f5 19 7b 00 00 00 00 00 32 34 1a 7b  ......{.....24.{
+  +140: 00 00 00 00 80 50 34 1a 7b 00 00 00 16 5f 00 80  .....P4.{...._..
+  +150: 52 34 1a 7b 00 00 00 00 80 50 34 1a 7b 00 00 00  R4.{.....P4.{...
+  +160: 19 00 80 52 34 1a 7b 00 00 00 0e 00 00 00 00 00  ...R4.{.........
+  +170: 00 00 00 00 00 00 45 24 43 17 00 00 00 00 00 00  ......E$C.......
+  +180: 00 00 00 16 19 20 50 80 97 f5 7b 00 00 00 25 00  ..... P...{...%.
+  +190: 00 00 00 00 00 00 00 00 00 00 1c e0 f2 bc 67 7b  ..............g{
+  +1a0: 00 00 00 01 c0 c2 f5 19 7b 00 00 00 00 00 32 34  ........{.....24
+  +1b0: 1a 7b 00 00 00 00 00 39 34 1a 7b 00 00 00 16 63  .{.....94.{....c
+  +1c0: 60 cc 54 1a 7b 00 00 00 01 80 8f 34 1a 7b 00 00  `.T.{......4.{..
+  +1d0: 00 00 80 52 34 1a 7b 00 00 00 00 00 39 34 1a 7b  ...R4.{.....94.{
+  +1e0: 00 00 00 16 4d 04 0b 53  ....M..S
+
+==== UFunction /Game/Menus/W_RPMAvatarCreator.W_RPMAvatarCreator_C.LoadAvatarAtUrl  (0x7b1eda3ea0) ====
+  raw[0..0xE0] @0x7b1eda3ea0:
+  +000: 28 5d 76 08 7c 00 00 00 01 00 28 00 87 73 00 00  (]v.|.....(..s..
+  +010: 80 c6 a0 f5 7b 00 00 00 51 14 1a 00 00 00 00 00  ....{...Q.......
+  +020: 90 29 16 21 7b 00 00 00 c0 44 da 1e 7b 00 00 00  .).!{....D..{...
+  +030: c0 01 f5 1c 7b 00 00 00 00 00 00 00 00 00 00 00  ....{...........
+  +040: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +050: 80 e1 40 1a 7b 00 00 00 10 00 00 00 08 00 00 00  ..@.{...........
+  +060: 60 b2 d3 20 7b 00 00 00 2c 00 00 00 30 00 00 00  `.. {...,...0...
+  +070: 80 e1 40 1a 7b 00 00 00 00 00 00 00 00 00 00 00  ..@.{...........
+  +080: 80 e1 40 1a 7b 00 00 00 80 e1 40 1a 7b 00 00 00  ..@.{.....@.{...
+  +090: 40 4d f4 1b 7b 00 00 00 01 00 00 00 04 00 00 00  @M..{...........
+  +0a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0b0: 00 00 02 0c 01 00 10 00 ff ff 00 00 00 00 00 00  ................
+  +0c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0d0: 00 00 00 00 00 00 00 00 48 22 28 03 7c 00 00 00  ........H"(.|...
+  UStruct.Script @0x60: Data=0x7b20d3b260 Num=44 Max=48
+  ChildProperties (params+locals):
+    +0x0000 StrProperty            AvatarUrl                    elem=0x0
+  Script bytecode[0..cap] @0x7b20d3b260:
+  +000: 0f 00 5e c9 1a 7b 00 00 00 01 00 5e c9 1a 7b 00  ..^..{.....^..{.
+  +010: 00 00 00 80 e1 40 1a 7b 00 00 00 45 85 14 1a 00  .....@.{...E....
+  +020: 00 00 00 00 00 00 00 00 16 04 0b 53  ...........S
+
+==== UFunction /Game/Menus/W_RPMAvatarCreator.W_RPMAvatarCreator_C.HandleAvatarLoaded  (0x7b1eda3f80) ====
+  raw[0..0xE0] @0x7b1eda3f80:
+  +000: 28 5d 76 08 7c 00 00 00 01 00 28 00 86 73 00 00  (]v.|.....(..s..
+  +010: 80 c6 a0 f5 7b 00 00 00 29 5d 17 00 00 00 00 00  ....{...)]......
+  +020: 90 29 16 21 7b 00 00 00 60 40 da 1e 7b 00 00 00  .).!{...`@..{...
+  +030: f0 01 f5 1c 7b 00 00 00 00 00 00 00 00 00 00 00  ....{...........
+  +040: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +050: 80 e3 40 1a 7b 00 00 00 30 00 00 00 08 00 00 00  ..@.{...0.......
+  +060: c0 88 f8 1d 7b 00 00 00 1d 01 00 00 20 01 00 00  ....{....... ...
+  +070: 80 e3 40 1a 7b 00 00 00 80 e3 40 1a 7b 00 00 00  ..@.{.....@.{...
+  +080: 00 e3 40 1a 7b 00 00 00 80 e3 40 1a 7b 00 00 00  ..@.{.....@.{...
+  +090: 60 9c 86 1a 7b 00 00 00 04 00 00 00 04 00 00 00  `...{...........
+  +0a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0b0: 00 00 02 0c 01 00 08 00 ff ff 00 00 00 00 00 00  ................
+  +0c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0d0: 00 00 00 00 00 00 00 00 48 22 28 03 7c 00 00 00  ........H"(.|...
+  UStruct.Script @0x60: Data=0x7b1df888c0 Num=285 Max=288
+  ChildProperties (params+locals):
+    +0x0000 ObjectProperty         AvatarComponent              elem=0x0
+    +0x0008 StrProperty            CachedAvatarFilename         elem=0x0
+    +0x0018 ObjectProperty         CallFunc_InitMyRPMAvatarSkin_AvatarSkin elem=0x0
+    +0x0020 DelegateProperty       K2Node_CreateDelegate_OutputDelegate elem=0x0
+  Script bytecode[0..cap] @0x7b1df888c0:
+  +000: 61 29 5d 17 00 00 00 00 00 00 00 00 00 00 00 e2  a)].............
+  +010: 40 1a 7b 00 00 00 17 62 19 00 80 e3 40 1a 7b 00  @.{....b....@.{.
+  +020: 00 00 09 00 00 00 00 7c f5 67 7b 00 00 00 01 00  .......|.g{.....
+  +030: 7c f5 67 7b 00 00 00 00 00 e2 40 1a 7b 00 00 00  |.g{......@.{...
+  +040: 19 01 80 62 c9 1a 7b 00 00 00 4e 00 00 00 00 00  ...b..{...N.....
+  +050: 00 00 00 00 00 00 1b bf ce 01 00 00 00 00 00 00  ................
+  +060: 00 00 00 29 01 1f 41 76 61 74 61 72 20 4c 6f 61  ...)..Avatar Loa
+  +070: 64 65 64 20 61 6e 64 20 53 61 76 65 64 21 00 1f  ded and Saved!..
+  +080: 33 37 43 38 30 33 31 30 34 46 34 30 32 46 36 30  37C803104F402F60
+  +090: 45 38 38 36 33 35 38 33 36 33 42 39 35 45 41 46  E886358363B95EAF
+  +0a0: 00 1f 00 16 19 01 00 5d c9 1a 7b 00 00 00 17 00  .......]..{.....
+  +0b0: 00 00 00 00 00 00 00 00 00 00 45 88 3f 17 00 00  ..........E.?...
+  +0c0: 00 00 00 00 00 00 00 00 80 e2 40 1a 7b 00 00 00  ..........@.{...
+  +0d0: 16 63 80 77 da 1e 7b 00 00 00 01 80 5d c9 1a 7b  .c.w..{.....]..{
+  +0e0: 00 00 00 00 80 e2 40 1a 7b 00 00 00 16 19 01 00  ......@.{.......
+  +0f0: 5d c9 1a 7b 00 00 00 17 00 00 00 00 00 00 00 00  ]..{............
+  +100: 00 00 00 45 cd 37 17 00 00 00 00 00 00 00 00 00  ...E.7..........
+  +110: 00 80 e2 40 1a 7b 00 00 00 16 04 0b 53  ...@.{......S
