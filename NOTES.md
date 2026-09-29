@@ -3068,3 +3068,45 @@ Control flow is in bytecode, so this needs Stage-3 to confirm. Disassembly targe
    selection (exact state spawn would need).
 
 Artifacts in extracted/blueprints/ (binaries gitignored). STOP — no bytecode disassembly yet, per instruction.
+
+## Phase 3 (Blueprint bytecode) — VERDICT (I-b): reader config-settable, RPM-skin SELECTION is widget/native
+
+Tool 1 UAssetAPI 1.1.0 (dotnet, scratchpad/bp_disasm): loads the assets but every export → RawExport,
+NO bytecode. Cause: PKG_UnversionedProperties (HasUnversionedProperties=true) + no .usmap → UAssetAPI
+can't parse exports. A TribeXR .usmap needs a runtime type dump (injection = build; out of scope for
+read-only). Tool 2 (alternative, used): scripts/bp_refscan.py — decodes each function's RawExport bytes
+(bytecode is name/import-indexed, usmap-independent) and reports referenced imports + name indices. Not
+full control flow, but shows what each function touches.
+
+Findings:
+- **Skin system is GENERIC + network-replicated.** TribePawnBP: ActiveSkinClasses, ApplySkin/
+  ApplyActiveSkins, GetSkinClass, Server_AddActiveSkin (client→server) + Multi_AddActiveSkin (multicast),
+  SpawnDefaultAvatar, SetAvatarID — all tiny, take the skin CLASS as a parameter. The pawn ubergraph
+  (71 KB) references BP_TribeSkinBase_C, TribeAvatarComponent, TribeGameInstanceBP_C — but NOT the
+  specific RPM/Meta skin classes, NOT bHasCustomAvatar, NOT ReadConfigString, NOT GetAvatarTypeForId.
+  So the pawn applies whatever skin class it's TOLD to; it doesn't decide RPM vs Meta.
+- **The RPM skin CLASS (BP_ReadyPlayerMeAvatarSkin_C) is referenced ONLY by W_RPMAvatarCreator**
+  (GetRPMCustomSkin). No pawn/GameInstance BP instantiates it. So at spawn nothing in these BPs adds the
+  RPM skin; the RPM skin is added by the widget (ApplySkinToPlayer → Server_AddActiveSkin(RPM class)).
+- **URL persists in config, reader alive:** BP_ReadyPlayerMeAvatarSkin + BP_OculusAvatarSkin +
+  W_RPMAvatarCreator all WriteConfigString; the RPM skin ReadConfigString's [TribeAvatar]
+  ReadyPlayerMeAvatarUrl on apply → once the RPM skin is active, our URL/glb loads with no UI.
+- **Persisted identity is derived, not a config flag:** GameInstance HasCustomAvatar() computes
+  AvatarId != GetTribeDefaultAvatarId() (native import). GameInstance has NO config/save/HTTP imports —
+  AvatarId's writer is native/server/UI, not a BP-visible config or save file.
+
+**Verdict (I-b).** Spawn does NOT select the RPM skin from a plain settable config/save flag (rules out
+I-a). The URL reader IS config-settable, but the RPM-skin SELECTION is widget-driven (and/or native/
+server) — the classic wall: reader alive, selection-writer gone with the UI. Matches the native result
+(spawn applies the default/Meta skin; the dispatcher FUN_050fc2d4 is the runtime CHANGE apply, not spawn).
+
+Two forward paths (empirical, cheap, before any hook):
+1. **Is W_RPMAvatarCreator still REACHABLE in the current app UI?** If yes, it's the intended RPM path:
+   set an RPM URL in-app (writes config + applies RPM skin), pre-place our .glb at the RPM cache path so
+   FileExists short-circuits the download → **custom avatar with NO hook / NO re-sign.** If it persists
+   across relaunch, done. (The "removed UI" was an assumption; the widget asset is present.)
+2. If NOT reachable → I-b fallback = a hook that ADDS the RPM skin class as an active skin at spawn (hook
+   the pawn's AddActiveSkin path / force the selection the widget normally does) + config URL + cache
+   glb. This is a BP-UFunction-level force, not the simple native dispatcher we tried.
+
+STOP — awaiting direction. Recommend the reachability check (path 1) first: it may need no hook at all.
