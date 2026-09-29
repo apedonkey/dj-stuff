@@ -3187,3 +3187,51 @@ pre-placed at Documents/Avatars/rpmavatar-<basename>.glb. Heavy/fragile; wide bl
 prematurely (the empty-URL crash mode).
 
 STOP.
+
+## Second-opinion integration + verified answers (read-only)
+
+An expert review corrected two of my errors and reframed the plan. Verified facts this session:
+
+- **ProcessEvent correction (I was wrong).** Same-object BP→BP calls emit EX_LocalFinalFunction →
+  ProcessLocalScriptFunction; cross-object → ProcessInternal. ProcessEvent is ONLY the native→BP entry
+  funnel (events/delegates/RPCs/timers). So a ProcessEvent hook CANNOT intercept the ApplyActiveSkins
+  arg — but it IS a clean once-per-spawn timing signal for TribePawnBP_C::ReceiveBeginPlay/
+  ReceivePossessed (filter = cached UFunction* pointer compare; guard re-entrancy with a TLS flag +
+  call the trampoline). My "swap the skin arg via ProcessEvent" idea was mechanically impossible.
+- **Q1 — legacy .pak, not IoStore.** OBB has 4 .pak, ZERO .utoc/.ucas/.sig; index unencrypted. Patch-pak
+  preconditions all favorable: a `..._P.pak` gets +100 mount priority and overrides same-path files;
+  no signature enforcement; legacy tooling (UnrealPak/repak). I wrongly dismissed pak editing.
+- **Q2 — soft-path scan (I'd only done import scan).** Now checked name-table soft paths too:
+  TribePawnBP soft-refs only BP_TribeSkinBase (not the RPM subclass). BP_TribeSkinBase has generic
+  SkinClass + GetSkinClass + F_SkinInfo. DT_OculusAvatarSkins rows point only at Meta thumbnails
+  (T_MetaPresetNN) + zip:// paths. **No pawn/base/registry reference — hard OR soft — to
+  BP_ReadyPlayerMeAvatarSkin_C; it is referenced only by W_RPMAvatarCreator.** I-b confirmed.
+- **DefaultAvatar.glb override (patch-pak) — nuance:** DefaultAvatar.glb is a RAW glb in the pak and is
+  the RPM loader's FALLBACK (FUN_050f49cc → cache-miss → FUN_050f5e58 loads Replays/DefaultAvatar.glb).
+  Overriding it via _P pak elegantly solves MESH DELIVERY (no URL host / no cache write / no ETag) — but
+  only renders once the RPM path is entered. It does not by itself flip spawn from Meta→RPM.
+
+### Adopted roadmap (supersedes the "ProcessEvent swaps the arg" plan)
+1. **usmap dump FIRST (angle d) — de-risks everything.** We have injection (libhook.so proven). Build a
+   dumper into libhook: find NamePoolData (fn referencing the hardcoded name table "None"/"ByteProperty"/
+   …), GUObjectArray (reads of gc.MaxObjectsNotConsideredByGC / gc.SizeOfPermanentObjectPool /
+   gc.MaxObjectsInGame in UObjectBaseInit), ProcessEvent vtable slot (via "ReceiveBeginPlay" →
+   FindFunctionChecked → indirect vtable call). Port kp7742 UE4Dumper (Android/ARM64, UE5 profiles) or
+   Dumper-7 logic; dump .usmap to /sdcard. Unlocks: full BP bytecode decompile (does spawn use the CDO
+   default skin or rebuild ActiveSkinClasses from AvatarId/server?), property offsets, CDO editing,
+   ProcessEvent index. Also enables a file-polled "dev console" (ProcessEvent+Tick+FindFunction).
+2. Decide from the decompile of ApplyActiveSkins/GetSkinClass/spawn graph:
+   - **CDO default survives to spawn → patch-pak route (persistent, no runtime hook):** edit
+     Default__TribePawnBP_C ActiveSkinClasses default (or the DT SkinClass) to BP_ReadyPlayerMeAvatarSkin_C
+     in UAssetGUI (usmap-enabled), ship a small `_P` pak; override Replays/DefaultAvatar.glb with our
+     rigged mesh. Survives updates with re-dump+re-pack.
+   - **Spawn rebuilds from AvatarId/server → widget-replay route (runtime):** ProcessEvent hook on
+     ReceiveBeginPlay (timing) → wait N frames (Tick) to reach a fully-initialized in-session pawn
+     (sidesteps the 2.7 s empty-URL crash) → StaticLoadObject the RPM class (not resident; only the
+     removed widget referenced it) → ProcessEvent(FindFunction("AddActiveSkin"), {Class}) →
+     ProcessEvent(ApplyActiveSkins). URL: call the widget's own save fn via ProcessEvent so the GAME does
+     GConfig->SetString (persists; internal ini is root-only for adb but writable by the app process), or
+     hook FUN_016a70bc. Use file:///…/rpmavatar-custom.glb + pre-placed cache file.
+   Mesh delivery in EITHER route: override DefaultAvatar.glb via _P pak (least fragile).
+
+STOP — read-only done. Next step (usmap dumper) is a BUILD; awaiting greenlight.
