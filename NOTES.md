@@ -3161,3 +3161,29 @@ Config details (for Path 1 / any approach): key = GConfig section [TribeAvatar],
 writer being gone matters). Cache file the loader wants: Documents/Avatars/rpmavatar-<basename>.glb.
 
 STOP — no build. Recommend Path 1 reachability check in-headset before any hook.
+
+## Path-1 fallback (no-hook trigger search, read-only) — VERDICT: NO no-hook trigger exists
+
+1. **APK manifest — no avatar route.** Activities: com.epicgames.unreal.GameActivity (MAIN+INFO+VR),
+   DownloaderActivity (OBB), gms AdActivity, EOSAuthHandlerActivity, gms SignInHubActivity. Custom
+   schemes: only `eos.xyza7891pjfbybrpflbw8dbt3uxrbsa7` (EOS OAuth) + a resource-ref scheme + generic
+   http/https VIEW/BROWSABLE. **No avatar/RPM/creator deeplink, intent-filter, or exported activity.**
+2. **libUnreal.so — no avatar console command.** Literal scan found only generic `CheatManager` (4) and
+   `GEngine` (4); NO OpenAvatarCreator/SetCustomAvatar/OpenRPM/ShowAvatarCreator/RPMCreator command
+   strings. No registered native console command opens the creator or sets the RPM skin.
+3. **BuildConfiguration = "Shipping"** (manifest meta-data). UE Shipping strips the console UI, so exec
+   UFUNCTIONs can't be typed, and there's no on-device console surface. (`-ExecCmds`/UECommandLine.txt
+   was already tested inconclusive, and there is no registered avatar command for it to call anyway.)
+4. **Opener identified: W_ProfileMenu references W_RPMAvatarCreator** — the creator was opened by a
+   button in the Profile menu, which is the removed UI. No other BP references it; no alternate event/
+   deeplink/console path.
+
+**Verdict: no no-hook trigger.** No deeplink/intent/scheme, no usable console command (Shipping), and the
+only in-app opener (W_ProfileMenu button) is removed. **The only remaining route to a spawn-time custom
+RPM avatar is the Path-2 hook** — and per the Path-2 trace that means a UObject::ProcessEvent VM hook
+(the skin selection is BP-only; no native chokepoint), swapping the applied skin to
+BP_ReadyPlayerMeAvatarSkin_C + forcing the config URL (hook FUN_016a70bc / FUN_050f584c), with the .glb
+pre-placed at Documents/Avatars/rpmavatar-<basename>.glb. Heavy/fragile; wide blast radius; must not fire
+prematurely (the empty-URL crash mode).
+
+STOP.
