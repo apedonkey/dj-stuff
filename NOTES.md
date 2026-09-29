@@ -3292,3 +3292,36 @@ S3: ProcessEvent hook (resolve L3) + values.txt live CDO/pawn reads + script/ du
 S4: file-polled console (cmd.txt → FindObject/FindFunction/ProcessEvent).
 
 STOP — Session 1 static contracts done; Session 2 is a device BUILD, awaiting greenlight.
+
+## Session 2 (device dumper) — INFRA PROVEN; L1 (FNamePool) mis-anchored; L2 corrected
+
+Built hook/dumper.cpp → libhook.so (read-only: DT_NEEDED inject, detached poll-thread on
+tribemod/dump_now, safe_read via /proc/self/maps + SIGSEGV guard, params.txt tunables + abs/probe
+hexdumps, fail-loud self-checks). Injection+thread+trigger+output+self-check-abort ALL work on-device.
+Iterate without rebuilds via tribemod/params.txt (np/ga/bo/probe/abs) — proven.
+
+**L2 GUObjectArray CORRECTED + still solid.** The GOT slot (Ghidra 0x07ba59e8) is relocated via
+**.relr.dyn** (compact RELR, no explicit addend) — the RVA is stored in the slot: **GUObjectArray real
+RVA = 0x07D0EAB8** (.bss), NOT the GOT-slot address. Runtime cross-check: base+0x07D0EAB8 == *(base+0x07AB59E8).
+(Not yet on-device-validated — R1 abort blocks R2; statically firm.)
+
+**L1 FNamePool = WRONG anchor.** DAT_07d622c0 (real 0x07C622C0), reached via FName ctor FUN_0173299c →
+FUN_01732a18 → store FUN_01736088 → ctor FUN_0172ff60(&DAT_07d622c0), is NOT the FNameEntryAllocator.
+On-device dump: it's a 0x30-stride hash table whose entry pointers target **wide (UTF-16) strings** =
+build/branch/version names + some class names ("Dev-CineCamera","UE5-Main","UE5-Release","Dev-Cooker",
+"UNiagaraDataInterfaceCamera"…). The paired "shards" global DAT_07d72300 (0x07C72300) is all zeros.
+So Resolve(0) never yields "None" — R1 self-check correctly FAILED and aborted (no garbage walk).
+FUN_0172ff60 references "ByteProperty" but is a property/version registrar, not the FName pool ctor —
+the reviewer's L1 string-anchor landed on the wrong function.
+
+**Re-anchor plan (next):**
+- (A, robust — recommended) Find **FName::ToString / FNameEntry::AppendString** RVA and CALL it from the
+  dumper via a function pointer to resolve any FName (id+number)→string. Layout-agnostic; sidesteps the
+  pool internals entirely. Needs a safe call from the poll thread (args: &FName, &FString out).
+- (B) Re-find the real FNameEntryAllocator statically: locate FNamePool::Resolve by its bit-pattern
+  (lsr #16 / and #0xffff / lsl #1 / ldr [blocks, idx, lsl #3]); the Blocks base there is the true global.
+- Then relax the R1 abort so R2 (GUObjectArray counts/index — no names needed) validates independently.
+
+Everything read-only. Dumper + scripts committed. Device left on the dumper build (harmless; hooks nothing).
+
+STOP — FName-pool re-anchor needed before the object walk can name-match; awaiting direction.
