@@ -2732,3 +2732,27 @@ avatar type isn't re-resolved from `[TribeAvatar]AvatarID` at spawn (it defaults
 actively selected), meaning no config write can flip it — only the removed UI's switch logic (or a
 patch) would. Cannot distinguish these without root observability (read internal ini + UE log) or a
 binary patch — both outside the read-only/no-root constraints.
+
+## Phase — caller trace: is avatar type re-derived from config at spawn? (read-only static)
+
+`scripts/CallersTrace.java` (out/callers.txt). Findings:
+- `GetAvatarTypeForId` (FUN_050fc054): only code caller is its UFUNCTION exec thunk (05097618) →
+  **Blueprint-callable**, not called from a native spawn path.
+- `[TribeAvatar]AvatarID` reader (FUN_0518ba70): only caller is its exec thunk (050be73c) →
+  **Blueprint-callable**.
+- RPM loader (FUN_050f49cc) is invoked by FUN_050f5a00, which loads from the avatar COMPONENT's
+  url MEMBER (param_1+0x2a8…), not directly from config. So native code = primitives; the decision
+  of when to read config and set the component url is **Blueprint** (in the Oodle paks) + the
+  now-removed RPM UI.
+
+**Conclusion (reason c is effectively true for the no-UI case):** the local avatar's config→component
+wiring is Blueprint-orchestrated and was driven by the removed UI. So a config write alone (even if the
+`-ini:` override applied) is not shown to flip the local avatar at spawn — consistent with the two
+negative live tests. Confirming/enabling it further needs Blueprint-bytecode analysis of the paks
+(large, specialized) or a binary patch (crosses the read-only-of-game line). Both are out of scope of
+the read-only + no-root constraints held so far.
+
+### State of the overall goal
+Analysis goals are complete: engine ID, avatar select/load logic, URL validator, cache path+format,
+config backend, and the reference RPM rig (extracted DefaultAvatar.glb + skeleton_report.md). The only
+unmet goal is a WORKING no-root injection of a custom avatar, which is blocked as above.
