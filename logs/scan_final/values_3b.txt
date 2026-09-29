@@ -1,0 +1,42 @@
+resident BP_ReadyPlayerMeAvatarSkin_C     : YES (0x7b11da6280)
+resident BP_OculusAvatarSkin_C            : YES (0x7b11da6670)
+resident W_RPMAvatarCreator_C             : YES (0x7b1aca3bd0)
+resident BP_TribeSkinBase_C               : YES (0x7b11da7240)
+
+TribePawnBP_C class=0x7b11da7a20 ActiveSkinClasses@0x470
+  live CDO=no  /Game/Maps/DJRoomMap.DJRoomMap.PersistentLevel.TribePawnBP_C ASC[3]={BP_EnvironmentSkin_C,None,None}
+  CDO  CDO=YES /Game/Pawn/TribePawnBP.Default__TribePawnBP_C ASC[0]={}
+
+instances of BP_ReadyPlayerMeAvatarSkin_C:
+   0x7b15fa1240 [CDO]  /Game/Visuals/Skins/OculusAvatar/BP_ReadyPlayerMeAvatarSkin.Default__BP_ReadyPlayerMeAvatarSkin_C
+   0x7b138c1e40 [live] /Game/Maps/Levels/CommonLevel.CommonLevel.PersistentLevel.TribeVisualsManager.BP_ReadyPlayerMeAvatarSkin_C
+
+instances of BP_OculusAvatarSkin_C:
+   0x7b19a46d00 [CDO]  /Game/Visuals/Skins/OculusAvatar/BP_OculusAvatarSkin.Default__BP_OculusAvatarSkin_C
+   0x7b138c1d80 [live] /Game/Maps/Levels/CommonLevel.CommonLevel.PersistentLevel.TribeVisualsManager.BP_OculusAvatarSkin_C
+   0x7b138c1cc0 [live] /Game/Maps/Levels/CommonLevel.CommonLevel.PersistentLevel.TribeVisualsManager.BP_OculusAvatarSkin_C
+   0x7b138c1c00 [live] /Game/Maps/Levels/CommonLevel.CommonLevel.PersistentLevel.TribeVisualsManager.BP_OculusAvatarSkin_C
+   0x7b138c1b40 [live] /Game/Maps/Levels/CommonLevel.CommonLevel.PersistentLevel.TribeVisualsManager.BP_OculusAvatarSkin_C
+   0x7b138c1a80 [live] /Game/Maps/Levels/CommonLevel.CommonLevel.PersistentLevel.TribeVisualsManager.BP_OculusAvatarSkin_C
+   0x7b138c19c0 [live] /Game/Maps/Levels/CommonLevel.CommonLevel.PersistentLevel.TribeVisualsManager.BP_OculusAvatarSkin_C
+   0x7b138c1900 [live] /Game/Maps/Levels/CommonLevel.CommonLevel.PersistentLevel.TribeVisualsManager.BP_OculusAvatarSkin_C
+   0x7b138c49c0 [live] /Game/Maps/Levels/CommonLevel.CommonLevel.PersistentLevel.TribeVisualsManager.BP_OculusAvatarSkin_C
+   0x7b138c4900 [live] /Game/Maps/Levels/CommonLevel.CommonLevel.PersistentLevel.TribeVisualsManager.BP_OculusAvatarSkin_C
+   0x7b138c4840 [live] /Game/Maps/Levels/CommonLevel.CommonLevel.PersistentLevel.TribeVisualsManager.BP_OculusAvatarSkin_C
+   0x7b138c4780 [live] /Game/Maps/Levels/CommonLevel.CommonLevel.PersistentLevel.TribeVisualsManager.BP_OculusAvatarSkin_C
+
+instances of BP_EnvironmentSkin_C:
+   0x7b1232c1c0 [CDO]  /Game/Visuals/Skins/Environment/BP_EnvironmentSkin.Default__BP_EnvironmentSkin_C
+   0x7b138c3100 [live] /Game/Maps/Levels/CommonLevel.CommonLevel.PersistentLevel.TribeVisualsManager.BP_EnvironmentSkin_C
+   0x7b138c3040 [live] /Game/Maps/Levels/CommonLevel.CommonLevel.PersistentLevel.TribeVisualsManager.BP_EnvironmentSkin_C
+   0x7b138c2f80 [live] /Game/Maps/Levels/CommonLevel.CommonLevel.PersistentLevel.TribeVisualsManager.BP_EnvironmentSkin_C
+   0x7b138c2ec0 [live] /Game/Maps/Levels/CommonLevel.CommonLevel.PersistentLevel.TribeVisualsManager.BP_EnvironmentSkin_C
+   0x7b138c2e00 [live] /Game/Maps/Levels/CommonLevel.CommonLevel.PersistentLevel.TribeVisualsManager.BP_EnvironmentSkin_C
+   0x7b138c2d40 [live] /Game/Maps/Levels/CommonLevel.CommonLevel.PersistentLevel.TribeVisualsManager.BP_EnvironmentSkin_C
+   0x7b138c2c80 [live] /Game/Maps/Levels/CommonLevel.CommonLevel.PersistentLevel.TribeVisualsManager.BP_EnvironmentSkin_C
+   0x7b138c2bc0 [live] /Game/Maps/Levels/CommonLevel.CommonLevel.PersistentLevel.TribeVisualsManager.BP_EnvironmentSkin_C
+   0x7b138c2b00 [live] /Game/Maps/Levels/CommonLevel.CommonLevel.PersistentLevel.TribeVisualsManager.BP_EnvironmentSkin_C
+   0x7b138c2a40 [live] /Game/Maps/Levels/CommonLevel.CommonLevel.PersistentLevel.TribeVisualsManager.BP_EnvironmentSkin_C
+
+TribeGameInstanceBP_C inst=0x7b267eba40 AvatarId@0x318
+  AvatarId='3722236897819126'

@@ -3456,3 +3456,31 @@ cache file lands right; fallback Replays/DefaultAvatar.glb via _P pak. (2) stage
 (known-good rig) before a custom mesh. (3) gate the upsert on tribemod/avatar_url.txt (swap/disable w/o rebuild).
 
 STOP — 3a done (read-only). 3b (constructor ini upsert) is the FIRST state change -> needs explicit approval.
+
+## Session 3b SUCCESS — config-URL injection loads a custom RPM avatar (NO hooks)
+
+libhook constructor ini_upsert works: reads tribemod/avatar_url.txt, writes
+[TribeAvatar] ReadyPlayerMeAvatarUrl=<url> into internal GameUserSettings.ini before PreInit (atomic
+tmp+fsync+rename; ASCII/BOM-guarded; delete-key when avatar_url.txt absent = kill switch). ini_upsert.log:
+"upsert OK: SET (375->472 bytes)" then "no change (key already set)" (idempotent).
+
+On-device proof (values.txt, in-game): a LIVE BP_ReadyPlayerMeAvatarSkin_C instance now exists
+(0x.. [live] .../TribeVisualsManager.BP_ReadyPlayerMeAvatarSkin_C) where before only the CDO existed.
+Re-copied ini confirms the key persisted across PreInit + the game's flush. User confirms: a ReadyPlayerMe
+avatar option now appears in Tribe's avatar selection UI and switching to it changes the avatar.
+=> The whole mod is: staged .glb + one config key. Zero hooks, zero trampolines. Survives updates while the
+   ini path + key name hold. Kill switch = adb rm tribemod/avatar_url.txt + relaunch.
+
+Staging that worked (MSYS path-conv gotcha: adb push of a /... remote path gets rewritten by Git Bash;
+use MSYS_NO_PATHCONV=1, or push to /data/local/tmp then adb shell cp into tribemod). .glb lives in tribemod
+(shell-writable, app-readable — same as params.txt); adb can't mkdir under files/Documents (scoped storage).
+
+### Rendering note: DefaultAvatar.glb is a HALF-BODY RPM avatar (expected hands-only)
+skeleton_report.md: 38 joints, mesh 'Wolf3D_Avatar', 63 ARKit morphs. Hierarchy = Hips>Spine>Neck>Head>Eyes
+plus LeftHand/RightHand(+fingers) attached directly to Spine. NO Shoulder/Arm/ForeArm, NO UpLeg/Leg/Foot.
+So "hands only, no arms/legs" is the mesh, not the mod. Full body needs a FULL-BODY RPM .glb (full skeleton).
+Open: "invisible in selfie cam" — likely local avatar OwnerNoSee + the selfie SceneCapture not showing it
+(TribePawnBP_C.SetAvatarSceneCaptureHidden / SetAvatarThirdPersonVisible exist); investigate vs a real avatar.
+
+STOP — pipeline proven with a known-good half-body rig. Next: user supplies their real RPM .glb (full-body
+if arms/legs wanted); drop as tribemod/custom.glb (same name -> no ini change); relaunch.

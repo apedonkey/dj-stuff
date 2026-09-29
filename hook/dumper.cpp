@@ -487,6 +487,54 @@ static void do_dump(){
     LOGI("dump complete, fails=%d",g_fails);
 }
 
+// ---- 3b: constructor-time config upsert (the ONE state change) ----
+// Gated on tribemod/avatar_url.txt: present+nonempty => set ReadyPlayerMeAvatarUrl=<url> in [TribeAvatar];
+// absent/empty => DELETE that key (kill switch, escapes a spawn crash-loop from external storage).
+// Runs at dlopen, before FEngineLoop::PreInit parses any ini. Atomic (tmp+fsync+rename). ASCII only.
+static const char* INI_PATH =
+  "/data/data/com.TribeXR.TribeXR/files/UnrealGame/TribeXR/TribeXR/Saved/Config/Android/GameUserSettings.ini";
+static void ini_status(const char* msg){ char p[600]; snprintf(p,sizeof p,"%s/ini_upsert.log",OUTDIR);
+    FILE* f=fopen(p,"a"); if(f){ fprintf(f,"%s\n",msg); fclose(f);} LOGI("[INI] %s",msg); }
+static void ini_upsert(){
+    const char* KEY="ReadyPlayerMeAvatarUrl"; const char* SEC="[TribeAvatar]";
+    int kl=(int)strlen(KEY), sl=(int)strlen(SEC);
+    // 1) desired url from tribemod/avatar_url.txt (trimmed)
+    char urlfile[600]; snprintf(urlfile,sizeof urlfile,"%s/avatar_url.txt",OUTDIR);
+    char url[1024]={0}; bool have=false;
+    { int fd=open(urlfile,O_RDONLY); if(fd>=0){ char t[1024]; ssize_t r=read(fd,t,sizeof t-1); close(fd);
+        if(r>0){ t[r]=0; int s=0,e=(int)r; while(s<e&&(t[s]==' '||t[s]=='\t'||t[s]=='\r'||t[s]=='\n'))s++;
+          while(e>s&&(t[e-1]==' '||t[e-1]=='\t'||t[e-1]=='\r'||t[e-1]=='\n'))e--;
+          if(e>s){ int L=e-s; if(L>1023)L=1023; memcpy(url,t+s,L); url[L]=0; have=true; } } } }
+    if(have && (url[0]=='+'||url[0]=='-'||url[0]=='.'||url[0]=='!')){ ini_status("WARN: url starts with ini operator char; treating as unset"); have=false; }
+    // 2) read ini
+    static char buf[65536]; int n=0;
+    { int fd=open(INI_PATH,O_RDONLY); if(fd<0){ ini_status("ini not readable (UE creates at PreInit); skip"); return; }
+      ssize_t r=read(fd,buf,sizeof buf-1); close(fd); if(r<0){ ini_status("ini read error; skip"); return; } n=(int)r; buf[n]=0; }
+    if(n>=2 && (unsigned char)buf[0]==0xFF && (unsigned char)buf[1]==0xFE){ ini_status("UTF-16 BOM; bailing (no corruption)"); return; }
+    // 3) rebuild line-by-line: write key right after [TribeAvatar] header (set) or drop it (delete)
+    static char out[70000]; int o=0; bool inSec=false, wrote=false, sawSec=false; int i=0;
+    while(i<n){ int j=i; while(j<n && buf[j]!='\n') j++; int le=(j<n)?j+1:n; int len=j-i;
+        int clen=len; if(clen>0 && buf[i+clen-1]=='\r') clen--;
+        bool isHdr=(clen>=2 && buf[i]=='[');
+        if(isHdr){ memcpy(out+o,buf+i,le-i); o+=le-i;
+            inSec=(clen==sl && strncmp(buf+i,SEC,sl)==0);
+            if(inSec){ sawSec=true; if(have && !wrote){ o+=snprintf(out+o,sizeof out-o,"%s=%s\n",KEY,url); wrote=true; } }
+        } else if(inSec && clen>=kl && strncmp(buf+i,KEY,kl)==0 && (buf[i+kl]=='='||buf[i+kl]==' ')){
+            /* existing key line: skip (delete, or dedupe since we wrote it at the header) */
+        } else { memcpy(out+o,buf+i,le-i); o+=le-i; }
+        i=le; }
+    if(!sawSec && have){ o+=snprintf(out+o,sizeof out-o,"%s%s\n%s=%s\n",(n>0&&buf[n-1]=='\n')?"":"\n",SEC,KEY,url); }
+    // 4) no-op?
+    if(o==n && memcmp(out,buf,n)==0){ ini_status(have?"no change (key already set)":"no change (key absent)"); return; }
+    // 5) atomic write
+    char tmp[700]; snprintf(tmp,sizeof tmp,"%s.tribetmp",INI_PATH);
+    int fd=open(tmp,O_WRONLY|O_CREAT|O_TRUNC,0644); if(fd<0){ ini_status("tmp open failed"); return; }
+    ssize_t w=write(fd,out,o); fsync(fd); close(fd);
+    if(w!=(ssize_t)o){ ini_status("short write; abort"); unlink(tmp); return; }
+    if(rename(tmp,INI_PATH)!=0){ ini_status("rename failed (perms?)"); unlink(tmp); return; }
+    char m[1200]; snprintf(m,sizeof m,"upsert OK: %s (%d->%d bytes) url=%s",have?"SET":"DELETED-KEY",n,o,have?url:"(none)"); ini_status(m);
+}
+
 static void* dump_thread(void*){
     LOGI("dumper thread up; base=0x%lx; poll %s/dump_now",(unsigned long)g_base,OUTDIR);
     char cmd[600]; snprintf(cmd,sizeof cmd,"%s/dump_now",OUTDIR);
@@ -499,10 +547,11 @@ static void* dump_thread(void*){
 __attribute__((constructor))
 static void on_load(){
     LOGI("dumper libhook constructor");
+    // ensure outdir exists (app-writable external files dir), then upsert the ini BEFORE PreInit.
+    mkdir(OUTDIR,0777);
+    ini_upsert();                       // the one state change; synchronous; no base needed
     for(int i=0;i<100 && !g_base;i++){ g_base=find_lib_base("libUnreal.so"); if(!g_base) usleep(50*1000); }
     if(!g_base){ LOGI("FAILED to find libUnreal.so base"); return; }
-    // ensure outdir exists (app-writable external files dir)
-    char mk[600]; snprintf(mk,sizeof mk,"%s",OUTDIR); mkdir(mk,0777);
     pthread_attr_t a; pthread_attr_init(&a); pthread_attr_setstacksize(&a,8*1024*1024); pthread_attr_setdetachstate(&a,PTHREAD_CREATE_DETACHED);
     pthread_t th; pthread_create(&th,&a,dump_thread,nullptr); pthread_attr_destroy(&a);
     LOGI("dumper thread spawned (base=0x%lx)",(unsigned long)g_base);
