@@ -18,3 +18,8 @@ extracted/assets/
 *.pak
 *.uasset
 *.uexp
+
+# pak-extract derived binaries
+*.oodleblocks
+*.blocks.txt
+extracted/blueprints/*.manifest.json

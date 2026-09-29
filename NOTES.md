@@ -3021,3 +3021,50 @@ early injection point).
 Device restored to clean re-signed build.
 
 STOP — awaiting direction (targeted spawn-load trace, or reassess approach).
+
+## Phase 3-prep (Blueprint extraction + readable-structure inspection) — VERDICT (I): promising seam
+
+Read-only. Extracted avatar Blueprints from OBB pakchunk0 via scripts/pak_extract.py + the pure-Rust
+oodle_dec (oozextract, prior-session scratchpad binary reused) → decompressed .uasset+.uexp to
+extracted/blueprints/. No bytecode disassembly yet.
+
+Extracted (valid, sizes == uncompressed): Pawn/TribePawnBP; GameModes/TribeGameInstanceBP,
+TribePlayerStateBP; Visuals/Skins/OculusAvatar/{BP_ReadyPlayerMeAvatarSkin, BP_OculusAvatarSkin,
+DT_OculusAvatarSkins}; Menus/W_RPMAvatarCreator.
+
+### Readable structure (name tables = FModel-equivalent; .uexp control flow is index-coded, not grep-visible)
+- **Avatar rendering = a SKIN system on the pawn.** TribePawnBP: AvatarComponent (native
+  UTribeAvatarComponent), AvatarID (BP var), ActiveSkins/ActiveSkinClasses, ApplySkin/ApplyActiveSkins,
+  SetupAvatar, GetSkin/GetSkinClass/GetSkinName, IsAvatarLoaded — applied at spawn (ReceiveBeginPlay,
+  Possessed, bPossessed).
+- **Skins derive from BP_TribeSkinBase:** BP_OculusAvatarSkin (Meta) + BP_ReadyPlayerMeAvatarSkin (RPM).
+- **RPM skin self-loads from config:** BP_ReadyPlayerMeAvatarSkin has ReadConfigString + refs
+  [TribeAvatar]/ReadyPlayerMeAvatarUrl (.uexp), SetAvatarID, OnSkinApplied/OnSkinLoaded,
+  ReadyPlayerMeComponent, GetTribeDefaultAvatarId. So once applied it reads the stored RPM URL from
+  config and loads it — no UI needed at that point.
+- **Persisted custom-avatar identity:** TribeGameInstanceBP has AvatarId + bHasCustomAvatar/HasCustomAvatar
+  + GetTribeDefaultAvatarId.
+- **DT_OculusAvatarSkins = the ~32 presets, all Meta** (zip://N.glb; + My Avatar / Oculus Home custom /
+  Blank Meta Avatar). No RPM rows — RPM is the URL-config path, not a preset.
+- **W_RPMAvatarCreator = the RPM UI writer/entry:** AvatarUrl, GetStringFromClipboard (paste),
+  IsValidReadyPlayerMeAvatarUrl/ID, LoadAvatarAtUrl, InitMyRPMAvatarSkin, ApplySkinToPlayer,
+  AddOrUpdateCachedRPMAvatarSkin, GetRPMCustomSkin, RPM{Create,Paste,LaunchWeb}Button, cast to
+  BP_ReadyPlayerMeAvatarSkin. Only place IsValidReadyPlayerMe*/LoadAvatarAtUrl appear.
+- **No BP references GetAvatarTypeForId/SetAvatarUrl by name** — type classify is native/inlined (matches
+  FUN_050fc0d4).
+
+### Verdict = (I): promising seam; worth Stage-3 bytecode
+RPM is not purely UI-gated in principle: the RPM skin self-loads from [TribeAvatar]ReadyPlayerMeAvatarUrl
+on apply; the pawn applies active skins at spawn; the custom-avatar identity persists (GameInstance
+AvatarId + bHasCustomAvatar). If the spawn skin-selection reads that persisted identity and routes to the
+RPM skin, then setting the persisted state + config URL loads our avatar at spawn WITHOUT the widget.
+Control flow is in bytecode, so this needs Stage-3 to confirm. Disassembly targets:
+1. TribePawnBP :: SetupAvatar / ApplyActiveSkins / GetSkinClass — spawn skin-selection: does
+   BeginPlay/Possessed read AvatarId/HasCustomAvatar (or server/config) and pick RPM vs Meta skin class? (THE decision)
+2. TribeGameInstanceBP :: setter/reader of AvatarId + bHasCustomAvatar — how the persisted identity is
+   established at startup (config/server/save) = what we'd set.
+3. BP_ReadyPlayerMeAvatarSkin :: OnSkinApplied / OnSkinLoaded — confirm ReadConfigString→native RPM load.
+4. W_RPMAvatarCreator :: ApplySkinToPlayer / AddOrUpdateCachedRPMAvatarSkin — how the UI persists the RPM
+   selection (exact state spawn would need).
+
+Artifacts in extracted/blueprints/ (binaries gitignored). STOP — no bytecode disassembly yet, per instruction.
