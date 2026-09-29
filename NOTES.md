@@ -2172,3 +2172,117 @@ bundled avatar GLBs from the Oodle-compressed pak into RAM (glTFRuntime via the 
 never writes them to disk — there is no on-disk copy to grab. Nothing pulled (per instruction, only
 pull if the reference GLB is found). **Conclusion: the no-Oodle shortcut fails; the Oodle route is
 required to obtain the RPM reference GLB.**
+
+### [051] 2026-09-29 08:57:30 · exit 0
+
+```sh
+ls -la oo2core_9_win64.dll 2>&1; file oo2core_9_win64.dll 2>/dev/null; echo "--- python arch + load test ---"; python - <<PY
+import ctypes, os, struct
+p=os.path.abspath("oo2core_9_win64.dll")
+print("python bits:", struct.calcsize("P")*8, "| dll exists:", os.path.exists(p), os.path.getsize(p) if os.path.exists(p) else "-")
+try:
+    dll=ctypes.WinDLL(p)
+    fn=dll.OodleLZ_Decompress
+    print("LOADED OK; OodleLZ_Decompress present:", bool(fn))
+    for sym in ("OodleLZ_Compress","OodleLZDecoder_MemorySizeNeeded","Oodle_GetConfigValues"):
+        print("  export", sym, ":", hasattr(dll, sym))
+except OSError as e:
+    print("LOAD FAILED:", e)
+PY
+```
+
+```text
+ls: cannot access 'oo2core_9_win64.dll': No such file or directory
+oo2core_9_win64.dll: cannot open `oo2core_9_win64.dll' (No such file or directory)
+--- python arch + load test ---
+python bits: 64 | dll exists: False -
+LOAD FAILED: Could not find module 'C:\Users\Chris\OneDrive\Desktop\tribe hack\oo2core_9_win64.dll' (or one of its dependencies). Try using the full path with constructor syntax.
+```
+
+### [052] 2026-09-29 09:04:06 · exit 0
+
+```sh
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(cygpath -w "/c/Users/Chris/AppData/Local/Temp/claude/C--Users-Chris-OneDrive-Desktop-tribe-hack/1513371d-9360-4e12-b704-023d9fd6c661/scratchpad/find_oodle_targeted.ps1")" 2>&1 | tr -d "\r"
+```
+
+```text
+Fixed drives: C:, D:
+=== targeted common game-install roots ===
+  scanning: C:\Program Files (x86)\Steam\steamapps\common
+    FOUND  C:\Program Files (x86)\Steam\steamapps\common\Elite Dangerous\Products\elite-dangerous-odyssey-64\GpuWorkTable.xml  (40548 bytes)
+    FOUND  C:\Program Files (x86)\Steam\steamapps\common\Elite Dangerous\Products\elite-dangerous-odyssey-64\InstallerInfo.txt  (67 bytes)
+    FOUND  C:\Program Files (x86)\Steam\steamapps\common\MGSDelta\MGSDelta.exe  (15275080 bytes)
+    FOUND  C:\Program Files (x86)\Steam\steamapps\common\MGSDelta\Engine\Binaries\ThirdParty\DbgHelp\dbghelp.dll  (2221984 bytes)
+    FOUND  C:\Program Files (x86)\Steam\steamapps\common\MGSDelta\Engine\Binaries\ThirdParty\NVIDIA\NVaftermath\Win64\GFSDK_Aftermath_Lib.x64.dll  (1865216 bytes)
+    FOUND  C:\Program Files (x86)\Steam\steamapps\common\MGSDelta\Engine\Binaries\ThirdParty\Ogg\Win64\VS2015\libogg_64.dll  (49152 bytes)
+    FOUND  C:\Program Files (x86)\Steam\steamapps\common\MGSDelta\Engine\Binaries\ThirdParty\Steamworks\Steamv153\Win64\steam_api64.dll  (295336 bytes)
+    FOUND  C:\Program Files (x86)\Steam\steamapps\common\MGSDelta\Engine\Binaries\ThirdParty\Vorbis\Win64\VS2015\libvorbisfile_64.dll  (37888 bytes)
+    FOUND  C:\Program Files (x86)\Steam\steamapps\common\MGSDelta\Engine\Binaries\ThirdParty\Vorbis\Win64\VS2015\libvorbis_64.dll  (1714176 bytes)
+    FOUND  C:\Program Files (x86)\Steam\steamapps\common\MGSDelta\Engine\Binaries\ThirdParty\Windows\XAudio2_9\x64\xaudio2_9redist.dll  (847440 bytes)
+    FOUND  C:\Program Files (x86)\Steam\steamapps\common\MGSDelta\Engine\Content\Slate\Cursor\invisible.cur  (326 bytes)
+    FOUND  C:\Program Files (x86)\Steam\steamapps\common\MGSDelta\Engine\Plugins\Marketplace\nvidia\DLSS\Binaries\ThirdParty\Win64\nvngx_dlss.dll  (51717160 bytes)
+    FOUND  C:\Program Files (x86)\Steam\steamapps\common\MGSDelta\Engine\Plugins\Marketplace\nvidia\Streamline\Binaries\ThirdParty\Win64\nvngx_dlssg.dll  (12582456 bytes)
+    FOUND  C:\Program Files (x86)\Steam\steamapps\common\MGSDelta\Engine\Plugins\Marketplace\nvidia\Streamline\Binaries\ThirdParty\Win64\sl.common.dll  (615392 bytes)
+    FOUND  C:\Program Files (x86)\Steam\steamapps\common\MGSDelta\Engine\Plugins\Marketplace\nvidia\Streamline\Binaries\ThirdParty\Win64\sl.dlss_g.dll  (365016 bytes)
+    FOUND  C:\Program Files (x86)\Steam\steamapps\common\MGSDelta\Engine\Plugins\Marketplace\nvidia\Streamline\Binaries\ThirdParty\Win64\sl.interposer.dll  (510944 bytes)
+    FOUND  C:\Program Files (x86)\Steam\steamapps\common\MGSDelta\Engine\Plugins\Marketplace\nvidia\Streamline\Binaries\ThirdParty\Win64\sl.reflex.dll  (144864 bytes)
+    FOUND  C:\Program Files (x86)\Steam\steamapps\common\MGSDelta\Engine\Plugins\Wwise\ThirdParty\x64_vc170\Release\bin\AkAudioInput.dll  (127752 bytes)
+    FOUND  C:\Program Files (x86)\Steam\steamapps\common\MGSDelta\Engine\Plugins\Wwise\ThirdParty\x64_vc170\Release\bin\AkCompressor.dll  (144136 bytes)
+    FOUND  C:\Program Files (x86)\Steam\steamapps\common\MGSDelta\Engine\Plugins\Wwise\ThirdParty\x64_vc170\Release\bin\AkConvolutionReverb.dll  (221448 bytes)
+    FOUND  C:\Program Files (x86)\Steam\steamapps\common\MGSDelta\Engine\Plugins\Wwise\ThirdParty\x64_vc170\Release\bin\AkDelay.dll  (132872 bytes)
+    FOUND  C:\Program Files (x86)\Steam\steamapps\common\MGSDelta\Engine\Plugins\Wwise\ThirdParty\x64_vc170\Release\bin\AkExpander.dll  (144136 bytes)
+    FOUND  C:\Program Files (x86)\Steam\steamapps\common\MGSDelta\Engine\Plugins\Wwise\ThirdParty\x64_vc170\Release\bin\AkFlanger.dll  (154888 bytes)
+    FOUND  C:\Program Files (x86)\Steam\steamapps\common\MGSDelta\Engine\Plugins\Wwise\ThirdParty\x64_vc170\Release\bin\AkGain.dll  (127752 bytes)
+    FOUND  C:\Program Files (x86)\Steam\steamapps\common\MGSDelta\Engine\Plugins\Wwise\ThirdParty\x64_vc170\Release\bin\AkGuitarDistortion.dll  (167176 bytes)
+    FOUND  C:\Program Files (x86)\Steam\steamapps\common\MGSDelta\Engine\Plugins\Wwise\ThirdParty\x64_vc170\Release\bin\AkHarmonizer.dll  (225032 bytes)
+    FOUND  C:\Program Files (x86)\Steam\steamapps\common\MGSDelta\Engine\Plugins\Wwise\ThirdParty\x64_vc170\Release\bin\AkMatrixReverb.dll  (193800 bytes)
+    FOUND  C:\Program Files (x86)\Steam\steamapps\common\MGSDelta\Engine\Plugins\Wwise\ThirdParty\x64_vc170\Release\bin\AkMotion.dll  (215816 bytes)
+    FOUND  C:\Program Files (x86)\Steam\steamapps\common\MGSDelta\Engine\Plugins\Wwise\ThirdParty\x64_vc170\Release\bin\AkParametricEQ.dll  (156424 bytes)
+    FOUND  C:\Program Files (x86)\Steam\steamapps\common\MGSDelta\Engine\Plugins\Wwise\ThirdParty\x64_vc170\Release\bin\AkPeakLimiter.dll  (135432 bytes)
+    FOUND  C:\Program Files (x86)\Steam\steamapps\common\MGSDelta\Engine\Plugins\Wwise\ThirdParty\x64_vc170\Release\bin\AkPitchShifter.dll  (162568 bytes)
+    FOUND  C:\Program Files (x86)\Steam\steamapps\common\MGSDelta\Engine\Plugins\Wwise\ThirdParty\x64_vc170\Release\bin\AkRecorder.dll  (128264 bytes)
+    FOUND  C:\Program Files (x86)\Steam\steamapps\common\MGSDelta\Engine\Plugins\Wwise\ThirdParty\x64_vc170\Release\bin\AkReflect.dll  (191752 bytes)
+    FOUND  C:\Program Files (x86)\Steam\steamapps\common\MGSDelta\Engine\Plugins\Wwise\ThirdParty\x64_vc170\Release\bin\AkRoomVerb.dll  (244488 bytes)
+    FOUND  C:\Program Files (x86)\Steam\steamapps\common\MGSDelta\Engine\Plugins\Wwise\ThirdParty\x64_vc170\Release\bin\AkSilenceGenerator.dll  (119048 bytes)
+    FOUND  C:\Program Files (x86)\Steam\steamapps\common\MGSDelta\Engine\Plugins\Wwise\ThirdParty\x64_vc170\Release\bin\AkSineTone.dll  (128264 bytes)
+    FOUND  C:\Program Files (x86)\Steam\steamapps\common\MGSDelta\Engine\Plugins\Wwise\ThirdParty\x64_vc170\Release\bin\AkSoundEngineDLL.dll  (1615112 bytes)
+
+... [36700 lines omitted, full output in logs/052.log] ...
+
+    FOUND  D:\SteamLibrary\steamapps\common\FINAL FANTASY XIV Online\game\sqpack\ffxiv\130000.win32.index  (2304 bytes)
+    FOUND  D:\SteamLibrary\steamapps\common\FINAL FANTASY XIV Online\game\sqpack\ffxiv\130000.win32.index2  (2304 bytes)
+    FOUND  D:\SteamLibrary\steamapps\common\PUBG\Engine\Binaries\ThirdParty\CEF3_3071\Win64\openh264-2.1.0-win64.dll  (897272 bytes)
+    FOUND  D:\SteamLibrary\steamapps\common\PUBG\TslGame\Binaries\Win64\bgsecondary.dat  (10158080 bytes)
+    FOUND  D:\SteamLibrary\steamapps\common\PUBG\TslGame\Binaries\Win64\Guid.dat  (36 bytes)
+    FOUND  D:\SteamLibrary\steamapps\common\PUBG\TslGame\Config\DefaultCompat.ini  (15387 bytes)
+    FOUND  D:\SteamLibrary\steamapps\common\PUBG\TslGame\Config\DefaultLightmass.ini  (6862 bytes)
+=== installed UE-based games (Engine/ dir or *-Shipping.exe) in those roots ===
+  UE game: C:\Program Files (x86)\Steam\steamapps\common\MGSDelta
+  UE game: D:\SteamLibrary\steamapps\common\PUBG
+```
+
+### [053] 2026-09-29 09:06:56 · exit 0
+
+```sh
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(cygpath -w "/c/Users/Chris/AppData/Local/Temp/claude/C--Users-Chris-OneDrive-Desktop-tribe-hack/1513371d-9360-4e12-b704-023d9fd6c661/scratchpad/find_oodle2.ps1")" 2>&1 | tr -d "\r"
+```
+
+```text
+=== direct: UE game Binaries\Win64 dirs ===
+=== full per-drive -Filter search (correct) ===
+  drive C:
+  drive D:
+=== done ===
+```
+
+### Phase A-fin blocked — no Oodle DLL on any drive (2026-09-29, read-only)
+
+Wider search (this time correct — `-Filter` works with `-Recurse`, unlike `-Include`): full recurse of
+both fixed drives C: and D: for `oo2core*.dll` and `oodle*.dll` = ZERO hits. Direct check of the two
+installed UE games' binaries = none either.
+- Installed UE games found: `C:\Program Files (x86)\Steam\steamapps\common\MGSDelta` (UE5),
+  `D:\SteamLibrary\steamapps\common\PUBG` (UE4). Neither ships a loose `oo2core_*_win64.dll`.
+- Reason: PACKAGED UE games statically link Oodle into the shipping exe; the loose
+  `oo2core_9_win64.dll` ships with the UE ENGINE/EDITOR (Epic Games Launcher), not with games.
+  So "pull it from a UE5 game I own" does not work for these titles.
+- oo2core DLL is still required for the Windows extract route; not present. Phase A-fin cannot run.
