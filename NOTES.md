@@ -2912,3 +2912,43 @@ function that always runs at pawn spawn — hook it to call FUN_050f49cc(this,0,
 RPM/glTF branch regardless of stored type, then Hook B (FUN_050f4548) pins the file.
 
 STOP — awaiting OK for the third-touch trace.
+
+## Phase 2b (third-touch trace, read-only) — SPAWN DECISION POINT = FUN_050fc2d4
+
+Fresh Ghidra 12.0.4 headless re-analysis (prior project was cleaned; DisableHeavyAnalyzers prescript;
+~59 min) + scripts/SpawnTrace.java reverse-call trace → out/spawn_trace.txt.
+
+**Decision point = FUN_050fc2d4 (RVA 0x050FC2D4)** — UTribeAvatarComponent apply-avatar dispatcher.
+`bool FUN_050fc2d4(this /*x0*/, FString* id /*x1*/, char type /*w2*/)`.
+- Discriminator = the type byte: stored CurrentETribeAvatarType at `this+0x278` vs incoming `param_3`.
+  Values (same as GetAvatarTypeForId): 0=None, 1=ReadyPlayerMe, 2=MetaAvatar2.
+- Copies the incoming id/url (param_2) into the component URL member `this+0x268`, then branches:
+  - type==1 (RPM):  subobj=this+0x2B8 (seeded from this+0x2C0); FUN_050fc808(this,subobj); **FUN_050f4548(subobj, this+0x268)** = glTF load.
+  - type==2 (Meta): subobj=this+0x2B8 (seeded from this+0x2C8); FUN_050fca04(this,subobj); **FUN_04ba81a8(subobj, this+0x268)** = Meta SDK load.
+- A type change (2->1) takes the else arm: FUN_050fbe88 teardown, store new type, copy URL, load → so flipping 2->1 forces a full RPM reload.
+
+Callers (both funnel into the dispatcher):
+- **FUN_050fc0d4 (0x050FC0D4)** "set-by-id": classifies the id **inline** (FUN_04c5b250 scheme / ".glb"+FileExists / FUN_04b9efd8 isMeta → 1/2/0) then calls FUN_050fc2d4. This inlined classify is **why GetAvatarTypeForId (FUN_050fc054) never fires at spawn** — the shared fn is bypassed here.
+- **FUN_050fcee8 (0x050FCEE8)** "set-by-type" (virtual-called; replication/apply): calls FUN_050fc2d4(this,id,param_3); on failure falls back to FUN_050fc2d4(this, "Replays/DefaultAvatar.glb", 1).
+
+Guaranteed-at-spawn: the Meta avatar we observed loading at spawn does so via this dispatcher's type==2
+branch (→ FUN_04ba81a8 → zip://N_quest2.glb). So FUN_050fc2d4 IS on the spawn path; forcing its inputs
+flips the pipeline. (The build will log-verify it fires, same technique as Hook A.)
+
+Hook B confirm: FUN_050f4548 callers = FUN_050f49cc, FUN_050f5a00, FUN_050fc2d4 (RPM arm), self — ALL
+RPM-path. NOT reached by the Meta path (FUN_04ba81a8 → libovravatar2). So pinning the file at FUN_050f4548
+is RPM-only and catches the load once the RPM branch runs.
+
+### Ranked intervention
+**(A) PREFERRED — flip Tribe's own decision at the dispatcher.** Hook FUN_050fc2d4; force w2(type)=1 and
+x1(id)=&persistent FString of our avatar (absolute /sdcard/.../custom.glb, or an RPM URL), then call the
+original. Stock code stores type=1, copies our URL to this+0x268, runs its own RPM branch → FUN_050f4548
+loads our file. One surgical hook, reuses the whole stock load path, catches BOTH caller entries,
+guaranteed at spawn, lowest risk.
+  + optional **Hook B** (FUN_050f4548, overwrite the path arg) to pin the exact file regardless of any
+    internal URL→cache-path derivation.
+**(B) fallback — inject a load call.** Hook a guaranteed-spawn entry and call FUN_050f49cc(subobj,0,&url)
+or FUN_050f4548(subobj,&path) directly. More fragile: must obtain the RPM subobject (this+0x2B8) and synth
+an FString; option A reuses the real objects, so prefer A.
+
+STOP — awaiting OK to build option A (hook FUN_050fc2d4, instrumented + log-verify at spawn).
