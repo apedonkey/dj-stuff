@@ -2952,3 +2952,41 @@ or FUN_050f4548(subobj,&path) directly. More fragile: must obtain the RPM subobj
 an FString; option A reuses the real objects, so prefer A.
 
 STOP — awaiting OK to build option A (hook FUN_050fc2d4, instrumented + log-verify at spawn).
+
+## Phase 2c (Option A + Hook B build/test) — case (iv) CRASH; cause found; addressing bug fixed
+
+**Addressing correction (critical):** Ghidra rebased the image to IMAGE_BASE=0x00100000, so the diagnostic's
+Hook A address (0x050FC054) was 0x100000 too high — it patched the wrong function (harmlessly), which is
+why "GetAvatarTypeForId never fired" in Phase 2 was partly a misplaced-hook artifact (case ii still holds on
+the independent static evidence that FUN_050fc0d4 classifies inline). **Real runtime vaddr = Ghidra addr −
+0x100000.** Confirmed by objdump: dispatcher FUN_050fc2d4 → 0x04FFC2D4, choke FUN_050f4548 → 0x04FF4548,
+GetAvatarTypeForId → 0x04FFC054 (all disassemble to correct prologues). Runtime = load base + real vaddr.
+
+Build: hook/hook.cpp + hook/vendor/And64InlineHook.cpp (MIT, arm64 inline hook w/ trampoline; no libc++),
+NDK r26d, -nostdlib++. Hook A pre-hook on dispatcher (force type=1 + our FString, call original); Hook B
+pre-hook on choke (force path, call original). Target = /sdcard/Android/obb/com.TribeXR.TribeXR/
+rpmavatar-custom.glb (adb-writable + app-readable; staged with extracted/assets/DefaultAvatar.glb).
+
+Results (logs/hookAB_live.txt, tag-filtered so no buffer roll):
+- **Both hooks install every launch** — addresses confirmed live (base+0x04FFC2D4 / base+0x04FF4548,
+  A64 "20 bytes overwritten"). Injection + toolchain fully proven.
+- **Hook B (choke) fires at spawn with an EMPTY path** (`path='(empty num=0)'`) ~1.5 s in — an init/reset
+  call. Forcing a real load there → **SIGSEGV SEGV_ACCERR on GameThread**: `#00 pc 0x20 [anon:.bss]` /
+  `#01 libUnreal.so+0x188aaac` / `#02 0xdc [anon:.bss]` = call through an uninitialized avatar-loaded
+  callback. Crashes every launch (~1–1.5 s), before the real avatar spawn → app won't start.
+- **Hook A (dispatcher) never fired** — the Hook B crash pre-empts it; dispatcher-fires-at-spawn still
+  unconfirmed.
+
+**Root cause:** Hook B forces EVERY FUN_050f4548 call, incl. early empty-path init/reset calls when the
+load delegates aren't set up. Fix: **Hook B must pass empty-path (num<=0) calls through untouched**, only
+forcing on non-empty paths. Coupling: today's spawn avatar is Meta (type=2), so the choke likely only ever
+sees an empty path UNLESS Hook A flips type→1 to drive the RPM branch (which then calls the choke with a
+real path). So Hook A doing its job is what produces Hook B's real-path call.
+
+Device restored to the clean re-signed build (adb install -r out/resign/base.resigned.apk) — hooks removed,
+Tribe launches normally.
+
+Next: rebuild with Hook B guarded (skip num<=0), Hook A unchanged; re-test headset-on to see if the
+dispatcher fires and loads our file.
+
+STOP — awaiting OK to build the guarded version.
