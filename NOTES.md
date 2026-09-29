@@ -2620,3 +2620,115 @@ Ghidra: `scripts/ConfigTrace.java` + `scripts/CmdlineTrace.java` (out/config_tra
 3. **Patch/hook `libUnreal.so`** (force the url/id or GetAvatarTypeForId). No root, but re-signs/
    re-installs the app (breaks read-only-of-game) and breaks on each update. Last resort.
 - No console-command or SaveGame path exists.
+
+### [061] 2026-09-29 10:12:06 · exit 0
+
+```sh
+CL="/c/Users/Chris/AppData/Local/Temp/claude/C--Users-Chris-OneDrive-Desktop-tribe-hack/1513371d-9360-4e12-b704-023d9fd6c661/scratchpad/UECommandLine.txt"
+echo "=== push UECommandLine.txt to both candidate paths ==="
+adb push "$CL" /sdcard/Android/data/com.TribeXR.TribeXR/files/UnrealGame/TribeXR/UECommandLine.txt
+adb push "$CL" /sdcard/Android/data/com.TribeXR.TribeXR/files/UnrealGame/TribeXR/TribeXR/UECommandLine.txt
+echo "=== pre-seed cache: rpmavatar-test.glb ==="
+adb push extracted/assets/DefaultAvatar.glb /sdcard/Android/data/com.TribeXR.TribeXR/files/Documents/Avatars/rpmavatar-test.glb
+echo "=== verify placement ==="
+adb shell "ls -l /sdcard/Android/data/com.TribeXR.TribeXR/files/UnrealGame/TribeXR/UECommandLine.txt /sdcard/Android/data/com.TribeXR.TribeXR/files/UnrealGame/TribeXR/TribeXR/UECommandLine.txt /sdcard/Android/data/com.TribeXR.TribeXR/files/Documents/Avatars/rpmavatar-test.glb 2>&1" | tr -d "\r"
+echo "=== show pushed cmdline content ==="; adb shell "cat /sdcard/Android/data/com.TribeXR.TribeXR/files/UnrealGame/TribeXR/UECommandLine.txt" | tr -d "\r"
+```
+
+```text
+=== push UECommandLine.txt to both candidate paths ===
+adb: error: cannot stat '/c/Users/Chris/AppData/Local/Temp/claude/C--Users-Chris-OneDrive-Desktop-tribe-hack/1513371d-9360-4e12-b704-023d9fd6c661/scratchpad/UECommandLine.txt': No such file or directory
+adb: error: cannot stat '/c/Users/Chris/AppData/Local/Temp/claude/C--Users-Chris-OneDrive-Desktop-tribe-hack/1513371d-9360-4e12-b704-023d9fd6c661/scratchpad/UECommandLine.txt': No such file or directory
+=== pre-seed cache: rpmavatar-test.glb ===
+adb: error: failed to copy 'extracted/assets/DefaultAvatar.glb' to '/sdcard/Android/data/com.TribeXR.TribeXR/files/Documents/Avatars/rpmavatar-test.glb': remote secure_mkdirs failed: Permission denied
+extracted/assets/DefaultAvatar.glb: 1 file pushed, 0 skipped. 174.2 MB/s (4732412 bytes in 0.026s)
+=== verify placement ===
+ls: /sdcard/Android/data/com.TribeXR.TribeXR/files/UnrealGame/TribeXR/UECommandLine.txt: No such file or directory
+ls: /sdcard/Android/data/com.TribeXR.TribeXR/files/UnrealGame/TribeXR/TribeXR/UECommandLine.txt: No such file or directory
+ls: /sdcard/Android/data/com.TribeXR.TribeXR/files/Documents/Avatars/rpmavatar-test.glb: No such file or directory
+=== show pushed cmdline content ===
+cat: /sdcard/Android/data/com.TribeXR.TribeXR/files/UnrealGame/TribeXR/UECommandLine.txt: No such file or directory
+```
+
+### [062] 2026-09-29 10:12:56 · exit 0
+
+```sh
+CL=$(cygpath -w "/c/Users/Chris/AppData/Local/Temp/claude/C--Users-Chris-OneDrive-Desktop-tribe-hack/1513371d-9360-4e12-b704-023d9fd6c661/scratchpad/UECommandLine.txt"); GLB=$(cygpath -w "$PWD/extracted/assets/DefaultAvatar.glb")
+echo "=== push UECommandLine.txt into EXISTING dirs (Windows source path) ==="
+adb push "$CL" /sdcard/Android/data/com.TribeXR.TribeXR/files/UnrealGame/TribeXR/UECommandLine.txt 2>&1 | tr -d "\r"
+adb push "$CL" /sdcard/Android/data/com.TribeXR.TribeXR/files/UnrealGame/TribeXR/TribeXR/UECommandLine.txt 2>&1 | tr -d "\r"
+echo "=== can shell create the Avatars/ dir? ==="
+adb shell "mkdir -p /sdcard/Android/data/com.TribeXR.TribeXR/files/Documents/Avatars 2>&1; ls -ld /sdcard/Android/data/com.TribeXR.TribeXR/files/Documents/Avatars 2>&1" | tr -d "\r"
+echo "=== pre-seed cache glb (if Avatars/ now exists) ==="
+adb push "$GLB" /sdcard/Android/data/com.TribeXR.TribeXR/files/Documents/Avatars/rpmavatar-test.glb 2>&1 | tr -d "\r"
+echo "=== verify all placements ==="
+adb shell "ls -l /sdcard/Android/data/com.TribeXR.TribeXR/files/UnrealGame/TribeXR/UECommandLine.txt /sdcard/Android/data/com.TribeXR.TribeXR/files/UnrealGame/TribeXR/TribeXR/UECommandLine.txt /sdcard/Android/data/com.TribeXR.TribeXR/files/Documents/Avatars/rpmavatar-test.glb 2>&1" | tr -d "\r"
+```
+
+```text
+=== push UECommandLine.txt into EXISTING dirs (Windows source path) ===
+C:\Users\Chris\AppData\Local\Temp\claude\C--Users-Chris-OneDrive-Desktop-tribe-hack\1513371d-9360-4e12-b704-023d9fd6c661\scratchpad\UECommandLine.txt: 1 file pushed, 0 skipped. 0.5 MB/s (321 bytes in 0.001s)
+C:\Users\Chris\AppData\Local\Temp\claude\C--Users-Chris-OneDrive-Desktop-tribe-hack\1513371d-9360-4e12-b704-023d9fd6c661\scratchpad\UECommandLine.txt: 1 file pushed, 0 skipped. 1.2 MB/s (321 bytes in 0.000s)
+=== can shell create the Avatars/ dir? ===
+mkdir: '/sdcard/Android/data/com.TribeXR.TribeXR/files/Documents/Avatars': Permission denied
+ls: /sdcard/Android/data/com.TribeXR.TribeXR/files/Documents/Avatars: No such file or directory
+=== pre-seed cache glb (if Avatars/ now exists) ===
+adb: error: failed to copy 'C:\Users\Chris\OneDrive\Desktop\tribe hack\extracted\assets\DefaultAvatar.glb' to '/sdcard/Android/data/com.TribeXR.TribeXR/files/Documents/Avatars/rpmavatar-test.glb': remote secure_mkdirs failed: Permission denied
+C:\Users\Chris\OneDrive\Desktop\tribe hack\extracted\assets\DefaultAvatar.glb: 1 file pushed, 0 skipped. 188.2 MB/s (4732412 bytes in 0.024s)
+=== verify all placements ===
+ls: /sdcard/Android/data/com.TribeXR.TribeXR/files/Documents/Avatars/rpmavatar-test.glb: No such file or directory
+-rw-r--r-- 1 shell ext_data_rw 321 2026-09-29 10:11 /sdcard/Android/data/com.TribeXR.TribeXR/files/UnrealGame/TribeXR/TribeXR/UECommandLine.txt
+-rw-r--r-- 1 shell ext_data_rw 321 2026-09-29 10:11 /sdcard/Android/data/com.TribeXR.TribeXR/files/UnrealGame/TribeXR/UECommandLine.txt
+```
+
+---
+
+## Phase — runtime test of UECommandLine.txt + -ini: override (2026-09-29, ATTEMPT 1: blocked, headset off)
+
+Delivery setup (writes only to the app's EXTERNAL data dir; nothing patched/re-signed):
+- HTTP server on PC (`python -m http.server 8080` in extracted/assets) serving `test.glb`
+  (copy of DefaultAvatar.glb, 4,732,412 B). Reached from device via `adb reverse tcp:8080 tcp:8080`
+  so the device URL is `http://127.0.0.1:8080/test.glb` (validator accepts 127.0.0.1 — no host check).
+- Pushed `UECommandLine.txt` (321 B) to BOTH candidate paths (both existed, writes succeeded):
+  `…/files/UnrealGame/TribeXR/UECommandLine.txt` and `…/files/UnrealGame/TribeXR/TribeXR/UECommandLine.txt`.
+  Content = original `-project=...` + `-ini:GameUserSettings:[TribeAvatar]:ReadyPlayerMeAvatarUrl=<url>,[TribeAvatar]:AvatarID=<url>`
+  and the same for `-ini:Game:` (covering both possible ini basenames in one shot).
+- Cache pre-seed FAILED: shell cannot `mkdir` new dirs under the app external dir
+  (`secure_mkdirs: Permission denied`) — can WRITE files into EXISTING dirs but not create
+  `Documents/Avatars/`. So the pre-seed route needs the app to create Avatars/ first; the
+  URL-download route (server + adb reverse) does not need it.
+- adb shell has NO curl/wget/nc (couldn't test reachability from device shell; PC-side curl 200 OK).
+
+Launch: `am start -n com.TribeXR.TribeXR/com.epicgames.unreal.GameActivity` after `logcat -c` +
+`am force-stop`. Result: UE logged only through `GameActivity.onCreate()`/`onCreateBody()` then
+STALLED — no `PreInit`, no "Command Line:", no avatar. logcat shows `MrService: … screen is: OFF`:
+the headset was not worn, so UE's native init (which reads UECommandLine.txt and loads the avatar)
+never ran. Server saw no GET. **Test inconclusive — needs the headset ON.** Full log: logs/launch1.txt.
+
+NEXT (needs the user, physical): put the headset on, launch/enter Tribe, go into a DJ session so the
+local avatar spawns. Server + adb reverse are left running; re-capture logcat + watch for GET /test.glb.
+
+## Phase — runtime test ATTEMPT 2 (headset ON, in a session): override did NOT take effect
+
+Widened `UECommandLine.txt` (ini names GameUserSettings/Game/Engine/TribeXR + `-LOG=tribeprobe.log`
+read-probe) pushed to 3 external paths (files/, files/UnrealGame/TribeXR/, .../TribeXR/TribeXR/).
+Force-stopped, user relaunched and entered a DJ session. Results:
+- **No `tribeprobe.log`** created anywhere (Saved/Logs stays empty — this shipping build writes no UE
+  log file, so `-LOG` gives no observable signal; read-probe inconclusive).
+- **No server request** for test.glb (only my earlier PC-side HEAD).
+- **No `Documents/Avatars/`, no `rpmavatar-*`.** Instead the Meta avatar bundles
+  (CachedAvatars.zip, PresetAvatars_Quest2.zip, OvrAvatar2Assets.zip) were touched again → the app
+  loaded the **Meta** avatar, same as without the file.
+- logcat is silent natively (only Java-side GameActivity lines; UE `FUN_015ab8fc` logs like "APK
+  Commandline"/"Using override commandline" never reach logcat in this shipping build).
+
+**Verdict: the external-UECommandLine.txt + `-ini:` route did not drive the avatar, and this build
+gives no observable signal to say why.** Verified by decompile that the loader *applies* an external
+file unconditionally when found (no shipping guard), so the failure is one of: (a) the external path
+differs from the 3 tried — base global `07ba1b80` is runtime-set and unresolved (targetSDK 32 scoped
+storage may even route it to a `/sdcard/UnrealGame/...` path the scoped app can't read → feature dead);
+(b) the `-ini:` ini name doesn't match `[TribeAvatar]`'s ini (`07ba2d90` unresolved); or (c) the local
+avatar type isn't re-resolved from `[TribeAvatar]AvatarID` at spawn (it defaults to Meta when no RPM is
+actively selected), meaning no config write can flip it — only the removed UI's switch logic (or a
+patch) would. Cannot distinguish these without root observability (read internal ini + UE log) or a
+binary patch — both outside the read-only/no-root constraints.
