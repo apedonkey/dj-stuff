@@ -3813,3 +3813,24 @@ To swap skins: change active_skin.txt (+ relaunch, or touch load_avatar to hot-s
 Legs/full-body: pipeline loads whatever is in the .glb -- a full-body Blender export shows legs (visible).
 IK-driven legs (move with you) need binding to Tribe's avatar skeleton (Skeleton=Tribe skel, RootBoneName,
 CopyRotationsFrom) instead of Skeleton=null -- a follow-up. DefaultAvatar.glb is half-body by design.
+
+## Session 3c — skullbuck loads, but Tribe actively resets the body -> keeper build
+
+User's own avatar skullbuck.glb (Blender 4.5, full-body RPM rig: 54 joints Hips->spine/arms/legs/toes, 36.7k tris,
+3 PBR textures) auto-loaded first try: mesh built textured, attached, visible flags set. But the user saw NOTHING.
+Diagnosis (dumps): live body DJRoomMap...ReadyPlayerMeComponent.AvatarBodyMesh went back to SkeletalMeshAsset=null
+(both after the early auto-load AND after a manual re-attach with the game fully settled, ~40s later), and our
+orphaned transient USkeletalMesh was then GC'd (renamed 'None'). => Tribe actively resets its RPM body mesh (its
+own RPM state = 'no mesh loaded'); not merely an auto-load timing issue. Also the avatar menu ("My Ready Player
+Me Avatar" = Loaded) re-applies the empty RPM skin; the skin-cycle hook logged no 'skin cycle' (ApplySkinToPlayer
+likely a direct BP call, not ProcessEvent).
+
+Keeper build (76864B, installed, NOT yet tested -- headset battery hit 4%):
+- root_object(mesh): set EInternalObjectFlags::RootSet (1<<30) on the mesh's FUObjectItem (== AddToRoot) so GC
+  can't free it; unroot the previous skin's mesh on swap.
+- PE-hook blocker: swallow SetSkeletalMeshAsset calls on our body with a mesh != ours (BP-level resets), logged.
+- Poll-thread keeper (~1s): read body+0x550; if != our mesh -> log NATIVE reset + request re-attach, drained on
+  the game thread in the PE hook (attach_mesh = SetSkeletalMeshAsset + OwnerNoSee(false)/Visibility/HiddenInGame).
+  Validity guard: if g_body's class is no longer SkeletalMeshComponent, keeper turns off.
+Next test tells us: BLOCKED-BP vs NATIVE reset counts/frequency. If Tribe resets every tick natively, fall back to
+spawning our own SkeletalMeshComponent (AddComponentByClass + attach under AvatarBodyMesh) that Tribe doesn't manage.

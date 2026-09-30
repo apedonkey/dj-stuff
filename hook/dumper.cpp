@@ -834,6 +834,18 @@ static uintptr_t g_apply_fn=0; static volatile sig_atomic_t g_loaded_once=0; sta
 // diagnostic (flag tribemod/log_pe): log each UNIQUE ProcessEvent func whose name looks avatar/skin/menu-ish,
 // so an in-headset avatar-select reveals which event actually goes through ProcessEvent (the real cycle trigger).
 static volatile sig_atomic_t g_log_pe=0; static uintptr_t g_seen[1024]; static int g_nseen=0;
+// keeper: Tribe actively resets ReadyPlayerMeComponent.AvatarBodyMesh back to null (verified: set -> null
+// within ~40s, and the orphaned mesh then gets GC'd). So: root our mesh (no GC), block BP-level resets in
+// the PE hook, and have the poll thread re-attach if a native reset slips through.
+static uintptr_t g_body=0, g_mymesh=0, g_fnSet=0, g_fnOwner=0, g_fnVis=0, g_fnHid=0;
+static volatile sig_atomic_t g_keep=0, g_reattach_req=0; static int g_resets_bp=0, g_resets_native=0;
+static const uint32_t SMC_MESH_OFF=0x550;                   // SkeletalMeshComponent.SkeletalMeshAsset
+static const uint32_t IOF_RootSet=0x40000000;               // EInternalObjectFlags::RootSet (1<<30)
+static bool root_object(uintptr_t obj){                     // == UObject::AddToRoot (sets RootSet on its FUObjectItem)
+    if(!obj) return false; uint32_t idx=rd32(obj+OFF_Index); if(idx>=g_numElements) return false;
+    uintptr_t chunk=rdptr(g_chunks+(uintptr_t)(idx>>16)*8); if(!chunk) return false;
+    uint32_t* fl=(uint32_t*)(chunk+(uintptr_t)(idx&0xFFFF)*ITEM_STRIDE+8);
+    __atomic_fetch_or(fl,IOF_RootSet,__ATOMIC_SEQ_CST); return true; }
 
 struct FStr { uint16_t* data; int32_t num; int32_t max; };
 static uint16_t g_fpath[600];
@@ -914,6 +926,15 @@ static uintptr_t load_mesh(uintptr_t asset,uintptr_t fnMesh,int skipMaterials){
 // call a single-bool (or two-bool) UFunction on obj via ProcessEvent
 static void call_bool2(uintptr_t obj,uintptr_t fn,uint8_t a,uint8_t b){ if(!obj||!fn) return;
     static uint8_t bp[16]; memset(bp,0,sizeof bp); bp[0]=a; bp[1]=b; call_uf(obj,fn,bp); }
+static void unroot_object(uintptr_t obj){                    // == UObject::RemoveFromRoot
+    if(!obj) return; uint32_t idx=rd32(obj+OFF_Index); if(idx>=g_numElements) return;
+    uintptr_t chunk=rdptr(g_chunks+(uintptr_t)(idx>>16)*8); if(!chunk) return;
+    uint32_t* fl=(uint32_t*)(chunk+(uintptr_t)(idx&0xFFFF)*ITEM_STRIDE+8);
+    __atomic_fetch_and(fl,~IOF_RootSet,__ATOMIC_SEQ_CST); }
+// set our mesh on the body + force owner-visible. Goes through orig_pe directly, so the PE-hook blocker never sees it.
+static void attach_mesh(uintptr_t body,uintptr_t mesh){ if(!body||!mesh||!g_fnSet) return;
+    static uint8_t sp[0x10]; memset(sp,0,sizeof sp); *(uintptr_t*)(sp+0x00)=mesh; call_uf(body,g_fnSet,sp);
+    call_bool2(body,g_fnOwner,0,0); call_bool2(body,g_fnVis,1,1); call_bool2(body,g_fnHid,0,1); }
 static void do_load(){
     load_status("=== do_load (game tid=%d) ===",my_tid());
     refresh_numelements();                                       // catch objects spawned since resolve (the pawn)
@@ -952,17 +973,20 @@ static void do_load(){
     { uintptr_t mb=find_struct("M_glTFRuntimeBase"); load_status("M_glTFRuntimeBase resident=%s",mb?"YES":"no(maybe uncooked)"); }
     // 3) AvatarBodyMesh.SetSkeletalMeshAsset(mesh)
     if(!body){ load_status("mesh loaded (0x%lx) but no live AvatarBodyMesh -- select the RPM avatar, then retry",(unsigned long)mesh); load_status("=== do_load done ==="); return; }
-    { static uint8_t sp[0x10]; memset(sp,0,sizeof sp); *(uintptr_t*)(sp+0x00)=mesh; call_uf(body,fnSet,sp);
-      load_status("SetSkeletalMeshAsset -> body=0x%lx DONE",(unsigned long)body); }
-    // 4) make it visible to the owner (first-person + selfie cam): OwnerNoSee off, Visibility on.
-    uintptr_t fnOwner=find_by_path("/Script/Engine.PrimitiveComponent.SetOwnerNoSee",0);
-    uintptr_t fnVis  =find_by_path("/Script/Engine.SceneComponent.SetVisibility",0);
-    uintptr_t fnHid  =find_by_path("/Script/Engine.SceneComponent.SetHiddenInGame",0);
-    call_bool2(body,fnOwner,0,0);  load_status("SetOwnerNoSee(false) fn=0x%lx",(unsigned long)fnOwner);
-    call_bool2(body,fnVis,1,1);    load_status("SetVisibility(true,true) fn=0x%lx",(unsigned long)fnVis);
-    call_bool2(body,fnHid,0,1);    load_status("SetHiddenInGame(false,true) fn=0x%lx",(unsigned long)fnHid);
+    // 3) pin + attach + make visible to the owner (first-person + selfie cam), then hand off to the keeper.
+    g_fnSet=fnSet;
+    g_fnOwner=find_by_path("/Script/Engine.PrimitiveComponent.SetOwnerNoSee",0);
+    g_fnVis  =find_by_path("/Script/Engine.SceneComponent.SetVisibility",0);
+    g_fnHid  =find_by_path("/Script/Engine.SceneComponent.SetHiddenInGame",0);
+    bool rooted=root_object(mesh);                               // AddToRoot: survives Tribe dropping its ref
+    uintptr_t prev=g_mymesh; g_keep=0;                           // pause keeper/blocker during the swap
+    attach_mesh(body,mesh);
+    g_body=body; g_mymesh=mesh; g_keep=1;
+    if(prev && prev!=mesh) unroot_object(prev);                  // release the previous skin's mesh
+    load_status("attached mesh=0x%lx body=0x%lx rooted=%d owner=0x%lx vis=0x%lx hid=0x%lx; keeper ON",
+        (unsigned long)mesh,(unsigned long)body,(int)rooted,(unsigned long)g_fnOwner,(unsigned long)g_fnVis,(unsigned long)g_fnHid);
     g_loaded_once=1;                                             // enable the menu-select skin-cycle trigger
-    load_status("=== do_load done (materials on, visible) ===");
+    load_status("=== do_load done (materials on, visible, kept) ===");
 }
 static void run_load_guarded(){
     g_dump_tid=my_tid(); struct sigaction sa,os,ob; memset(&sa,0,sizeof sa); sa.sa_sigaction=segv_handler; sa.sa_flags=SA_SIGINFO;
@@ -971,6 +995,13 @@ static void run_load_guarded(){
     g_guard=0; sigaction(SIGSEGV,&os,0); sigaction(SIGBUS,&ob,0);
 }
 extern "C" void repl_pe(void* self,void* func,void* parms){
+    // BLOCK Blueprint-level resets of our body while the keeper is on (Tribe setting AvatarBodyMesh to null/other).
+    if(g_keep && !g_in_load && g_fnSet && func==(void*)g_fnSet && (uintptr_t)self==g_body && parms && *(uintptr_t*)parms!=g_mymesh){
+        g_resets_bp++; if(g_resets_bp<=20||(g_resets_bp%100)==0) load_status("BLOCKED BP reset of body -> 0x%lx (#%d)",(unsigned long)*(uintptr_t*)parms,g_resets_bp);
+        return;                                                    // swallow it
+    }
+    // keeper: poll thread saw a NATIVE reset -> re-attach our (rooted) mesh here on the game thread
+    if(g_reattach_req && g_keep && !g_in_load){ g_reattach_req=0; g_in_load=1; attach_mesh(g_body,g_mymesh); g_in_load=0; }
     if(g_log_pe && g_resolved) pe_log_func((uintptr_t)func);     // diagnostic: capture avatar/skin/menu events
     // skin-cycle: after the first load, when Tribe (re)applies the RPM skin from the avatar menu, advance
     // to the next skin + arm a reload. Debounced 2s so init-time / repeated applies don't spin the cycle.
@@ -1001,6 +1032,15 @@ static void* dump_thread(void*){
             ensure_resolved();
             if(g_resolved){ refresh_numelements(); uintptr_t body=find_live("AvatarBodyMesh","SkeletalMeshComponent","ReadyPlayerMeComponent");
                 if(body){ g_load_req=1; auto_done=true; load_status("auto-load: pawn ready (body=0x%lx numel=%u) -> armed",(unsigned long)body,g_numElements); } } }
+        // KEEPER (~1s): if Tribe reset our body natively (bypassing the PE blocker), request a re-attach on the game thread.
+        static int ktick=0;
+        if(g_keep && g_body && g_mymesh && ((++ktick & 1)==0)){
+            char cn[64]; class_name(g_body,cn,sizeof cn);
+            if(strcmp(cn,"SkeletalMeshComponent")!=0){ g_keep=0; load_status("keeper: body gone (class='%s') -> keeper OFF",cn); }
+            else { uintptr_t cur=rdptr(g_body+SMC_MESH_OFF);
+                if(cur!=g_mymesh){ g_resets_native++;
+                    if(g_resets_native<=20||(g_resets_native%50)==0) load_status("NATIVE reset of body (cur=0x%lx) #%d -> re-attach",(unsigned long)cur,g_resets_native);
+                    g_reattach_req=1; } } }
         usleep(500*1000); }
     return nullptr;
 }
