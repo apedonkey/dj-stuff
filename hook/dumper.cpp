@@ -278,6 +278,23 @@ static void dump_props(FILE* fo,const char* clsPath){
             fprintf(fo,"    +0x%04x  %-26s %-40s elem=0x%x\n",off,ty,nm,es); }
     }
 }
+// dump a UScriptStruct layout: field offsets/types/sizes + PropertiesSize (=C++ struct size) + a raw
+// hexdump of the struct object tail (to locate CppStructOps/StructFlags). Needed to build glTFRuntime
+// config param blobs (glTFRuntimeConfig.TransformBaseType, SkeletalMeshConfig.MaterialsConfig.bSkipLoad,...).
+static void dump_struct(FILE* fo,const char* structPath){
+    uintptr_t st=find_by_path(structPath,0);
+    fprintf(fo,"\n==== ScriptStruct %s  (0x%lx) ====\n",structPath,(unsigned long)st);
+    if(!st){ fprintf(fo,"  (not found)\n"); return; }
+    for(uintptr_t c=st; c; c=rdptr(c+OFF_Super)){
+        char cnm[128]; obj_name(c,cnm,sizeof cnm); uint32_t ps=rd32(c+OFF_PropSize);
+        fprintf(fo,"  [%s] PropertiesSize=0x%x (struct size)\n",cnm,ps);
+        int n=0; for(uintptr_t f=rdptr(c+OFF_ChildProps); f && n<256; f=rdptr(f+FF_Next),n++){
+            char ty[64],nm[128]; ffield_type(f,ty,sizeof ty); uint32_t id=rd32(f+FF_Name); fname_resolve(id,nm,sizeof nm);
+            uint32_t off=rd32(f+FP_Offset), es=rd32(f+FP_ElemSize);
+            fprintf(fo,"    +0x%04x  %-26s %-40s elem=0x%x\n",off,ty,nm,es); }
+    }
+    hexdump_to(fo,"  UScriptStruct tail[0x50..0xd0] (StructFlags/CppStructOps)",st+0x50,0x80);
+}
 static void dump_ufunction(FILE* fo,const char* fnPath){
     uintptr_t fn=find_by_path(fnPath,0);
     fprintf(fo,"\n==== UFunction %s  (0x%lx) ====\n",fnPath,(unsigned long)fn);
@@ -543,10 +560,24 @@ static void do_dump(){
         // selfie-cam / third-person visibility mechanism (why the local RPM avatar is invisible in the selfie)
         "/Game/Pawn/TribePawnBP.TribePawnBP_C.SetAvatarSceneCaptureHidden",
         "/Game/Pawn/TribePawnBP.TribePawnBP_C.SetAvatarThirdPersonVisible",
-        "/Game/Visuals/BP_TribeVisualsManager.BP_TribeVisualsManager_C.FinishSkinsSetup" };
+        "/Game/Visuals/BP_TribeVisualsManager.BP_TribeVisualsManager_C.FinishSkinsSetup",
+        // ---- direct-glTFRuntime graft: loader + mesh-load + errors + mesh setter (param layouts) ----
+        "/Script/glTFRuntime.glTFRuntimeFunctionLibrary.glTFLoadAssetFromFilename",
+        "/Script/glTFRuntime.glTFRuntimeAsset.LoadSkeletalMesh",
+        "/Script/glTFRuntime.glTFRuntimeAsset.GetErrors",
+        "/Script/Engine.SkeletalMeshComponent.SetSkeletalMeshAsset" };
       // resolve the EX_LocalVirtualFunction target (0x1a1485) by matching FName ids to function names
       list_class_functions(fs,"/Game/Menus/W_RPMAvatarCreator.W_RPMAvatarCreator_C");
       for(auto fp:fns) dump_ufunction(fs,fp);
+      // ---- glTFRuntime config struct layouts (for building the ProcessEvent param blobs) ----
+      dump_struct(fs,"/Script/glTFRuntime.glTFRuntimeConfig");
+      dump_struct(fs,"/Script/glTFRuntime.glTFRuntimeSkeletalMeshConfig");
+      dump_struct(fs,"/Script/glTFRuntime.glTFRuntimeMaterialsConfig");
+      dump_struct(fs,"/Script/glTFRuntime.glTFRuntimeSkeletonConfig");
+      // ---- live component + skin props (AvatarBodyMesh offset, target skeleton, graft targets) ----
+      dump_props(fs,"/Script/TribeXR.ReadyPlayerMeComponent");
+      dump_props(fs,"/Script/TribeXR.TribeAvatarComponent");
+      dump_props(fs,"/Game/Visuals/Skins/OculusAvatar/BP_ReadyPlayerMeAvatarSkin.BP_ReadyPlayerMeAvatarSkin_C");
 
       // --- glTFRuntime finalizer output: transient USkeletons. BoneTree.Num discriminates the failure:
       //     0 bones => gather failed (empty mesh finalized); ~39 (root AvatarRoot/Hips) => mesh built & dropped downstream.
