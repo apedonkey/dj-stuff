@@ -3578,3 +3578,17 @@ Next (reviewer-approved): diagnostic hooks (read-only logging), instrument every
 3. FinalizeSkeletalMeshWithLODs (xref "LOD_%d_Section_%d_%s"): log context mesh + LOD count on entry + return.
 4. ProcessEvent filtered on {glTF delegate target fn (from #1), Tribe HandleAvatarLoaded}: log *(USkeletalMesh**)Parms.
 Entry never fires => break is upstream in Tribe orchestrator => hook FUN_04c5a578 branches next.
+
+## Session 3b — diagnostic-hook targets located (Ghidra; RVA = addr-0x100000)
+- glTF async ENTRY (caller of FUN_04bde120 = LoadSkeletalMeshRecursiveAsync): 04bc2de0 (rva 0x4ac2de0, 468B).
+  Other caller = 050f4548 (Tribe per-URL loader). Hooking 04bc2de0 answers "does the avatar reach glTFRuntime?"
+- AddError call site (refs "CreateSkeletalMeshFromLODs()"): 04c1b950 (10780B) -> decompile to find the AddError callee.
+- Finalize (refs "LOD_%d_Section_%d_%s"): 04c3d288 (6752B) / 04c1e620 (6572B).
+- TraverseJoints: 04bf5430 (18208B).  GetRootBoneIndex: 04bf4620 (976B).
+- ProcessEvent: from Default__Object vtable_rva 0x06D537B0 (sdk.txt has 96 slots) — ID the slot by ldrh ParmsSize@0xB6
+  + tst FunctionFlags&0x400 + dynamic sp adjust.  HandleAvatarLoaded UFunction resolvable by path for the PE filter.
+
+Infra available: hook/vendor/And64InlineHook (arm64 inline trampoline) from the earlier avatar-hook work; DT_NEEDED
+injection already proven. Plan: read-only logging hooks (entry/AddError/finalize + ProcessEvent filter). If entry
+(04bc2de0) never fires => break is upstream => hook FUN_04c5a578 / FUN_050f49cc branches. This is the next BUILD
+(bigger than the read-only dumper); best done at the desk with iterative in-game tests.
