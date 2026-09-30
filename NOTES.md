@@ -3617,3 +3617,26 @@ Implications:
 
 Decision pending: (A) ngrok/cloudflared confirmation test, then build the validator hook for standalone; or
 (B) go straight to the diagnostic+validator hooks (entry 0x4ac2de0, IsValidReadyPlayerMeAvatarUrl, loader).
+
+## Session 3b — DEFINITIVE: config path never fetches; mesh load is LoadAvatarAtUrl-gated. Black-box exhausted.
+
+Tunnel test (cloudflared quick tunnel -> local rpm_server serving custom.glb + custom.json, query stripped):
+- URL set to https://liabilities-mit-stage-seen.trycloudflare.com/<24hex>.glb (valid public host, passes any regex).
+- Quest RESOLVES + REACHES the host (ping 104.16.230.132 OK). Server served my curl checks (glb/json 200).
+- After relaunch AND after the user actively SELECTED the RPM avatar: Tribe made ZERO requests to the tunnel
+  (server log shows only my curl UA). glTFRuntimeAsset=CDO only; AvatarBodyMesh.SkeletalMeshAsset=NULL.
+Also failed: Step2.1 canonical-URL+staged-cache (no cache fallback); Step2.2 file://+ETag+cache (earlier).
+
+Conclusion: the spawn-time config read (InitMyRPMAvatarSkin = ReadConfigString + SpawnObject, no HTTP in its
+bytecode) SPAWNS the RPM skin controller (so it's selectable) but never fetches/builds the mesh. Re-selecting
+the avatar re-applies the cached (empty) skin; it does NOT call the loader. The actual fetch+build lives in
+W_RPMAvatarCreator.LoadAvatarAtUrl -> HandleAvatarLoaded (the creator "paste URL" flow). So config-only
+injection has a hard ceiling: avatar selectable, never loadable. No-code routes (config URL, cache fallback,
+file://, valid public URL, DNS) are all exhausted.
+
+Next (requires the first real game hook): either
+(a) DRIVE the load: ProcessEvent-call W_RPMAvatarCreator_C.LoadAvatarAtUrl(url) (+ AddOrUpdateCachedRPMAvatarSkin
+    -> ApplySkinToPlayer) at spawn = the "widget replay" path; or
+(b) DIAGNOSE: log-only hooks on IsValidReadyPlayerMeAvatarUrl impl, glTF entry 0x4ac2de0, FUN_050f584c, to see
+    exactly what the config path does and why it doesn't fetch.
+Infra ready: hook/vendor/And64InlineHook + DT_NEEDED injection. Tunnel/server left running for the LoadAvatarAtUrl test.
