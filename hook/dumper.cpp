@@ -331,6 +331,35 @@ static void list_class_functions(FILE* fo,const char* clsPath){
     }
 }
 
+// ---- read-only address calibration: resolve the Ghidra-rva -> runtime skew per code region ----
+// Ghidra static addresses can differ from runtime by a per-segment delta (0 or 0x1000 seen). For each
+// known Ghidra rva we hexdump base+rva and base+rva+0x1000 and flag which looks like an AArch64 function
+// prologue, so hook/call targets are calibrated before any inline hook. Anchor: dispatcher 0x4ffc2d4
+// (an earlier inline hook fired there at +0, so that region has delta 0).
+static bool looks_prologue(uintptr_t a){ uint32_t w=rd32(a); uint8_t b3=(w>>24)&0xff;
+    if(w==0xD503233F) return true;                 // paciasp
+    if(b3==0xD1) return true;                       // sub sp,sp,#imm
+    if(b3==0xA9 && ((w>>16)&0xff)>=0x80) return true; // stp ...,[sp,#-imm]! (pre-index)
+    if((w&0xFFFFFF00)==0xD53BD000) return true;     // mrs x?,tpidr_el0 (stack-guard preamble)
+    if(b3==0xD1||b3==0xA9) return true; return false; }
+static void calib_one(FILE* fo,const char* label,uintptr_t rva){
+    uintptr_t a0=g_base+rva, a1=g_base+rva+0x1000;
+    fprintf(fo,"\n%-16s ghidra_rva=0x%lx\n",label,(unsigned long)rva);
+    fprintf(fo,"  +0     @0x%lx prologue=%d : ",(unsigned long)a0,looks_prologue(a0)); for(int i=0;i<20;i++){ uint8_t b; fprintf(fo,"%02x ",sr(a0+i,&b,1)?b:0); } fprintf(fo,"\n");
+    fprintf(fo,"  +0x1000@0x%lx prologue=%d : ",(unsigned long)a1,looks_prologue(a1)); for(int i=0;i<20;i++){ uint8_t b; fprintf(fo,"%02x ",sr(a1+i,&b,1)?b:0); } fprintf(fo,"\n");
+}
+static void calib(){
+    FILE* fo=fopen(op("calib.txt"),"w"); if(!fo) return;
+    fprintf(fo,"base=0x%lx\n",(unsigned long)g_base);
+    calib_one(fo,"dispatcher",0x4ffc2d4);   // ANCHOR: worked at +0 (delta 0 region)
+    calib_one(fo,"glTF_choke",0x4ff4548);   // ANCHOR2: earlier hook target
+    calib_one(fo,"ProcessEvent",0x1857dd4); // vt slot78 twin (expect prologue at +0 OR +0x1000)
+    calib_one(fo,"CallFunction",0x1856bac);
+    calib_one(fo,"glTF_entry",0x4ac2de0);   // caller of glTF async load (diagnostic hook target)
+    calib_one(fo,"AddError_site",0x4c1b950);
+    fclose(fo);
+}
+
 // ---- read-only ini probe: find & copy the game's *.ini (config lives in the internal files dir) ----
 static int g_ini_ct=0, g_walk_budget=300000;
 static void copy_out(const char* src,const char* base){ char dst[720]; snprintf(dst,sizeof dst,"%s/ini/%02d_%s",OUTDIR,g_ini_ct++,base);
@@ -426,6 +455,9 @@ static void do_dump(){
           uint32_t off=rd32(f+FP_Offset); if(off>=aps+0x1000) okChain=false;
           tl+=snprintf(tbl+tl,sizeof(tbl)-tl,"  +0x%03x %s %s\n",off,ty,nm); }
         ck("R4.FField.chain",cnt>0&&okChain,"props=%d\n%s",cnt,tbl); } }
+
+    // ---- calib.txt: resolve Ghidra->runtime skew for hook/call targets (read-only) ----
+    calib();
 
     // ---- objects.txt (full walk; needs names) ----
     FILE* fo=(r1&&canWalk)?fopen(op("objects.txt"),"w"):0;

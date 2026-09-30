@@ -3724,3 +3724,40 @@ BB01368FC663411E5AD676EE268AAC4E). Verified via adb forward tcp:8790->device 878
   GET json-> 200 metadata ; HEAD -> headers only ; If-None-Match=ETag -> 304.
 No game mutation. This makes the mod self-hosting (standalone target). Next: Phase 2 diagnostic hooks +
 Phase 3 game-thread executor to drive LoadAvatarAtUrl (fires SetAvatarID for the first time).
+
+## Session 3c Phase 2-prep — ProcessEvent resolved; metadata/root-node pipeline found (offline RE)
+
+ProcessEvent: FUN_01957dd4 (Ghidra rva 0x1857dd4) is UObject::ProcessEvent — sig (this,Function,Parms),
+tests FUNC_Native via (FunctionFlags@0xb1>>2 & 1) [bit10=0x400], memcpy(frame,Parms,ParmsSize@0xb6). The
+by-name caller FUN_01957508 builds a frame and calls this->vtable[0x270](this,UFunction,frame) = slot 78.
+ADDRESS SKEW: runtime vtable slot 78 read = base+0x1858dd4, but ProcessEvent's Ghidra rva is 0x1857dd4
+(exactly 0x1000 lower). So the 0x185xxxx code region has runtime = base + ghidra_rva + 0x1000, while the
+0x4xxxxxx region (dispatcher 0x4ffc2d4 hook fired at +0) has delta 0. Skew is PER-SEGMENT -> every hook/call
+target must be prologue-verified at runtime. Executor will self-calibrate: try base+rva and base+rva+0x1000,
+pick the one that is an AArch64 prologue (+ for ProcessEvent, contains ldrh [x?,#0xb6] = word&0xFFFFFC00==0x79416C00).
+calib.txt probe added to dumper (not yet run; app relaunch blocked by Meta unofficial-app dialog).
+
+RPM load pipeline (native, from string/global xrefs) -- explains the invisible body:
+- Global PTR_DAT_07c681c0 = "https://readyplayer.me/api/avatar/" (base). FUN_04c5b054 builds base+<id> = the
+  METADATA API url. readyplayer.me is DEAD (NXDOMAIN) -> this fetch fails.
+- FUN_04c5c3b0 parses the metadata JSON and compares bodyType to "Halfbody" (PTR_DAT_07c68258); picks the glTF
+  ROOT NODE name: "AvatarRoot" (halfbody, PTR_07c68188) vs "Armature" (fullbody, PTR_07c68190). Other metadata
+  globals: "bodyType","outfitGender","Masculine","Feminine","Fullbody","Halfbody","outfitVersion".
+- DefaultAvatar.glb (our custom.glb) root node = "AvatarRoot" (halfbody). If the dead metadata fetch fails,
+  Tribe likely defaults/errs the bodyType -> wrong root node ("Armature") -> glTF joint traversal from a
+  non-existent node -> empty skeleton/mesh -> AvatarBodyMesh.SkeletalMeshAsset stays NULL -> invisible. This
+  is the advisor's predicted AvatarRoot-vs-Armature mismatch, now grounded in code.
+
+Fix implications (decide after the diagnostic run confirms the break point):
+- Serving .glb alone is insufficient: the bodyType/root-node comes from readyplayer.me metadata (hardcoded
+  base global), not necessarily from our URL. Options: (a) hook FUN_04c5b054 or the metadata fetch to point
+  at our loopback JSON; (b) drive LoadAvatarAtUrl and force the root node / bodyType; (c) FALLBACK (now looks
+  primary): bypass Tribe's RPM path -- call glTFRuntime directly on our .glb and bind its async completion to
+  AvatarBodyMesh.SetSkeletalMeshAsset (loses ApplySkinToPlayer's materials/IK/morphs but avoids the dead API).
+- The glTF ENTRY diagnostic hook (0x4ac2de0) logs the NodeName it traverses from -> directly confirms whether
+  the root node is wrong. AddError hook -> logs the traversal failure. This is the next runtime step.
+
+Blocked on device: Meta "unofficial app" reprojected VR dialog (com.oculus.vrshell/.systemdialog.launchcheck
+.UnOfficialAppDialogActivity) gates the app launch; adb keyevents don't dismiss it (needs an in-headset click).
+adb CAN wake the headset + simulate proximity (am broadcast com.oculus.vrpowermanager.prox_close) + am start,
+but not click the dialog. So a human tap on "Open" is required once per relaunch.
