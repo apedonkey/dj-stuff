@@ -3516,3 +3516,27 @@ Kill switch unchanged: adb rm tribemod/avatar_url.txt + relaunch -> constructor 
 STOP — config-injection mod works + RPM load pipeline downloads, but glTFRuntime builds no mesh (RPM path
 appears defunct; RPM servers dead). Decision needed: (a) deep-RE the glTFRuntime load call to find the
 build failure, or (b) pivot to a known-working render path (Meta SDK / replay), or (c) accept selection-only.
+
+## Session 3b RE deep-dive — load path fully mapped; async glTF build is the blocker (reviewer packet built)
+
+Assembled out/reviewer_packet.md (102KB, 2837 lines) for the expert reviewer: the full question + complete
+decompiled bodies of the RPM load path + full glTF structure + skeleton hierarchy + on-device object evidence
++ RPM BP pipeline + ini state + offsets/RVAs reference + glTFRuntime build internals.
+
+Load path (Ghidra addr; RVA = addr-0x100000), all read-only:
+- FUN_050f584c: config read TribeAvatar/ReadyPlayerMeAvatarUrl(+ETag) via GGameUserSettingsIni; cache-name %srpmavatar-%s.
+- FUN_050f49cc: orchestrator; validates scheme (FUN_04c5b250), dispatches (FUN_04c5a578), loads (FUN_050f4548), WriteConfig ETag.
+- FUN_04c5b250: IsValidAvatarUrl — scheme in {http,https,file} (so file:// IS supported).
+- FUN_04c5a578: dispatcher; mode byte *param_2 picks branch; builds a glTFRuntimeSkeletalMeshConfig-like struct
+  (1.0f scales, 0x901/0x501 flags); *param_2==0 -> FUN_04c59ce0 (glTFRuntime load-from-filename, accepts
+  ".glb .gltf .json .js"); sets this+0x5e8/+0x740=1.
+- FUN_050f4548 -> FUN_04bde120: glTFRuntime ASYNC load (pthread_mutex, "TAsync %d"), glTFRuntime internals in
+  the 0x04bcxxxx-0x04bexxxx cluster.
+
+Blocker (unchanged): download succeeds (HTTP GET 200 via adb reverse; file:// scheme also valid) but the async
+build produces NO glTFRuntimeAsset and NO runtime USkeletalMesh -> AvatarBodyMesh empty -> invisible; 2 orphan
+/Engine/Transient USkeleton objects (skeleton created, mesh not). Shipping suppresses glTFRuntime logs.
+Config-injection + quoted-URL + ETag + Documents/rpmavatar-<clean>.glb cache staging all verified working.
+
+Open for reviewer: what the async completion delegate/abort is, what glTFRuntimeSkeletalMeshConfig/target
+skeleton FUN_04c5a578 passes, and the exact Blender .glb spec (skeleton/morphs/materials) this path needs.
