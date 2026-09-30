@@ -840,6 +840,9 @@ static volatile sig_atomic_t g_log_pe=0; static uintptr_t g_seen[1024]; static i
 static uintptr_t g_body=0, g_mymesh=0, g_fnSet=0, g_fnOwner=0, g_fnVis=0, g_fnHid=0;
 static volatile sig_atomic_t g_keep=0, g_reattach_req=0; static int g_resets_bp=0, g_resets_native=0;
 static const uint32_t SMC_MESH_OFF=0x550;                   // SkeletalMeshComponent.SkeletalMeshAsset
+// objective render check (advisor): WasRecentlyRendered + world loc/scale vs camera, logged 3s after attach then every 10s
+static uintptr_t g_fnRendered=0, g_fnLoc=0, g_fnScale=0, g_fnCamLoc=0, g_fnLeader=0, g_camMgr=0;
+static volatile sig_atomic_t g_report_req=0; static int g_report_ticks=0, g_reports=0;
 static const uint32_t IOF_RootSet=0x40000000;               // EInternalObjectFlags::RootSet (1<<30)
 static bool root_object(uintptr_t obj){                     // == UObject::AddToRoot (sets RootSet on its FUObjectItem)
     if(!obj) return false; uint32_t idx=rd32(obj+OFF_Index); if(idx>=g_numElements) return false;
@@ -933,8 +936,33 @@ static void unroot_object(uintptr_t obj){                    // == UObject::Remo
     __atomic_fetch_and(fl,~IOF_RootSet,__ATOMIC_SEQ_CST); }
 // set our mesh on the body + force owner-visible. Goes through orig_pe directly, so the PE-hook blocker never sees it.
 static void attach_mesh(uintptr_t body,uintptr_t mesh){ if(!body||!mesh||!g_fnSet) return;
+    // clear any leader-pose first: a follower whose bones don't map by name can collapse verts to the origin
+    if(g_fnLeader){ static uint8_t lp[0x20]; memset(lp,0,sizeof lp); call_uf(body,g_fnLeader,lp); }   // SetLeaderPoseComponent(nullptr,false,false)
     static uint8_t sp[0x10]; memset(sp,0,sizeof sp); *(uintptr_t*)(sp+0x00)=mesh; call_uf(body,g_fnSet,sp);
     call_bool2(body,g_fnOwner,0,0); call_bool2(body,g_fnVis,1,1); call_bool2(body,g_fnHid,0,1); }
+// call a UFunction with a zeroed frame (optional float first param); ParmsSize@0xB6 + ReturnValueOffset@0xB8 read at
+// runtime so no layout is guessed. Returns a pointer to the return value inside a shared buffer: read it immediately.
+static uint8_t g_rbuf[512];
+static uint8_t* call_ret(uintptr_t obj,uintptr_t fn,int setf0,float f0){
+    if(!obj||!fn) return 0; uint16_t psz=rd16(fn+0xB6); if(psz>sizeof g_rbuf) return 0;
+    memset(g_rbuf,0,sizeof g_rbuf); if(setf0) *(float*)g_rbuf=f0;
+    call_uf(obj,fn,g_rbuf); uint16_t rvo=rd16(fn+0xB8); if(rvo==0xFFFF||rvo>=psz) return 0; return g_rbuf+rvo; }
+static uintptr_t find_live_class_sub(const char* sub){ char cn[128],fp[400];
+    for(uint32_t i=0;i<g_numElements;i++){ uintptr_t o=obj_at(i); if(!o) continue;
+        class_name(o,cn,sizeof cn); if(!strstr(cn,sub)) continue;
+        if(rd32(o+OFF_Flags)&RF_ClassDefaultObject) continue;
+        full_path(o,fp,sizeof fp); if(strstr(fp,"Default__")||!strstr(fp,"PersistentLevel")) continue;
+        return o; } return 0; }
+static void render_report(){
+    if(!g_body) return; int rendered=-1; double L[3]={0,0,0},S[3]={0,0,0},C[3]={0,0,0};
+    uint8_t* r=call_ret(g_body,g_fnRendered,1,0.5f); if(r) rendered=(int)*r;
+    uint8_t* l=call_ret(g_body,g_fnLoc,0,0);   if(l) memcpy(L,l,24);
+    uint8_t* s=call_ret(g_body,g_fnScale,0,0); if(s) memcpy(S,s,24);
+    if(g_camMgr){ uint8_t* c=call_ret(g_camMgr,g_fnCamLoc,0,0); if(c) memcpy(C,c,24); }
+    double dx=L[0]-C[0],dy=L[1]-C[1],dz=L[2]-C[2];
+    load_status("RENDER #%d: WasRecentlyRendered(0.5)=%d | body=(%.0f,%.0f,%.0f) scale=(%.3f,%.3f,%.3f) | cam=(%.0f,%.0f,%.0f) d=(%.0f,%.0f,%.0f)cm | mesh ok=%d",
+        g_reports,rendered,L[0],L[1],L[2],S[0],S[1],S[2],C[0],C[1],C[2],dx,dy,dz,(int)(rdptr(g_body+SMC_MESH_OFF)==g_mymesh));
+}
 static void do_load(){
     load_status("=== do_load (game tid=%d) ===",my_tid());
     refresh_numelements();                                       // catch objects spawned since resolve (the pawn)
@@ -956,7 +984,7 @@ static void do_load(){
     static uint8_t lp[0x218]; memset(lp,0,sizeof lp);
     FStr fs; build_fstr(&fs,path); *(FStr*)(lp+0x00)=fs;          // Filename@0x00
     *(uint8_t*)(lp+0x10)=0;                                       // bPathRelativeToContent=false
-    *(float*)(lp+0x20+0x150)=1.0f;                               // LoaderConfig.SceneScale=1.0
+    *(float*)(lp+0x20+0x150)=100.0f;                             // LoaderConfig.SceneScale=100 (glTFRuntime default: glTF m -> UE cm; 1.0 made it 100x too small)
     *(uint8_t*)(lp+0x20+0x168)=1;                                // LoaderConfig.bAllowExternalFiles=true
     *(uint8_t*)(lp+0x20+0x00)=0;                                 // LoaderConfig.TransformBaseType=Default(0)
     call_uf(libCDO,fnLoad,lp); uintptr_t asset=*(uintptr_t*)(lp+0x210);
@@ -978,13 +1006,21 @@ static void do_load(){
     g_fnOwner=find_by_path("/Script/Engine.PrimitiveComponent.SetOwnerNoSee",0);
     g_fnVis  =find_by_path("/Script/Engine.SceneComponent.SetVisibility",0);
     g_fnHid  =find_by_path("/Script/Engine.SceneComponent.SetHiddenInGame",0);
+    g_fnLeader  =find_by_path("/Script/Engine.SkinnedMeshComponent.SetLeaderPoseComponent",0);
+    g_fnRendered=find_by_path("/Script/Engine.PrimitiveComponent.WasRecentlyRendered",0);
+    g_fnLoc     =find_by_path("/Script/Engine.SceneComponent.K2_GetComponentLocation",0);
+    g_fnScale   =find_by_path("/Script/Engine.SceneComponent.K2_GetComponentScale",0);
+    g_fnCamLoc  =find_by_path("/Script/Engine.PlayerCameraManager.GetCameraLocation",0);
+    refresh_numelements();                                       // the new mesh's index is past the cached count (was rooted=0)
+    g_camMgr    =find_live_class_sub("CameraManager");
     bool rooted=root_object(mesh);                               // AddToRoot: survives Tribe dropping its ref
     uintptr_t prev=g_mymesh; g_keep=0;                           // pause keeper/blocker during the swap
     attach_mesh(body,mesh);
     g_body=body; g_mymesh=mesh; g_keep=1;
     if(prev && prev!=mesh) unroot_object(prev);                  // release the previous skin's mesh
-    load_status("attached mesh=0x%lx body=0x%lx rooted=%d owner=0x%lx vis=0x%lx hid=0x%lx; keeper ON",
-        (unsigned long)mesh,(unsigned long)body,(int)rooted,(unsigned long)g_fnOwner,(unsigned long)g_fnVis,(unsigned long)g_fnHid);
+    load_status("attached mesh=0x%lx body=0x%lx rooted=%d leader=0x%lx camMgr=0x%lx; keeper ON; render report in 3s",
+        (unsigned long)mesh,(unsigned long)body,(int)rooted,(unsigned long)g_fnLeader,(unsigned long)g_camMgr);
+    g_reports=0; g_report_ticks=6;                               // first RENDER report ~3s after attach (poll ticks are 0.5s)
     g_loaded_once=1;                                             // enable the menu-select skin-cycle trigger
     load_status("=== do_load done (materials on, visible, kept) ===");
 }
@@ -1002,6 +1038,7 @@ extern "C" void repl_pe(void* self,void* func,void* parms){
     }
     // keeper: poll thread saw a NATIVE reset -> re-attach our (rooted) mesh here on the game thread
     if(g_reattach_req && g_keep && !g_in_load){ g_reattach_req=0; g_in_load=1; attach_mesh(g_body,g_mymesh); g_in_load=0; }
+    if(g_report_req && g_body && !g_in_load){ g_report_req=0; g_in_load=1; g_reports++; render_report(); g_in_load=0; }
     if(g_log_pe && g_resolved) pe_log_func((uintptr_t)func);     // diagnostic: capture avatar/skin/menu events
     // skin-cycle: after the first load, when Tribe (re)applies the RPM skin from the avatar menu, advance
     // to the next skin + arm a reload. Debounced 2s so init-time / repeated applies don't spin the cycle.
@@ -1032,6 +1069,8 @@ static void* dump_thread(void*){
             ensure_resolved();
             if(g_resolved){ refresh_numelements(); uintptr_t body=find_live("AvatarBodyMesh","SkeletalMeshComponent","ReadyPlayerMeComponent");
                 if(body){ g_load_req=1; auto_done=true; load_status("auto-load: pawn ready (body=0x%lx numel=%u) -> armed",(unsigned long)body,g_numElements); } } }
+        // RENDER report schedule: first at ~3s after attach, then every ~10s, up to 8 reports (drained on the game thread).
+        if(g_report_ticks>0 && --g_report_ticks==0){ if(g_reports<8){ g_report_req=1; g_report_ticks=20; } }
         // KEEPER (~1s): if Tribe reset our body natively (bypassing the PE blocker), request a re-attach on the game thread.
         static int ktick=0;
         if(g_keep && g_body && g_mymesh && ((++ktick & 1)==0)){

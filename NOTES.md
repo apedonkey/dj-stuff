@@ -3834,3 +3834,26 @@ Keeper build (76864B, installed, NOT yet tested -- headset battery hit 4%):
   Validity guard: if g_body's class is no longer SkeletalMeshComponent, keeper turns off.
 Next test tells us: BLOCKED-BP vs NATIVE reset counts/frequency. If Tribe resets every tick natively, fall back to
 spawning our own SkeletalMeshComponent (AddComponentByClass + attach under AvatarBodyMesh) that Tribe doesn't manage.
+
+## Session 3c — ROOT CAUSE of invisible avatar: LoaderConfig.SceneScale was 1.0 (default is 100)
+
+Advisor diagnosis, verified against glTFRuntimeParser.h (FglTFRuntimeConfig ctor: `SceneScale = 100;`).
+glTFRuntime multiplies every vertex position / node translation / bind matrix by SceneScale to convert glTF metres
+to UE centimetres. I had hardcoded 1.0 => the 2.03 m skullbuck rendered ~2 cm tall: inside the near-clip plane in
+first person, a speck in the selfie cam => "renders in no camera". (DefaultAvatar was never visually confirmed
+either -- almost certainly the same speck.) All my other hand-set defaults match source exactly:
+TransformBaseType=Default, bAllowExternalFiles=true, BoundsScale=OneVector, OverrideSkinIndex=-1,
+RootNodeIndex=INDEX_NONE, MaxNodesTreeDepth=-1. So SceneScale was the ONLY wrong value.
+
+Build (79872B, compiled; device disconnected to charge -- not yet installed):
+- SceneScale=100.
+- Fixed rooted=0: refresh_numelements() before root_object (new mesh index was past the cached count).
+- attach_mesh clears SetLeaderPoseComponent(nullptr) first (advisor Q4: mismatched leader-pose can collapse verts).
+- Objective render check (advisor): RENDER report 3s after attach then every 10s (max 8): WasRecentlyRendered(0.5),
+  body world loc (K2_GetComponentLocation), world scale (K2_GetComponentScale), camera loc (PlayerCameraManager.
+  GetCameraLocation), delta, mesh-still-attached. ParmsSize/ReturnValueOffset read from the UFunction at runtime.
+Advisor next steps if the slot still won't draw: isolation ASkeletalMeshActor 1.5 m in front of the HMD
+(BeginDeferredActorSpawnFromClass/FinishSpawningActor) as a matrix {bSkipLoad on/off} x {DefaultAvatar, skullbuck};
+read bVisible/bHiddenInGame/bOwnerNoSee/bRenderInMainPass + owner bHidden + parent scale; decode
+SetAvatarThirdPersonVisible / SetAvatarSceneCaptureHidden. Placement: skullbuck origin is at the hips; RPM full-body
+convention is origin at the feet -> re-export with origin at feet.
