@@ -3640,3 +3640,32 @@ Next (requires the first real game hook): either
 (b) DIAGNOSE: log-only hooks on IsValidReadyPlayerMeAvatarUrl impl, glTF entry 0x4ac2de0, FUN_050f584c, to see
     exactly what the config path does and why it doesn't fetch.
 Infra ready: hook/vendor/And64InlineHook + DT_NEEDED injection. Tunnel/server left running for the LoadAvatarAtUrl test.
+
+## Session 3b — manual-drive infeasible; LoadAvatarAtUrl decoded; option A = ProcessEvent executor
+
+Pre-checks (advisor):
+- W_RPMAvatarCreator_C.WidgetTree children: RPMPasteButton, RPMLaunchWebButton, RPMBackButton, RPMAvatarPanel,
+  MessageText/TextBlock, RPMCopy/Goto/PasteImage. NO EditableText/TextBox => clipboard-paste only. And
+  `adb shell cmd clipboard set-text/get-text` => "No shell command implementation" => adb can't set the Quest
+  clipboard. So the no-code manual creator drive isn't possible on this device.
+- LoadAvatarAtUrl bytecode (44B) decoded:
+    EX_Let  this->AvatarUrl(instance @0x7b1ac95e00) = AvatarUrl(param @0x7b1a40e180)
+    EX_LocalVirtualFunction <FName idx 0x1a1485> ()      // no-param virtual call = the real loader
+    EX_Return EX_Nothing ; EX_EndOfScript
+  => thin wrapper: store URL member, then virtual-call the loader. Fetch is a BP flow on the widget.
+  RPMPasteButton -> PasteAvatarUrl -> LoadAvatarAtUrl is the fetch path (closes the "earlier GET" loose end).
+
+Option A build (ProcessEvent executor), per advisor's guardrails:
+- Resolve UObject::ProcessEvent (Default__Object vtable rva 0x06D537B0; ID slot by ldrh ParmsSize@0xB6 +
+  tst FunctionFlags&0x400 + dynamic sp). Run calls on the GAME THREAD only (drain a queue from a PE hook,
+  e.g. on ReceiveTick), never from the poll thread.
+- Use a LIVE W_RPMAvatarCreator_C instance (NOT the CDO: GetWorld()==null on CDO, no widget tree). Find an
+  existing one in GUObjectArray, else UWidgetBlueprintLibrary::Create(PC, class, PC); AddToRoot until apply done.
+- Call LoadAvatarAtUrl(FString) (or resolve virtual fn 0x1a1485 / the underlying native and call it directly).
+- Load is ASYNC: don't call AddOrUpdateCachedRPMAvatarSkin/ApplySkinToPlayer until the completion event; check
+  whether the completion already chains them.
+- Persistence unknown: after one driven load, diff GameUserSettings.ini / SaveGames / Documents; if a body
+  appears on a clean relaunch, replicate that record; else drive every launch.
+Standalone (once proven): on-device HTTP server thread inside libhook serving the .glb+.json on 127.0.0.1,
++ (if the validator rejects loopback) force IsValidReadyPlayerMeAvatarUrl true. Needs the game-thread executor
+either way. This is the next BUILD (first real game hook); best at the desk with iterative launches.
