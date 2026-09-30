@@ -93,7 +93,9 @@ If the avatar doesn't appear at all, the mesh probably isn't skinned to the arma
 ## Moving with you (body tracking)
 
 The mod drives the avatar with the Quest 3's own full-body tracking (Meta Movement SDK): arms, spine, legs and head
-follow you. Tribe's tracked hands replace the model's hands (the model's hand bones are hidden).
+follow you. Hands, per hand: with **hand tracking** Tribe draws its own tracked hand (the model's hand is hidden); with a
+**controller** the model's own hand is shown, wrist and fingers posed from Meta's tracking. For posed fingers the rig
+needs `LeftHandThumb1..3`, `LeftHandIndex1..3`, `LeftHandMiddle1..3`, `LeftHandRing1..3`, `LeftHandPinky1..3` (and Right).
 
 For a new skin to animate, its armature needs these bone names (the RPM/Mixamo names above):
 `Hips, Spine, Spine1, Spine2, Neck, Head, LeftShoulder, LeftArm, LeftForeArm, LeftHand, LeftHandMiddle1,
@@ -115,6 +117,6 @@ you see, so the avatar's head never blocks your view.
 ## Current limitations (honest)
 
 - **Feet aren't planted:** legs follow the tracking, so feet can float or sink a few cm.
-- **Hands are Tribe's**, not the model's.
+- **Controller hands follow Meta's hand model**, so fingers show a grip, not individual button presses.
 - **Switching skins re-rigs the moving body** (built; in-headset verification pending).
 - **One material / one mesh** for now (matches how the loader reads index 0).

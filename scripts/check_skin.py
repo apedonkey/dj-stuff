@@ -202,7 +202,15 @@ def check(path):
                         " (arm IK needs Arm > ForeArm > Hand directly; wrist pinning is skipped for this arm)" if tag == "WARN" else ""), move=True)
     for h in HELPERS:
         if h not in names:
-            rep.add("INFO", "no %s: hand direction at calibration uses the rest pose (hands are hidden anyway)" % h, move=True)
+            rep.add("INFO", "no %s: hand direction at calibration uses the rest pose" % h, move=True)
+    # with controllers the model's own hands are shown, posed from Meta's hand tracking data (wrist frame + fingers)
+    fingers = [s + "Hand" + f + str(k) for s in ("Left", "Right") for f in ("Thumb", "Index", "Middle", "Ring", "Pinky") for k in (1, 2, 3)]
+    missing_f = [f for f in fingers if f not in names]
+    if not missing_f:
+        rep.add("OK", "all 30 finger bones present (hands + fingers posed while you hold controllers)", move=True)
+    else:
+        rep.add("WARN", "%d of 30 finger bones missing (e.g. %s): those fingers stay stiff while you hold controllers"
+                % (len(missing_f), ", ".join(missing_f[:3])), move=True)
 
     # --- rest pose geometry (glTF: Y up, character should face +Z; its left is +X) ---
     world = {}

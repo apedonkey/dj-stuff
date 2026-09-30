@@ -1429,6 +1429,7 @@ static volatile sig_atomic_t g_a2Recal=0, g_a2CalNow=0;
 static double g_btScale=1.0, g_thM=180.0, g_avEyeH=0, g_tposeHold=0; static Q4 g_offHeadCam={0,0,0,1}; static V3 g_hipsCur={0,0,0};
 static int iHips=-1,iHead=-1,iNeck=-1,iLA=-1,iLF=-1,iLH=-1,iRA=-1,iRF=-1,iRH=-1; static bool g_ikL=false, g_ikR=false;
 static uintptr_t g_pmA=0, g_pmB=0, g_trackParent=0;
+static bool g_handShown[2]={false,false};                      // model hand shown (controller) vs Tribe's tracked hand
 static uintptr_t g_fnNumBones=0,g_fnBoneName=0,g_fnParentBone=0,g_fnRefPose=0,g_fnHideBone=0,g_fnSetSkinned=0,g_fnAddComp=0,g_fnSetOwner=0,
                  g_fnAttach=0,g_fnRelScale=0,g_fnAttachParent=0,g_fnSetBoneXf=0,g_poseCls=0,g_fnOnlyOwnerSee=0,g_fnTickGroup=0,g_fnColl2=0,g_fnShad2=0,
                  g_fnDestroyComp=0;
@@ -1439,6 +1440,7 @@ static int64_t g_attSnap=2, g_attKeepRel=0, g_boneCS=1;
 static bool g_ucal=false; static Q4 g_ucQ[BT_NJ]; static V3 g_ucP[BT_NJ]; static double g_ucEye=0, g_ucThU=0;
 static char g_ucPath[600]="";
 static void a2_apply_ucal();
+static void a2_prep_hands();
 
 static bool a2_load_ucal(){
     FILE* f=fopen(g_ucPath,"r"); if(!f) return false; char line[320]; int nj=0; double eye=0, th=0; bool haveTh=false;
@@ -1504,6 +1506,7 @@ static bool a2_build_rest(){
         load_status("A2: rest arm elevation L %.0f/%.0f/%.0f deg -> constructed T-pose %.1f/%.1f/%.1f (want ~0)",
             elev_deg(vsub(g_rb_ct[iLF],g_rb_ct[iLA])),elev_deg(vsub(g_rb_ct[iLH],g_rb_ct[iLF])),m1>=0?elev_deg(vsub(g_rb_ct[m1],g_rb_ct[iLH])):0.0,
             elev_deg(vsub(at[iLF],at[iLA])),elev_deg(vsub(at[iLH],at[iLF])),m1>=0?elev_deg(vsub(at[m1],at[iLH])):0.0); }
+    a2_prep_hands();
     if(g_ucal) a2_apply_ucal(); else load_status("A2: no calibration yet -> stand still with straight arms (T or A) once");
     return true; }
 // calibration-pose detector on Meta joints (tracking space): standing still with straight arms -- T-pose OR A-pose.
@@ -1587,13 +1590,62 @@ static void a2_go_live(){
         if(!g_trackParent){ uint8_t* r=call_ret(g_camComp,g_fnAttachParent,0,0); g_trackParent=r?*(uintptr_t*)r:0; if(!g_trackParent) g_trackParent=g_vrOrigin; }
         char pn[64]="?"; if(g_trackParent) obj_name(g_trackParent,pn,sizeof pn);
         if(g_fnSetOwner&&g_pawn){ int o=prop_offset(g_fnSetOwner,"NewOwner",0); static uint8_t b[32]; memset(b,0,sizeof b); if(o>=0){ *(uintptr_t*)(b+o)=g_pawn; call_uf(g_isoActor,g_fnSetOwner,b); } }
-        g_pmA=a2_add_mesh(false); if(!g_noSplit) g_pmB=a2_add_mesh(true);
+        g_pmA=a2_add_mesh(false); if(!g_noSplit) g_pmB=a2_add_mesh(true); g_handShown[0]=g_handShown[1]=false;
         load_status("A2: meshes A(full, owner-no-see)=0x%lx B(headless, only-owner-see)=0x%lx attached to %s (0x%lx) scale %.3f%s",
             (unsigned long)g_pmA,(unsigned long)g_pmB,pn,(unsigned long)g_trackParent,g_btScale,g_noSplit?" [nosplit]":"");
         if(!g_pmA){ g_a2Fail=true; load_status("A2: mesh creation FAILED -> staying in follow mode"); return; } }
     else { a2_set_scale(g_pmA,g_btScale); a2_set_scale(g_pmB,g_btScale); call_bool2(g_pmA,g_fnVis,1,1); if(g_pmB) call_bool2(g_pmB,g_fnVis,1,1); }
     call_bool2(g_isoComp,g_fnVis,0,1);                                  // retire the static follow mesh
     g_a2Live=true; g_a2Init=true; }
+// ---- hands. Tribe draws Meta's tracked hand meshes (TribeControllers_C.OculusXRHandComponent) only while hand tracking
+// has that hand; with controllers its hands were the ReadyPlayerMe hand meshes (ReadyPlayerMeComponent.AvatarLeft/RightHand),
+// which are blank now that RPM is dead -> no hands at all. So per hand: hand tracking has it -> the model's hand stays
+// hidden (Tribe's shows); controller -> the model's hand is shown, posed from Meta's hand joints (body tracking reports
+// them with controllers too): wrist = frame match (wrist->middle knuckle, pinky->index knuckle; twist-correct, no
+// calibration), each finger segment swung onto Meta's matching segment.
+struct FingerSeg{ int b, j0, j1; V3 dloc; };                      // dloc = the bone's rest direction in its own rest frame
+static FingerSeg g_fseg[2][16]; static int g_nfseg[2]={0,0};
+static Q4 g_handFix[2]={{0,0,0,1},{0,0,0,1}}; static bool g_handFrameOK[2]={false,false};
+static uintptr_t g_inLib=0, g_fnHandValid=0, g_fnHandConf=0, g_fnUnhideBone=0; static int64_t g_handType[2]={1,2}, g_confHigh=1;
+static bool g_mv[BT_NJ];                                             // Meta joint bIsValid, this frame
+static const int HJ[2][4]={{19,30,25,40},{45,56,51,66}};            // Meta: wrist, middle/index/little proximal (knuckles)
+static Q4 quat_axes(V3 x,V3 y,V3 z){                                 // rotation taking (1,0,0),(0,1,0),(0,0,1) to x,y,z
+    double m00=x.x,m10=x.y,m20=x.z,m01=y.x,m11=y.y,m21=y.z,m02=z.x,m12=z.y,m22=z.z, tr=m00+m11+m22, S;
+    if(tr>0){ S=sqrt(tr+1.0)*2; return qnorm(Qm((m21-m12)/S,(m02-m20)/S,(m10-m01)/S,0.25*S)); }
+    if(m00>m11&&m00>m22){ S=sqrt(1.0+m00-m11-m22)*2; return qnorm(Qm(0.25*S,(m01+m10)/S,(m02+m20)/S,(m21-m12)/S)); }
+    if(m11>m22){ S=sqrt(1.0+m11-m00-m22)*2; return qnorm(Qm((m01+m10)/S,0.25*S,(m12+m21)/S,(m02-m20)/S)); }
+    S=sqrt(1.0+m22-m00-m11)*2; return qnorm(Qm((m02+m20)/S,(m12+m21)/S,0.25*S,(m10-m01)/S)); }
+static Q4 frame_q(V3 fwd,V3 side){ V3 x=vnorm(fwd), y=vnorm(vsub(side,vmul(x,vdot(side,x)))); return quat_axes(x,y,vcross(x,y)); }
+static void a2_prep_hands(){                                         // per rig, from the rest skeleton
+    static const char* SD[2]={"Left","Right"};
+    static const struct{ const char* f; int j[2][4]; } F[5]={ {"Thumb",{{20,21,22,23},{46,47,48,49}}},{"Index",{{25,26,27,28},{51,52,53,54}}},
+        {"Middle",{{30,31,32,33},{56,57,58,59}}},{"Ring",{{35,36,37,38},{61,62,63,64}}},{"Pinky",{{40,41,42,43},{66,67,68,69}}} };
+    for(int s=0;s<2;s++){ g_nfseg[s]=0; int h=s?iRH:iLH; char nm[48];
+        snprintf(nm,sizeof nm,"%sHandMiddle1",SD[s]); int mid=rb_find(nm); snprintf(nm,sizeof nm,"%sHandIndex1",SD[s]); int idx=rb_find(nm);
+        snprintf(nm,sizeof nm,"%sHandPinky1",SD[s]); int pky=rb_find(nm);
+        g_handFrameOK[s]=h>=0&&mid>=0&&idx>=0&&pky>=0;
+        if(g_handFrameOK[s]) g_handFix[s]=qnorm(qmul(qinv(frame_q(vsub(g_rb_ct[mid],g_rb_ct[h]),vsub(g_rb_ct[idx],g_rb_ct[pky]))),g_rb_cq[h]));
+        for(int f=0;f<5;f++) for(int k=1;k<=3;k++){                  // parent-first within each finger
+            snprintf(nm,sizeof nm,"%sHand%s%d",SD[s],F[f].f,k); int b=rb_find(nm); if(b<0||g_rb_par[b]<0||g_nfseg[s]>=16) continue;
+            snprintf(nm,sizeof nm,"%sHand%s%d",SD[s],F[f].f,k+1); int c=rb_find(nm);
+            V3 d=c>=0?vsub(g_rb_ct[c],g_rb_ct[b]):vsub(g_rb_ct[b],g_rb_ct[g_rb_par[b]]);   // last phalanx: continue the previous
+            FingerSeg& fs=g_fseg[s][g_nfseg[s]++]; fs.b=b; fs.j0=F[f].j[s][k-1]; fs.j1=F[f].j[s][k]; fs.dloc=qrot(qinv(g_rb_cq[b]),vnorm(d)); } }
+    load_status("A2 hands: frame L%d R%d, finger bones L%d R%d",(int)g_handFrameOK[0],(int)g_handFrameOK[1],g_nfseg[0],g_nfseg[1]); }
+static void a2_unhide_bone(uintptr_t c,int i){ if(!g_fnUnhideBone||i<0) return; int oN=prop_offset(g_fnUnhideBone,"BoneName",0); if(oN<0) return;
+    static uint8_t b[64]; memset(b,0,sizeof b); memcpy(b+oN,&g_rb_fn[i],8); call_uf(c,g_fnUnhideBone,b); }
+static int a2_hand_call(uintptr_t fn,int64_t hand){                  // OculusXRInputFunctionLibrary fn(DeviceHand, ControllerIndex=0) -> byte
+    if(!g_inLib||!fn) return -2; uint16_t psz=rd16(fn+0xB6); static uint8_t b[32]; if(psz>sizeof b) return -3; memset(b,0,sizeof b);
+    int oH=prop_offset(fn,"DeviceHand",0); b[oH>=0?oH:0]=(uint8_t)hand;
+    call_uf(g_inLib,fn,b); uint16_t rvo=rd16(fn+0xB8); return (rvo==0xFFFF||rvo>=psz)?-1:(int)b[rvo]; }
+static void a2_update_hand_modes(){
+    for(int s=0;s<2;s++){ int h=s?iRH:iLH; if(h<0) continue;
+        int valid=a2_hand_call(g_fnHandValid,g_handType[s]), conf=a2_hand_call(g_fnHandConf,g_handType[s]);
+        bool want=!(valid==1&&(conf<0||conf==(int)g_confHigh));    // hand tracking doesn't have this hand -> show the model's
+        if(want==g_handShown[s]) continue;
+        g_handShown[s]=want; uintptr_t ms[2]={g_pmA,g_pmB};
+        for(int m=0;m<2;m++) if(ms[m]){ if(want) a2_unhide_bone(ms[m],h); else a2_hide_bone(ms[m],h); }
+        load_status("A2 hands: %s -> %s (hand tracking valid=%d confidence=%d)",s?"right":"left",
+            want?"MODEL hand shown (controller)":"Tribe's tracked hand (model hand hidden)",valid,conf); } }
 // two-bone IK (advisor): bend Arm/ForeArm so the wrist lands on W, elbow in the plane of pole P; keeps bone lengths
 static void a2_ik_arm(int a,int f,int h,V3 W,V3 P,Q4* tq,const Q4* cq,const V3* ct,double* err){
     V3 S=ct[a]; double l1=vlen(g_rb_lt[f]), l2=vlen(g_rb_lt[h]); V3 dv=vsub(W,S); double d=vlen(dv); if(d<1e-3||l1<1||l2<1) return;
@@ -1617,7 +1669,8 @@ static void a2_set_bone(uintptr_t comp,int i,Q4 q,V3 t){
     x[0]=q.x; x[1]=q.y; x[2]=q.z; x[3]=q.w; x[4]=t.x; x[5]=t.y; x[6]=t.z; x[8]=x[9]=x[10]=1; if(oS>=0) b[oS]=(uint8_t)g_boneCS;
     call_uf(comp,g_fnSetBoneXf,b); }
 static void a2_drive(const Q4* mq,const V3* mp,Q4 camQ,V3 camP,float dt){
-    static Q4 tq[RB_MAX], cq[RB_MAX]; static V3 ct[RB_MAX]; static bool dv[RB_MAX]; static double logT=0;
+    static Q4 tq[RB_MAX], cq[RB_MAX]; static V3 ct[RB_MAX]; static bool dv[RB_MAX]; static double logT=0, usSum=0; static int usN=0;
+    struct timespec t0,t1; clock_gettime(CLOCK_MONOTONIC,&t0);
     double a=g_smooth?1.0-exp(-dt/0.030):1.0, is=1.0/g_btScale; bool init=g_a2Init; g_a2Init=false;
     for(int i=0;i<g_rb_n;i++) dv[i]=false;
     for(int k=0;k<BM_N;k++){ BtMap& m=g_bm[k]; if(m.bi<0||!m.haveOff) continue;
@@ -1630,13 +1683,28 @@ static void a2_drive(const Q4* mq,const V3* mp,Q4 camQ,V3 camP,float dt){
     if(g_ikL&&dv[iLA]&&dv[iLF]) a2_ik_arm(iLA,iLF,iLH,vmul(mp[19],is),vmul(mp[11],is),tq,cq,ct,&eL);
     if(g_ikR&&dv[iRA]&&dv[iRF]) a2_ik_arm(iRA,iRF,iRH,vmul(mp[45],is),vmul(mp[16],is),tq,cq,ct,&eR);
     a2_fk(tq,dv,cq,ct);
+    { static int hc=0; if(++hc>=8){ hc=0; a2_update_hand_modes(); } }      // hand tracking vs controller, per hand
+    bool hands=false;
+    for(int s=0;s<2;s++){ int h=s?iRH:iLH; const int* j=HJ[s];
+        if(!g_handShown[s]||h<0||!g_handFrameOK[s]||!(g_mv[j[0]]&&g_mv[j[1]]&&g_mv[j[2]]&&g_mv[j[3]])) continue;
+        tq[h]=qnorm(qmul(frame_q(vsub(mp[j[1]],mp[j[0]]),vsub(mp[j[2]],mp[j[3]])),g_handFix[s])); dv[h]=true; hands=true; }
+    if(hands){ a2_fk(tq,dv,cq,ct);                                   // fingers hang off the posed hands, parent-first
+        for(int s=0;s<2;s++){ if(!g_handShown[s]) continue;
+            for(int k=0;k<g_nfseg[s];k++){ FingerSeg& f=g_fseg[s][k]; int b=f.b, p=g_rb_par[b];
+                if(!g_mv[f.j0]||!g_mv[f.j1]) continue; V3 tgt=vsub(mp[f.j1],mp[f.j0]); if(vlen(tgt)<1e-3) continue;
+                Q4 prov=qnorm(qmul(cq[p],g_rb_lq[b])); Q4 q=qnorm(qmul(qbetween(qrot(prov,f.dloc),tgt),prov));
+                tq[b]=q; dv[b]=true; cq[b]=q; ct[b]=vadd(ct[p],qrot(cq[p],g_rb_lt[b])); } }
+        a2_fk(tq,dv,cq,ct); }
     for(int i=0;i<g_rb_n;i++) if(dv[i]){ a2_set_bone(g_pmA,i,cq[i],ct[i]); if(g_pmB) a2_set_bone(g_pmB,i,cq[i],ct[i]); }
     { static int good=0; if(g_a2Marker && ++good>=120){ a2_marker(false); load_status("A2: 120 frames driven OK (crash guard cleared)"); } }
+    clock_gettime(CLOCK_MONOTONIC,&t1); usSum+=(t1.tv_sec-t0.tv_sec)*1e6+(t1.tv_nsec-t0.tv_nsec)/1e3; usN++;
+    int nset=0; for(int i=0;i<g_rb_n;i++) nset+=dv[i];
     logT+=dt; if(logT>=2.0||init){ logT=0;
         V3 d=qrot(qinv(camQ),vsub(camP,mp[7]));                         // eyes relative to Meta's head joint, in the HMD's frame
         int rA=-1,rB=-1; uint8_t* r=call_ret(g_pmA,g_fnRendered,1,0.5f); if(r) rA=*r; if(g_pmB){ r=call_ret(g_pmB,g_fnRendered,1,0.5f); if(r) rB=*r; }
-        load_status("A2 live: dt=%.4f hips=(%.0f,%.0f,%.0f) eyes-vs-MetaHead fwd/right/up=(%.1f,%.1f,%.1f) wristIK err L%.1f R%.1f cm | rendered A=%d B=%d",
-            dt,mp[1].x,mp[1].y,mp[1].z,d.x,d.y,d.z,eL*g_btScale,eR*g_btScale,rA,rB); } }
+        load_status("A2 live: dt=%.4f drive=%.0f us (%d bones/mesh) hands L%s R%s | hips=(%.0f,%.0f,%.0f) eyes-vs-MetaHead fwd/right/up=(%.1f,%.1f,%.1f) wristIK err L%.1f R%.1f cm | rendered A=%d B=%d",
+            dt,usN?usSum/usN:0.0,nset,g_handShown[0]?"=model":"=tribe",g_handShown[1]?"=model":"=tribe",
+            mp[1].x,mp[1].y,mp[1].z,d.x,d.y,d.z,eL*g_btScale,eR*g_btScale,rA,rB); usSum=0; usN=0; } }
 // skin changed (do_load put the new mesh on our actor's component): drop the old tracked meshes and rebuild for the new
 // rig. Fresh components (not an asset swap) because a same-bone-count asset swap keeps the old rig's hidden-bone indices.
 static void a2_drop_meshes(){
@@ -1663,7 +1731,7 @@ static void bt_frame(float dt){
     call_uf(g_btLib,g_fnBtState,g_btParms);
     if(!g_btParms[bt_oRet]||!s[0]) return;                            // tracking inactive: hold the last pose
     static Q4 mq[BT_NJ]; static V3 mp[BT_NJ];
-    for(int i=0;i<BT_NJ;i++){ uint8_t* j=g_btJoints+i*BT_JSZ; mq[i]=rot2q((double*)(j+0x10)); double* p=(double*)(j+0x28); mp[i]=V(p[0],p[1],p[2]); }
+    for(int i=0;i<BT_NJ;i++){ uint8_t* j=g_btJoints+i*BT_JSZ; mq[i]=rot2q((double*)(j+0x10)); double* p=(double*)(j+0x28); mp[i]=V(p[0],p[1],p[2]); g_mv[i]=j[8]!=0; }
     { static int fr=0,nw=0; static float lt=-1; float tm=*(float*)(s+12);  // advisor Q2: fresh every frame, or 30 Hz steps?
       if(fr<150){ fr++; if(tm!=lt){ nw++; lt=tm; }
         if(fr==150){ g_smooth=(nw<105); load_status("A2 rate: %d frames, %d new samples -> %s",fr,nw,g_smooth?"stepping: smoothing ON (tau 30 ms)":"fresh every frame: no smoothing"); } } }
@@ -1745,6 +1813,16 @@ static void a2_resolve(){
     if(file_present("a2_inflight")){ char p[600]; snprintf(p,sizeof p,"%s/a2_inflight",OUTDIR); unlink(p); g_a2Fail=true;
         load_status("A2: the previous launch died while going live -> retarget DISABLED this launch (auto-retries next launch)"); }
     g_fnDestroyComp=find_by_path("/Script/Engine.ActorComponent.K2_DestroyComponent",0);
+    g_fnUnhideBone=find_by_path("/Script/Engine.SkinnedMeshComponent.UnHideBoneByName",0);
+    g_inLib     =find_by_path("/Script/OculusXRInput.Default__OculusXRInputFunctionLibrary",0);
+    g_fnHandValid=find_by_path("/Script/OculusXRInput.OculusXRInputFunctionLibrary.IsHandPositionValid",0);
+    g_fnHandConf =find_by_path("/Script/OculusXRInput.OculusXRInputFunctionLibrary.GetTrackingConfidence",0);
+    g_handType[0]=enum_value("/Script/OculusXRInput.EOculusXRHandType","HandLeft",1);
+    g_handType[1]=enum_value("/Script/OculusXRInput.EOculusXRHandType","HandRight",2);
+    g_confHigh   =enum_value("/Script/OculusXRInput.EOculusXRTrackingConfidence","High",1);
+    load_status("A2 resolve: hands unhide=0x%lx inputLib=0x%lx handValid=0x%lx handConf=0x%lx HandLeft=%lld HandRight=%lld High=%lld",
+        (unsigned long)g_fnUnhideBone,(unsigned long)g_inLib,(unsigned long)g_fnHandValid,(unsigned long)g_fnHandConf,
+        (long long)g_handType[0],(long long)g_handType[1],(long long)g_confHigh);
     snprintf(g_ucPath,sizeof g_ucPath,"%s/bt_user_calib.txt",OUTDIR);
     g_ucal=a2_load_ucal();
     load_status("A2 resolve: bones(num=0x%lx name=0x%lx parent=0x%lx refpose=0x%lx hide=0x%lx) setSkinned=0x%lx addComp=0x%lx setOwner=0x%lx attach=0x%lx relScale=0x%lx attachParent=0x%lx",

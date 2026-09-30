@@ -4048,3 +4048,21 @@ only-owner-see split works in first person. User will make more skins -> they mu
 Built 147,168 B. NOT yet run on device (headset charging). Test plan: calibrate once (any still straight-arm pose) ->
 next_skin through default/mentor (expect stiff follow) -> back to skullbuck (expect live, no pose) -> a mixamo-prefixed
 skullbuck variant (expect 22/22 mapped, live) -> delete test skin; then the in-headset Tribe avatar-menu cycle.
+
+## Session 3c — controller hands (user: with controllers "the hands are gone from the avatar")
+
+User report (on the A2 build): hand tracking -> hands visible (great); controllers -> no hands at all (input still works).
+Cause (object dump): with hand tracking Tribe draws Meta's hand meshes (TribeControllers_C.OculusXRHandComponent); with
+controllers its hands are ReadyPlayerMeComponent.AvatarLeftHand/AvatarRightHand -- RPM hand meshes, blank since RPM died.
+And A2 hides the model's hands (to let Tribe's show). So with controllers nothing is drawn.
+Fix (per hand, checked every 8 frames): OculusXRInputFunctionLibrary.IsHandPositionValid + GetTrackingConfidence(High) ->
+hand tracking has it -> keep the model hand hidden; otherwise UnHideBoneByName(hand) and pose it from Meta's body-tracking
+hand joints (reported with controllers too):
+- wrist: frame match, calibration-free and twist-correct: R_hand = frame(Meta wrist->middle knuckle, pinky->index
+  knuckle) * frame(same on the avatar rest)^-1 * restHandCS  (quat_axes/frame_q verified offline: 1e-15 / 7e-14)
+- fingers (Thumb/Index/Middle/Ring/Pinky 1..3): per segment, swing the bone (inheriting the posed parent) onto Meta's
+  matching segment direction (Thumb 20->21->22->23, Index 25->26->27->28, ... right 46..69); last phalanx continues the
+  previous segment's rest direction.
+- log: "A2 hands: left -> MODEL hand shown (controller)" on every switch; live line adds drive time (us/frame), bones
+  per mesh, hand modes. Cost with both model hands shown: 52 bones x 2 meshes = 104 SetBoneTransformByName/frame.
+check_skin.py reports the 30 finger bones; Blender guide updated. Built 155,360 B; NOT yet run on device.
