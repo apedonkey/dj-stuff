@@ -3557,3 +3557,24 @@ Next step (first game hooks since the read-only dumper): AddError(this,FString,F
 xref to ASCII "CreateSkeletalMeshFromLODs()"), and ProcessEvent filtered on the load-complete callback
 UFunction logging *(USkeletalMesh**)Parms (non-null => Tribe dropped it; never fired => dead delegate).
 Awaiting go-ahead to build the diagnostic hooks.
+
+## Session 3b CORRECTION — the 24-bone skeletons are Meta HANDS, not the avatar; glTF never runs
+
+Reading RawRefBoneInfo at the correct offset (FReferenceSkeleton@0x68 => Data@0x68/Num@0x70, 12B {FName,int32}):
+- The two /Engine/Transient.Skeleton (24 bones) are Meta's OVR hand skeleton:
+  Wrist_Root, Forearm_Stub, Thumb x4, Index x3, Middle x3, Ring x3, Pinky x4, *_Tip. Two = L/R hand.
+- Mesh census (by RF_WasLoaded 0x80000): the ONLY runtime USkeletalMesh are
+  TribeControllers_C.OculusXRHandComponent.OculusHandMesh (skeleton "Skeleton"). NO glTF avatar mesh/skeleton exist.
+=> The avatar NEVER reaches glTFRuntime. Prior "mesh built, dropped downstream" was WRONG (I mis-ID'd the hand
+   skeletons). Only hard fact: ReadyPlayerMeComponent.AvatarBodyMesh.SkeletalMeshAsset = NULL. Break is UPSTREAM
+   in Tribe's orchestrator (FUN_050f49cc / FUN_04c5a578), before the glTFRuntime async load.
+
+Next (reviewer-approved): diagnostic hooks (read-only logging), instrument every step:
+1. ENTRY hook on the caller of FUN_04bde120 (glTFRuntime LoadSkeletalMeshRecursiveAsync): log NodeName,
+   ExcludeNodes.Num, Config.Skeleton(+name), SkeletonConfig.bAddRootBone/RootBoneName, and the FScriptDelegate
+   {int32 ObjectIndex, int32 Serial, FName FunctionName}.
+2. AddError(this,FString,FString) -> logcat (xref ASCII "CreateSkeletalMeshFromLODs()"; confirm same callee as
+   "TraverseJoints()"/"GetRootBoneIndex()"; UTF-16 fallback). FString = {char16_t* Data, int32 Num, int32 Max}.
+3. FinalizeSkeletalMeshWithLODs (xref "LOD_%d_Section_%d_%s"): log context mesh + LOD count on entry + return.
+4. ProcessEvent filtered on {glTF delegate target fn (from #1), Tribe HandleAvatarLoaded}: log *(USkeletalMesh**)Parms.
+Entry never fires => break is upstream in Tribe orchestrator => hook FUN_04c5a578 branches next.
