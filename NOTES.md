@@ -3857,3 +3857,21 @@ Advisor next steps if the slot still won't draw: isolation ASkeletalMeshActor 1.
 read bVisible/bHiddenInGame/bOwnerNoSee/bRenderInMainPass + owner bHidden + parent scale; decode
 SetAvatarThirdPersonVisible / SetAvatarSceneCaptureHidden. Placement: skullbuck origin is at the hips; RPM full-body
 convention is origin at the feet -> re-export with origin at feet.
+
+## Session 3c — Tribe's body slot is never drawn -> isolation actor (our own ASkeletalMeshActor)
+
+SceneScale=100 build (installed, confirmed rooted=1) render reports x8: WasRecentlyRendered(0.5)=0 every time;
+slot world loc pinned at exactly (0,0,0), scale (1,1,1), while the camera moved (-28..-7, 78..106, 115..124) and the
+user looked around the floor. mesh ok=1 (still attached). => Tribe's AvatarBodyMesh slot is inactive/unregistered
+(identity transform, no render proxy) -- Tribe only activates it when its own RPM load completes, which never happens.
+The mesh is fine; the slot is dead. Stop using it.
+
+Isolation-actor build (83976B, installed): flag tribemod/iso_here (one-shot) -> on the game thread,
+GameplayStatics.BeginDeferredActorSpawnFromClass(WorldContext=PlayerCameraManager, ASkeletalMeshActor, xf,
+AlwaysSpawn, owner=null, MultiplyWithRoot) + FinishSpawningActor, then SetSkeletalMeshAsset(our mesh) on its
+SkeletalMeshComponent (+Visibility/HiddenInGame), AddToRoot. Placed 2 m ahead of the camera along camera yaw,
+turned to face it, z=97 cm (skullbuck's origin is its hips -> feet on the floor). All params resolved BY NAME from the
+UFunction at runtime; FTransform = 96 B (quat@0, translation@32, scale@64), verified against the SpawnTransform
+param ElementSize (aborts if != 96). RENDER reports now cover both 'slot' and 'ISO'. Links -lm (sin/cos).
+If ISO renders: mesh good -> attach our actor to follow the player (replacing Tribe's slot for good).
+If ISO doesn't: run advisor matrix {bSkipLoad on/off} x {DefaultAvatar, skullbuck}.

@@ -21,6 +21,7 @@
 #include <errno.h>
 #include <dirent.h>
 #include <time.h>
+#include <math.h>
 #include <cstdarg>
 #include "vendor/And64InlineHook.hpp"
 static inline pid_t my_tid(){ return (pid_t)syscall(SYS_gettid); }
@@ -843,6 +844,9 @@ static const uint32_t SMC_MESH_OFF=0x550;                   // SkeletalMeshCompo
 // objective render check (advisor): WasRecentlyRendered + world loc/scale vs camera, logged 3s after attach then every 10s
 static uintptr_t g_fnRendered=0, g_fnLoc=0, g_fnScale=0, g_fnCamLoc=0, g_fnLeader=0, g_camMgr=0;
 static volatile sig_atomic_t g_report_req=0; static int g_report_ticks=0, g_reports=0;
+// isolation actor (advisor Q1): our OWN engine ASkeletalMeshActor -- not owned by the pawn (so owner-no-see can't
+// apply), no Tribe logic, no AnimBP. Spawned 2 m in front of the HMD on demand (flag tribemod/iso_here).
+static uintptr_t g_isoActor=0, g_isoComp=0; static volatile sig_atomic_t g_iso_req=0;
 static const uint32_t IOF_RootSet=0x40000000;               // EInternalObjectFlags::RootSet (1<<30)
 static bool root_object(uintptr_t obj){                     // == UObject::AddToRoot (sets RootSet on its FUObjectItem)
     if(!obj) return false; uint32_t idx=rd32(obj+OFF_Index); if(idx>=g_numElements) return false;
@@ -953,15 +957,65 @@ static uintptr_t find_live_class_sub(const char* sub){ char cn[128],fp[400];
         if(rd32(o+OFF_Flags)&RF_ClassDefaultObject) continue;
         full_path(o,fp,sizeof fp); if(strstr(fp,"Default__")||!strstr(fp,"PersistentLevel")) continue;
         return o; } return 0; }
-static void render_report(){
-    if(!g_body) return; int rendered=-1; double L[3]={0,0,0},S[3]={0,0,0},C[3]={0,0,0};
-    uint8_t* r=call_ret(g_body,g_fnRendered,1,0.5f); if(r) rendered=(int)*r;
-    uint8_t* l=call_ret(g_body,g_fnLoc,0,0);   if(l) memcpy(L,l,24);
-    uint8_t* s=call_ret(g_body,g_fnScale,0,0); if(s) memcpy(S,s,24);
+static void report_one(const char* label,uintptr_t comp){
+    if(!comp) return; int rendered=-1; double L[3]={0,0,0},S[3]={0,0,0},C[3]={0,0,0};
+    uint8_t* r=call_ret(comp,g_fnRendered,1,0.5f); if(r) rendered=(int)*r;
+    uint8_t* l=call_ret(comp,g_fnLoc,0,0);   if(l) memcpy(L,l,24);
+    uint8_t* s=call_ret(comp,g_fnScale,0,0); if(s) memcpy(S,s,24);
     if(g_camMgr){ uint8_t* c=call_ret(g_camMgr,g_fnCamLoc,0,0); if(c) memcpy(C,c,24); }
-    double dx=L[0]-C[0],dy=L[1]-C[1],dz=L[2]-C[2];
-    load_status("RENDER #%d: WasRecentlyRendered(0.5)=%d | body=(%.0f,%.0f,%.0f) scale=(%.3f,%.3f,%.3f) | cam=(%.0f,%.0f,%.0f) d=(%.0f,%.0f,%.0f)cm | mesh ok=%d",
-        g_reports,rendered,L[0],L[1],L[2],S[0],S[1],S[2],C[0],C[1],C[2],dx,dy,dz,(int)(rdptr(g_body+SMC_MESH_OFF)==g_mymesh));
+    load_status("RENDER #%d %s: WasRecentlyRendered(0.5)=%d | loc=(%.0f,%.0f,%.0f) scale=(%.3f,%.3f,%.3f) | cam=(%.0f,%.0f,%.0f) d=(%.0f,%.0f,%.0f)cm | mesh ok=%d",
+        g_reports,label,rendered,L[0],L[1],L[2],S[0],S[1],S[2],C[0],C[1],C[2],L[0]-C[0],L[1]-C[1],L[2]-C[2],(int)(rdptr(comp+SMC_MESH_OFF)==g_mymesh));
+}
+static void render_report(){ report_one("slot",g_body); report_one("ISO",g_isoComp); }
+// spawn our own ASkeletalMeshActor 2 m in front of the HMD, facing it, feet on the floor (skullbuck's origin is at its
+// hips, 97 cm up). All param offsets are resolved BY NAME from the UFunction at runtime; FTransform (UE5 LWC, NEON) is
+// 96 B = quat@0, translation@32, scale@64 -- checked against the SpawnTransform param's ElementSize before use.
+static uintptr_t spawn_iso_actor(uintptr_t mesh){
+    uintptr_t gs   =find_by_path("/Script/Engine.Default__GameplayStatics",0);
+    uintptr_t fnB  =find_by_path("/Script/Engine.GameplayStatics.BeginDeferredActorSpawnFromClass",0);
+    uintptr_t fnF  =find_by_path("/Script/Engine.GameplayStatics.FinishSpawningActor",0);
+    uintptr_t cls  =find_by_path("/Script/Engine.SkeletalMeshActor",1);
+    uintptr_t fnRot=find_by_path("/Script/Engine.PlayerCameraManager.GetCameraRotation",0);
+    load_status("iso: gs=0x%lx begin=0x%lx finish=0x%lx cls=0x%lx cam=0x%lx mesh=0x%lx",
+        (unsigned long)gs,(unsigned long)fnB,(unsigned long)fnF,(unsigned long)cls,(unsigned long)g_camMgr,(unsigned long)mesh);
+    if(!gs||!fnB||!fnF||!cls||!g_camMgr||!mesh||!g_fnSet) return 0;
+    uintptr_t xfProp=0; int oXf=prop_offset(fnB,"SpawnTransform",&xfProp);
+    int oWC=prop_offset(fnB,"WorldContextObject",0), oCls=prop_offset(fnB,"ActorClass",0),
+        oColl=prop_offset(fnB,"CollisionHandlingOverride",0), oScl=prop_offset(fnB,"TransformScaleMethod",0), oRet=prop_offset(fnB,"ReturnValue",0);
+    uint16_t pszB=rd16(fnB+0xB6);
+    // ElementSize of the SpawnTransform param (walk ChildProperties to the FField named SpawnTransform)
+    uint32_t xfSize=0; { char nm[64]; for(uintptr_t f=rdptr(fnB+OFF_ChildProps); f; f=rdptr(f+FF_Next)){ fname_resolve(rd32(f+FF_Name),nm,sizeof nm); if(!strcmp(nm,"SpawnTransform")){ xfSize=rd32(f+FP_ElemSize); break; } } }
+    load_status("iso: begin psz=0x%x WC@%d Cls@%d Xf@%d(size 0x%x) Coll@%d Scl@%d Ret@%d",pszB,oWC,oCls,oXf,xfSize,oColl,oScl,oRet);
+    if(oWC<0||oCls<0||oXf<0||oRet<0||xfSize!=96||pszB>512){ load_status("iso: unexpected layout -> abort"); return 0; }
+    double C[3]={0,0,0},R[3]={0,0,0};
+    uint8_t* c=call_ret(g_camMgr,g_fnCamLoc,0,0); if(c) memcpy(C,c,24);
+    uint8_t* r=call_ret(g_camMgr,fnRot,0,0);      if(r) memcpy(R,r,24);      // FRotator: Pitch, Yaw, Roll (deg)
+    double yaw=R[1]*M_PI/180.0, fx=cos(yaw), fy=sin(yaw), face=yaw+M_PI;
+    double P[3]={C[0]+fx*200.0, C[1]+fy*200.0, 97.0};
+    uint8_t xf[96]; memset(xf,0,sizeof xf);
+    double* q=(double*)xf;        q[0]=0; q[1]=0; q[2]=sin(face/2); q[3]=cos(face/2);
+    double* t=(double*)(xf+32);   t[0]=P[0]; t[1]=P[1]; t[2]=P[2];
+    double* s=(double*)(xf+64);   s[0]=1; s[1]=1; s[2]=1;
+    static uint8_t pb[512]; memset(pb,0,sizeof pb);
+    *(uintptr_t*)(pb+oWC)=g_camMgr; *(uintptr_t*)(pb+oCls)=cls; memcpy(pb+oXf,xf,96);
+    if(oColl>=0) pb[oColl]=1;                                   // ESpawnActorCollisionHandlingMethod::AlwaysSpawn
+    if(oScl>=0)  pb[oScl]=1;                                    // ESpawnActorScaleMethod::MultiplyWithRoot (default)
+    call_uf(gs,fnB,pb); uintptr_t actor=*(uintptr_t*)(pb+oRet);
+    load_status("iso: BeginDeferredActorSpawnFromClass -> actor=0x%lx  at (%.0f,%.0f,%.0f) camYaw=%.0f",(unsigned long)actor,P[0],P[1],P[2],R[1]);
+    if(!actor) return 0;
+    int fA=prop_offset(fnF,"Actor",0), fXf=prop_offset(fnF,"SpawnTransform",0), fScl=prop_offset(fnF,"TransformScaleMethod",0);
+    uint16_t pszF=rd16(fnF+0xB6); if(fA<0||fXf<0||pszF>512){ load_status("iso: finish layout bad"); return 0; }
+    static uint8_t pf[512]; memset(pf,0,sizeof pf); *(uintptr_t*)(pf+fA)=actor; memcpy(pf+fXf,xf,96); if(fScl>=0) pf[fScl]=1;
+    call_uf(gs,fnF,pf);
+    int oComp=prop_offset(cls,"SkeletalMeshComponent",0); uintptr_t comp=oComp>=0?rdptr(actor+oComp):0;
+    load_status("iso: FinishSpawningActor done; SkeletalMeshComponent@0x%x = 0x%lx",oComp,(unsigned long)comp);
+    if(!comp) return 0;
+    static uint8_t sp[0x10]; memset(sp,0,sizeof sp); *(uintptr_t*)sp=mesh; call_uf(comp,g_fnSet,sp);
+    call_bool2(comp,g_fnVis,1,1); call_bool2(comp,g_fnHid,0,1);
+    refresh_numelements(); root_object(actor);                  // keep our actor alive
+    g_isoActor=actor; g_isoComp=comp;
+    load_status("iso: mesh set on our own actor (comp=0x%lx) -- look ~2 m in front of where the headset faced",(unsigned long)comp);
+    return comp;
 }
 static void do_load(){
     load_status("=== do_load (game tid=%d) ===",my_tid());
@@ -1038,6 +1092,8 @@ extern "C" void repl_pe(void* self,void* func,void* parms){
     }
     // keeper: poll thread saw a NATIVE reset -> re-attach our (rooted) mesh here on the game thread
     if(g_reattach_req && g_keep && !g_in_load){ g_reattach_req=0; g_in_load=1; attach_mesh(g_body,g_mymesh); g_in_load=0; }
+    if(g_iso_req && !g_in_load){ g_iso_req=0; g_in_load=1; spawn_iso_actor(g_mymesh); g_in_load=0;
+        g_reports=0; g_report_ticks=2; }                        // fresh RENDER reports ~1s after the spawn, then every 10s
     if(g_report_req && g_body && !g_in_load){ g_report_req=0; g_in_load=1; g_reports++; render_report(); g_in_load=0; }
     if(g_log_pe && g_resolved) pe_log_func((uintptr_t)func);     // diagnostic: capture avatar/skin/menu events
     // skin-cycle: after the first load, when Tribe (re)applies the RPM skin from the avatar menu, advance
@@ -1069,6 +1125,9 @@ static void* dump_thread(void*){
             ensure_resolved();
             if(g_resolved){ refresh_numelements(); uintptr_t body=find_live("AvatarBodyMesh","SkeletalMeshComponent","ReadyPlayerMeComponent");
                 if(body){ g_load_req=1; auto_done=true; load_status("auto-load: pawn ready (body=0x%lx numel=%u) -> armed",(unsigned long)body,g_numElements); } } }
+        // ISO trigger: tribemod/iso_here (one-shot) -> spawn our own actor in front of the HMD on the game thread.
+        { char ip[600]; snprintf(ip,sizeof ip,"%s/iso_here",OUTDIR); int fi=open(ip,O_RDONLY);
+          if(fi>=0){ close(fi); unlink(ip); if(g_mymesh){ g_iso_req=1; load_status("iso_here seen -> spawning our actor"); } else load_status("iso_here: no mesh loaded yet"); } }
         // RENDER report schedule: first at ~3s after attach, then every ~10s, up to 8 reports (drained on the game thread).
         if(g_report_ticks>0 && --g_report_ticks==0){ if(g_reports<8){ g_report_req=1; g_report_ticks=20; } }
         // KEEPER (~1s): if Tribe reset our body natively (bypassing the PE blocker), request a re-attach on the game thread.
