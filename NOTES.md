@@ -3592,3 +3592,28 @@ Infra available: hook/vendor/And64InlineHook (arm64 inline trampoline) from the 
 injection already proven. Plan: read-only logging hooks (entry/AddError/finalize + ProcessEvent filter). If entry
 (04bc2de0) never fires => break is upstream => hook FUN_04c5a578 / FUN_050f49cc branches. This is the next BUILD
 (bigger than the read-only dumper); best done at the desk with iterative in-game tests.
+
+## Session 3b — nip.io fails (Quest DNS rebinding); RPM-SDK strings absent; standalone needs a validator hook
+
+- Quest has internet (google.com resolves) but BLOCKS loopback wildcard DNS: 127.0.0.1.nip.io AND
+  127.x.sslip.io => "unknown host" (DNS-rebinding protection drops public hosts resolving to 127.x/private).
+  So the advisor's no-code nip.io test can't run on this device. adb reverse + raw 127.0.0.1 still work.
+- With the nip.io URL set (constructor wrote ReadyPlayerMeAvatarUrl="http://127.0.0.1.nip.io:8000/custom.glb",
+  ETag deleted): NO request hit the server (DNS failed before connect).
+- RPM-SDK literals ABSENT from libUnreal: no "Url invalid", "AvatarUrlConvertor", "ReadyPlayerMeAvatarLoader",
+  "models.readyplayer.me", "meshLod=". Present: IsValidReadyPlayerMeAvatarUrl (ascii 0x503673),
+  "readyplayer.me" (0x5be625), rpmavatar- (wide). => Tribe uses its OWN native IsValidReadyPlayerMeAvatarUrl;
+  the advisor's exact RPM-SDK regex theory is unconfirmed for this build.
+- Can't read the app's /proc/<pid>/maps (no root) => libcurl-vs-Java HTTP still unknown; getaddrinfo hook uncertain.
+- Earlier PROOF: with raw IP URL, Tribe's ETag GET reached 127.0.0.1:8000 (adb reverse path works for Tribe's HTTP).
+- ngrok IS installed (choco). cloudflared not.
+
+Implications:
+- A STANDALONE mod (avatar loads on the Quest, no PC/tunnel) requires HOOKING Tribe's URL validator to accept a
+  local URL (file:// or 127.0.0.1), since RPM-style validation rejects local hosts and the Quest blocks loopback DNS.
+- To first CONFIRM the pipeline works with a valid URL (no hook), a public tunnel (ngrok/cloudflared) is the only
+  no-code option left: set ReadyPlayerMeAvatarUrl=https://<tunnel>/custom.glb, serve custom.glb+custom.json.
+  Caveat: ngrok free adds a browser-interstitial that can corrupt non-browser GETs; cloudflared quick tunnel is cleaner.
+
+Decision pending: (A) ngrok/cloudflared confirmation test, then build the validator hook for standalone; or
+(B) go straight to the diagnostic+validator hooks (entry 0x4ac2de0, IsValidReadyPlayerMeAvatarUrl, loader).
