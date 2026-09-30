@@ -101,7 +101,7 @@ static void obj_name(uintptr_t obj, char* buf, int n){ if(!obj){snprintf(buf,n,"
 static void class_name(uintptr_t obj, char* buf, int n){ uintptr_t cls=rdptr(obj+OFF_Class); obj_name(cls,buf,n); }
 
 // ---- GUObjectArray (R2) ----
-static uintptr_t g_objarray=0; static uint32_t g_numElements=0, g_numChunks=0; static uintptr_t g_chunks=0;
+static uintptr_t g_objarray=0; static uint32_t g_numElements=0, g_numChunks=0; static uintptr_t g_chunks=0; static uintptr_t g_ne_addr=0;
 static const uint32_t OBJOBJECTS=0x10, ITEM_STRIDE=0x14; // FUObjectItem = {Object*,Flags,Cluster,Serial}=20B; Objects[k] points at item[0]
 static uintptr_t obj_at(uint32_t idx){
     if(idx>=g_numElements) return 0; uintptr_t chunk=rdptr(g_chunks + (uintptr_t)(idx>>16)*8); if(!chunk) return 0;
@@ -131,9 +131,12 @@ static bool try_objects_field(uintptr_t A){
     for(uint32_t d=0x10; d<=0x24; d+=4){ uint32_t ne=rd32(A+d);
         if(ne<10000||ne>5000000) continue;
         if(((ne+65535)/65536)!=ncReal) continue;
-        g_chunks=Q; g_numElements=ne; g_numChunks=ncReal; g_ne_off=d; g_objarray=A-0x10; return true; }
+        g_chunks=Q; g_numElements=ne; g_numChunks=ncReal; g_ne_off=d; g_objarray=A-0x10; g_ne_addr=A+d; return true; }
     return false;
 }
+// re-read the LIVE object count (it grows as the world/pawn spawn; find_* bound by g_numElements must track it)
+static void refresh_numelements(){ if(!g_ne_addr) return; uint32_t cur=rd32(g_ne_addr);
+    if(cur>=1000 && cur<=5000000){ g_numElements=cur; g_numChunks=(cur+65535)/65536; } }
 // try a FUObjectArray head candidate: Objects is at head+ObjObjects+0x00 (slide ObjObjects offset)
 static bool try_objarray(uintptr_t head){
     static const uint32_t ooCand[]={0x10,0x00,0x08,0x18,0x20,0x28};
@@ -881,6 +884,7 @@ static void call_bool2(uintptr_t obj,uintptr_t fn,uint8_t a,uint8_t b){ if(!obj|
     static uint8_t bp[16]; memset(bp,0,sizeof bp); bp[0]=a; bp[1]=b; call_uf(obj,fn,bp); }
 static void do_load(){
     load_status("=== do_load (game tid=%d) ===",my_tid());
+    refresh_numelements();                                       // catch objects spawned since resolve (the pawn)
     uintptr_t fnLoad=find_by_path("/Script/glTFRuntime.glTFRuntimeFunctionLibrary.glTFLoadAssetFromFilename",0);
     uintptr_t fnMesh=find_by_path("/Script/glTFRuntime.glTFRuntimeAsset.LoadSkeletalMesh",0);
     uintptr_t fnErr =find_by_path("/Script/glTFRuntime.glTFRuntimeAsset.GetErrors",0);
@@ -891,7 +895,10 @@ static void do_load(){
     load_status("fnLoad=0x%lx fnMesh=0x%lx fnErr=0x%lx fnSet=0x%lx libCDO=0x%lx body=0x%lx",
         (unsigned long)fnLoad,(unsigned long)fnMesh,(unsigned long)fnErr,(unsigned long)fnSet,(unsigned long)libCDO,(unsigned long)body);
     if(!fnLoad||!fnMesh||!fnSet||!libCDO){ load_status("missing UFunction/CDO; abort"); return; }
-    char path[512]; if(!read_trim_file("glb_path.txt",path,sizeof path)) snprintf(path,sizeof path,"%s/custom.glb",OUTDIR);
+    // skin selection: active_skin.txt names a file in tribemod/skins/ ; else glb_path.txt (full path); else custom.glb
+    char path[512]; char skin[256];
+    if(read_trim_file("active_skin.txt",skin,sizeof skin)) snprintf(path,sizeof path,"%s/skins/%s",OUTDIR,skin);
+    else if(!read_trim_file("glb_path.txt",path,sizeof path)) snprintf(path,sizeof path,"%s/custom.glb",OUTDIR);
     // 1) glTFLoadAssetFromFilename(path,false,LoaderConfig)
     static uint8_t lp[0x218]; memset(lp,0,sizeof lp);
     FStr fs; build_fstr(&fs,path); *(FStr*)(lp+0x00)=fs;          // Filename@0x00
@@ -935,16 +942,24 @@ extern "C" void repl_pe(void* self,void* func,void* parms){
     orig_pe(self,func,parms);
 }
 
+static bool file_present(const char* name){ char p[600]; snprintf(p,sizeof p,"%s/%s",OUTDIR,name); int fd=open(p,O_RDONLY); if(fd>=0){ close(fd); return true; } return false; }
 static void* dump_thread(void*){
     LOGI("dumper thread up; base=0x%lx; poll %s/dump_now",(unsigned long)g_base,OUTDIR);
     char cmd[600]; snprintf(cmd,sizeof cmd,"%s/dump_now",OUTDIR);
     char lcmd[600]; snprintf(lcmd,sizeof lcmd,"%s/load_avatar",OUTDIR);
+    bool auto_done=false; int tick=0;
     for(;;){ int fd=open(cmd,O_RDONLY); if(fd>=0){ close(fd); unlink(cmd); LOGI("dump_now seen; dumping...");
         install_guard(); do_dump(); remove_guard(); }
-        // load_avatar trigger: resolve globals here (heavy scan, off the game thread), then arm the PE-drain.
+        // manual load_avatar trigger: resolve globals here (heavy scan, off the game thread), then arm the PE-drain.
         int lf=open(lcmd,O_RDONLY); if(lf>=0){ close(lf); unlink(lcmd); LOGI("load_avatar seen; arming executor...");
             ensure_resolved(); if(g_resolved && orig_pe){ g_load_req=1; load_status("armed; waiting for next ProcessEvent on game thread"); }
             else load_status("NOT armed (resolved=%d pe=%p)",(int)g_resolved,g_pe_addr); }
+        // AUTO-load once per launch: when tribemod/auto_load exists, wait for the live pawn body, then arm.
+        // Checked every ~2s; the heavy find_live scan runs on THIS background thread, not the game thread.
+        if(!auto_done && orig_pe && ((++tick & 3)==0) && file_present("auto_load")){
+            ensure_resolved();
+            if(g_resolved){ refresh_numelements(); uintptr_t body=find_live("AvatarBodyMesh","SkeletalMeshComponent","ReadyPlayerMeComponent");
+                if(body){ g_load_req=1; auto_done=true; load_status("auto-load: pawn ready (body=0x%lx numel=%u) -> armed",(unsigned long)body,g_numElements); } } }
         usleep(500*1000); }
     return nullptr;
 }

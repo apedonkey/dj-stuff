@@ -3798,3 +3798,18 @@ Graft (advisor): after SetSkeletalMeshAsset, run Tribe's InitMyRPMAvatarSkin + A
 singleton) for materials/IK/visibility -- but v1 minimal may just be SetSkeletalMeshAsset on the already-active skin's
 AvatarBodyMesh (mesh appears gray via bSkipLoad). Materials pass 2. Selfie-cam (pass 2): bOwnerNoSee/bVisibleInSceneCaptureOnly
 via Tribe's SetAvatarThirdPersonVisible/SetAvatarSceneCaptureHidden.
+
+## Session 3c — auto-load on launch + skin selection (permanence)
+
+Auto-load: poll thread, when tribemod/auto_load exists, waits (every ~2s) until the live pawn body appears
+(find_live PersistentLevel), then arms the PE-drain -> do_load fires once per launch. No manual trigger.
+Key fix: g_numElements was cached early (27090) so find_live missed the later-spawned pawn; added g_ne_addr
+(NumElements address) + refresh_numelements() to re-read the live count (grew to 62987) before every scan.
+Skin selection: active_skin.txt names a file in tribemod/skins/ (else glb_path.txt, else custom.glb).
+Verified: fresh launch auto-loaded skins/default.glb, textured (M_glTFRuntimeBase resident), attached+visible.
+Flags: executor_on (install hook), auto_load (auto-fire). Kill switch: rm executor_on + relaunch.
+To swap skins: change active_skin.txt (+ relaunch, or touch load_avatar to hot-swap in the running session).
+
+Legs/full-body: pipeline loads whatever is in the .glb -- a full-body Blender export shows legs (visible).
+IK-driven legs (move with you) need binding to Tribe's avatar skeleton (Skeleton=Tribe skel, RootBoneName,
+CopyRotationsFrom) instead of Skeleton=null -- a follow-up. DefaultAvatar.glb is half-body by design.
