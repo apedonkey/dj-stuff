@@ -856,6 +856,7 @@ static volatile sig_atomic_t g_report_req=0; static int g_report_ticks=0, g_repo
 // isolation actor (advisor Q1): our OWN engine ASkeletalMeshActor -- not owned by the pawn (so owner-no-see can't
 // apply), no Tribe logic, no AnimBP. Spawned 2 m in front of the HMD on demand (flag tribemod/iso_here).
 static uintptr_t g_isoActor=0, g_isoComp=0; static volatile sig_atomic_t g_iso_req=0;
+static volatile sig_atomic_t g_skin_changed=0;                  // do_load swapped our actor's mesh -> body tracking re-rigs
 // FOLLOW (advisor #1/#2/#5): our actor ticks itself (PrimaryActorTick bits set via reflection before FinishSpawning,
 // TG_PostUpdateWork so camera/controllers are already updated); its ReceiveTick is caught in the PE hook and drives the
 // body: HMD over the floor, pushed back 10 cm; yaw smoothed with a +-35 deg dead zone, biased toward the hands' midpoint.
@@ -1196,9 +1197,7 @@ static void do_load(){
     if(!mesh){ load_status("mesh NULL even gray:"); decode_errors(asset,fnErr); return; }
     // did the glTFRuntime base material load? (advisor's cooked-materials check)
     { uintptr_t mb=find_struct("M_glTFRuntimeBase"); load_status("M_glTFRuntimeBase resident=%s",mb?"YES":"no(maybe uncooked)"); }
-    // 3) AvatarBodyMesh.SetSkeletalMeshAsset(mesh)
-    if(!body){ load_status("mesh loaded (0x%lx) but no live AvatarBodyMesh -- select the RPM avatar, then retry",(unsigned long)mesh); load_status("=== do_load done ==="); return; }
-    // 3) pin + attach + make visible to the owner (first-person + selfie cam), then hand off to the keeper.
+    // 3) pin the mesh; our own avatar actor (+ its body-tracked meshes) takes it; Tribe's slot too if it exists (legacy)
     g_fnSet=fnSet;
     g_fnOwner=find_by_path("/Script/Engine.PrimitiveComponent.SetOwnerNoSee",0);
     g_fnVis  =find_by_path("/Script/Engine.SceneComponent.SetVisibility",0);
@@ -1212,8 +1211,13 @@ static void do_load(){
     g_camMgr    =find_live_class_sub("CameraManager");
     bool rooted=root_object(mesh);                               // AddToRoot: survives Tribe dropping its ref
     uintptr_t prev=g_mymesh; g_keep=0;                           // pause keeper/blocker during the swap
-    attach_mesh(body,mesh);
-    g_body=body; g_mymesh=mesh; g_keep=1;
+    g_mymesh=mesh;
+    if(g_isoComp){                                               // skin switch: our actor shows the new mesh; tracked meshes re-rig
+        static uint8_t sp2[0x10]; memset(sp2,0,sizeof sp2); *(uintptr_t*)sp2=mesh; call_uf(g_isoComp,fnSet,sp2);
+        g_restOK=false; g_restTries=0; g_skin_changed=1;
+        load_status("skin: our avatar actor now shows the new mesh; body-tracking re-rig queued"); }
+    if(body){ attach_mesh(body,mesh); g_body=body; g_keep=1; }
+    else load_status("(no live Tribe AvatarBodyMesh slot -- not needed: our own actor shows the avatar)");
     if(prev && prev!=mesh) unroot_object(prev);                  // release the previous skin's mesh
     load_status("attached mesh=0x%lx body=0x%lx rooted=%d leader=0x%lx camMgr=0x%lx; keeper ON; render report in 3s",
         (unsigned long)mesh,(unsigned long)body,(int)rooted,(unsigned long)g_fnLeader,(unsigned long)g_camMgr);
@@ -1420,30 +1424,38 @@ static BtMap g_bm[]={ {"Hips",1},{"Spine",3},{"Spine1",4},{"Spine2",5},{"Neck",6
     {"LeftShoulder",8},{"LeftArm",10},{"LeftForeArm",11},{"LeftHand",19},{"RightShoulder",13},{"RightArm",15},{"RightForeArm",16},{"RightHand",45},
     {"LeftUpLeg",70},{"LeftLeg",71},{"LeftFoot",73},{"LeftToeBase",76},{"RightUpLeg",77},{"RightLeg",78},{"RightFoot",80},{"RightToeBase",83} };
 static const int BM_N=(int)(sizeof(g_bm)/sizeof(g_bm[0]));
-static bool g_rbOK=false, g_rbTried=false, g_calOK=false, g_calLoaded=false, g_a2Live=false, g_a2Fail=false, g_a2Init=false, g_smooth=false, g_noSplit=false;
+static bool g_rbOK=false, g_rbTried=false, g_calOK=false, g_a2Live=false, g_a2Fail=false, g_a2Init=false, g_smooth=false, g_noSplit=false;
 static volatile sig_atomic_t g_a2Recal=0, g_a2CalNow=0;
 static double g_btScale=1.0, g_thM=180.0, g_avEyeH=0, g_tposeHold=0; static Q4 g_offHeadCam={0,0,0,1}; static V3 g_hipsCur={0,0,0};
-static int iHead=-1,iNeck=-1,iLA=-1,iLF=-1,iLH=-1,iRA=-1,iRF=-1,iRH=-1;
+static int iHips=-1,iHead=-1,iNeck=-1,iLA=-1,iLF=-1,iLH=-1,iRA=-1,iRF=-1,iRH=-1; static bool g_ikL=false, g_ikR=false;
 static uintptr_t g_pmA=0, g_pmB=0, g_trackParent=0;
 static uintptr_t g_fnNumBones=0,g_fnBoneName=0,g_fnParentBone=0,g_fnRefPose=0,g_fnHideBone=0,g_fnSetSkinned=0,g_fnAddComp=0,g_fnSetOwner=0,
-                 g_fnAttach=0,g_fnRelScale=0,g_fnAttachParent=0,g_fnSetBoneXf=0,g_poseCls=0,g_fnOnlyOwnerSee=0,g_fnTickGroup=0,g_fnColl2=0,g_fnShad2=0;
+                 g_fnAttach=0,g_fnRelScale=0,g_fnAttachParent=0,g_fnSetBoneXf=0,g_poseCls=0,g_fnOnlyOwnerSee=0,g_fnTickGroup=0,g_fnColl2=0,g_fnShad2=0,
+                 g_fnDestroyComp=0;
 static int g_offRelLoc=-1, g_offRelRot=-1; static float g_w2m=100.0f;
 static int64_t g_attSnap=2, g_attKeepRel=0, g_boneCS=1;
-static char g_calPath[600]="";
+// YOUR calibration pose (raw Meta joints, tracking space) -- captured once, applies to EVERY skin: each rig's offsets are
+// derived from it when that rig loads, so a new skin needs no pose of its own. tribemod/bt_user_calib.txt
+static bool g_ucal=false; static Q4 g_ucQ[BT_NJ]; static V3 g_ucP[BT_NJ]; static double g_ucEye=0, g_ucThU=0;
+static char g_ucPath[600]="";
+static void a2_apply_ucal();
 
-static bool a2_load_cal(){
-    FILE* f=fopen(g_calPath,"r"); if(!f) return false; char line[256]; int nb=0; double sc=0;
-    while(fgets(line,sizeof line,f)){ char nm[64]; double x,y,z,w;
-        if(sscanf(line,"scale %lf",&sc)==1) continue;
-        if(sscanf(line,"bone %63s %lf %lf %lf %lf",nm,&x,&y,&z,&w)==5)
-            for(int k=0;k<BM_N;k++) if(!strcmp(g_bm[k].bone,nm)){ g_bm[k].off=qnorm(Qm(x,y,z,w)); g_bm[k].haveOff=true; nb++; } }
-    fclose(f); if(sc>0.4&&sc<2.5) g_btScale=sc; else return false;
-    return nb>0; }
-static void a2_save_cal(){
-    FILE* f=fopen(g_calPath,"w"); if(!f){ load_status("A2: cannot write %s",g_calPath); return; }
-    fprintf(f,"# tribemod body-tracking retarget calibration for this rig (T-pose capture). Delete this file, or touch\n"
-              "# tribemod/bt_recalibrate, to redo it. bone = offset quat O_b (x y z w), scale = your eyes / avatar eyes.\nversion 1\nscale %.6f\n",g_btScale);
-    for(int k=0;k<BM_N;k++) if(g_bm[k].haveOff) fprintf(f,"bone %s %.9f %.9f %.9f %.9f\n",g_bm[k].bone,g_bm[k].off.x,g_bm[k].off.y,g_bm[k].off.z,g_bm[k].off.w);
+static bool a2_load_ucal(){
+    FILE* f=fopen(g_ucPath,"r"); if(!f) return false; char line[320]; int nj=0; double eye=0, th=0; bool haveTh=false;
+    while(fgets(line,sizeof line,f)){ int j; double qx,qy,qz,qw,px,py,pz;
+        if(sscanf(line,"eye %lf",&eye)==1) continue;
+        if(sscanf(line,"facing %lf",&th)==1){ haveTh=true; continue; }
+        if(sscanf(line,"joint %d %lf %lf %lf %lf %lf %lf %lf",&j,&qx,&qy,&qz,&qw,&px,&py,&pz)==8 && j>=0 && j<BT_NJ){
+            g_ucQ[j]=qnorm(Qm(qx,qy,qz,qw)); g_ucP[j]=V(px,py,pz); nj++; } }
+    fclose(f);
+    if(nj!=BT_NJ||eye<80||eye>230||!haveTh) return false;
+    g_ucEye=eye; g_ucThU=th; return true; }
+static void a2_save_ucal(){
+    FILE* f=fopen(g_ucPath,"w"); if(!f){ load_status("A2: cannot write %s",g_ucPath); return; }
+    fprintf(f,"# tribemod body tracking: YOUR calibration pose (Meta joints, tracking space, UE axes, cm). It applies to every\n"
+              "# skin -- each skin's bone offsets are derived from it at load. Delete this file (or touch tribemod/bt_recalibrate)\n"
+              "# to redo it. joint = index qx qy qz qw px py pz\nversion 2\neye %.3f\nfacing %.4f\n",g_ucEye,g_ucThU);
+    for(int j=0;j<BT_NJ;j++) fprintf(f,"joint %d %.9f %.9f %.9f %.9f %.3f %.3f %.3f\n",j,g_ucQ[j].x,g_ucQ[j].y,g_ucQ[j].z,g_ucQ[j].w,g_ucP[j].x,g_ucP[j].y,g_ucP[j].z);
     fclose(f); }
 // avatar T-pose: swing Arm->ForeArm, ForeArm->Hand, Hand->HandMiddle1 onto horizontal-lateral, parent-first (advisor Q1);
 // clavicles, spine, legs and head keep the rest pose (skullbuck's clavicles are already level: -2.7 deg).
@@ -1467,29 +1479,32 @@ static bool a2_build_rest(){
     uint8_t* r=call_ret(comp,g_fnNumBones,0,0); int n=r?*(int32_t*)r:0; if(n<=0||n>RB_MAX){ load_status("A2: rest skeleton: %d bones",n); return false; }
     for(int i=0;i<n;i++){ memset(b,0,sizeof b); *(int32_t*)(b+oBI)=i; call_uf(comp,g_fnBoneName,b); memcpy(&g_rb_fn[i],b+oBR,8);
         fname_resolve((uint32_t)g_rb_fn[i],g_rb_nm[i],sizeof g_rb_nm[i]);
+        char* pfx=strrchr(g_rb_nm[i],':'); if(pfx) memmove(g_rb_nm[i],pfx+1,strlen(pfx+1)+1);   // "mixamorig:Hips" -> "Hips" (match only)
         memset(b,0,sizeof b); *(int32_t*)(b+oRI)=i; call_uf(comp,g_fnRefPose,b); double* x=(double*)(b+oRR);
         g_rb_lq[i]=qnorm(Qm(x[0],x[1],x[2],x[3])); g_rb_lt[i]=V(x[4],x[5],x[6]); }
     for(int i=0;i<n;i++){ memset(b,0,sizeof b); memcpy(b+oPN,&g_rb_fn[i],8); call_uf(comp,g_fnParentBone,b); uint64_t pn; memcpy(&pn,b+oPR,8);
         g_rb_par[i]=-1; for(int k=0;k<n;k++) if(g_rb_fn[k]==pn){ g_rb_par[i]=k; break; }
         if(g_rb_par[i]>=i){ load_status("A2: bone %d (%s) parent %d not before it",i,g_rb_nm[i],g_rb_par[i]); return false; } }
     g_rb_n=n; rb_fk(g_rb_lq,g_rb_cq,g_rb_ct);
-    int mapped=0; for(int k=0;k<BM_N;k++){ g_bm[k].bi=rb_find(g_bm[k].bone); if(g_bm[k].bi>=0) mapped++; }
-    iHead=rb_find("Head"); iNeck=rb_find("Neck"); iLA=rb_find("LeftArm"); iLF=rb_find("LeftForeArm"); iLH=rb_find("LeftHand");
+    g_calOK=false; int mapped=0; for(int k=0;k<BM_N;k++){ g_bm[k].bi=rb_find(g_bm[k].bone); g_bm[k].haveOff=false; if(g_bm[k].bi>=0) mapped++; }
+    iHips=rb_find("Hips"); iHead=rb_find("Head"); iNeck=rb_find("Neck"); iLA=rb_find("LeftArm"); iLF=rb_find("LeftForeArm"); iLH=rb_find("LeftHand");
     iRA=rb_find("RightArm"); iRF=rb_find("RightForeArm"); iRH=rb_find("RightHand");
-    if(iLA<0||iRA<0||iHead<0||g_rb_par[0]>=0){ load_status("A2: rig lacks LeftArm/RightArm/Head -> no retarget"); return false; }
+    if(iLA<0||iRA<0||iHead<0||g_rb_par[0]>=0){ load_status("A2: rig lacks LeftArm/RightArm/Head (%d bones, %d/%d mapped) -> can't be body-tracked",n,mapped,BM_N); return false; }
+    g_ikL=iLF>=0&&iLH>=0&&g_rb_par[iLF]==iLA&&g_rb_par[iLH]==iLF;      // wrist IK needs Arm > ForeArm > Hand directly
+    g_ikR=iRF>=0&&iRH>=0&&g_rb_par[iRF]==iRA&&g_rb_par[iRH]==iRF;
     g_thM=yaw_of_left(V(g_rb_ct[iLA].x-g_rb_ct[iRA].x,g_rb_ct[iLA].y-g_rb_ct[iRA].y,0));
     g_offHeadCam=qnorm(qmul(qyaw(-g_thM),g_rb_cq[iHead]));        // head frame with the avatar's facing removed -> follows the HMD
     double sole=1e9; for(int i=0;i<n;i++) if(g_rb_ct[i].z<sole) sole=g_rb_ct[i].z; sole-=2.0;   // lowest joint (toe) minus ~2 cm of sole
     int le=rb_find("LeftEye"), re=rb_find("RightEye"); double eye=(le>=0&&re>=0)?0.5*(g_rb_ct[le].z+g_rb_ct[re].z):g_rb_ct[iHead].z+8.0;
     g_avEyeH=eye-sole;
     static Q4 aq[RB_MAX]; static V3 at[RB_MAX]; a2_avatar_tpose(aq,at);
-    load_status("A2: rest skeleton %d bones (root %s), mapped %d/%d; avatar faces %.0f deg; eyes %.1f cm above soles; %s",
-        n,g_rb_nm[0],mapped,BM_N,g_thM,g_avEyeH,g_calLoaded?"saved calibration found":"no saved calibration yet");
-    load_status("A2: A-pose arm elevation L %.0f/%.0f/%.0f deg -> T-pose %.1f/%.1f/%.1f (want ~0)",
-        elev_deg(vsub(g_rb_ct[iLF],g_rb_ct[iLA])),elev_deg(vsub(g_rb_ct[iLH],g_rb_ct[iLF])),iLH>=0&&rb_find("LeftHandMiddle1")>=0?elev_deg(vsub(g_rb_ct[rb_find("LeftHandMiddle1")],g_rb_ct[iLH])):0.0,
-        elev_deg(vsub(at[iLF],at[iLA])),elev_deg(vsub(at[iLH],at[iLF])),rb_find("LeftHandMiddle1")>=0?elev_deg(vsub(at[rb_find("LeftHandMiddle1")],at[iLH])):0.0);
-    if(g_calLoaded){ bool all=true; for(int k=0;k<BM_N;k++) if(g_bm[k].bi>=0&&!g_bm[k].haveOff) all=false;
-        g_calOK=all; load_status("A2: saved calibration %s (scale %.3f)",all?"applied":"incomplete -> T-pose needed",g_btScale); }
+    load_status("A2: rest skeleton %d bones (root %s), mapped %d/%d; avatar faces %.0f deg; eyes %.1f cm above soles; wrist IK L%d R%d",
+        n,g_rb_nm[0],mapped,BM_N,g_thM,g_avEyeH,(int)g_ikL,(int)g_ikR);
+    if(iLF>=0&&iLH>=0){ int m1=rb_find("LeftHandMiddle1");
+        load_status("A2: rest arm elevation L %.0f/%.0f/%.0f deg -> constructed T-pose %.1f/%.1f/%.1f (want ~0)",
+            elev_deg(vsub(g_rb_ct[iLF],g_rb_ct[iLA])),elev_deg(vsub(g_rb_ct[iLH],g_rb_ct[iLF])),m1>=0?elev_deg(vsub(g_rb_ct[m1],g_rb_ct[iLH])):0.0,
+            elev_deg(vsub(at[iLF],at[iLA])),elev_deg(vsub(at[iLH],at[iLF])),m1>=0?elev_deg(vsub(at[m1],at[iLH])):0.0); }
+    if(g_ucal) a2_apply_ucal(); else load_status("A2: no calibration yet -> stand still with straight arms (T or A) once");
     return true; }
 // calibration-pose detector on Meta joints (tracking space): standing still with straight arms -- T-pose OR A-pose.
 // The pose itself doesn't matter: a2_avatar_calpose poses the avatar to YOUR measured limb directions before the offsets
@@ -1516,19 +1531,25 @@ static void a2_avatar_calpose(const V3* mp,double thU,Q4* cq,V3* ct){
         V3 tgt=qrot(rin,vsub(mp[seg[k].j1],mp[seg[k].j0])); if(vlen(tgt)<1e-3) continue;
         Q4 sw=qbetween(vsub(ct[c],ct[b]),tgt); int p=g_rb_par[b]; Q4 pq=p>=0?cq[p]:QI;
         lq[b]=qnorm(qmul(qinv(pq),qmul(sw,cq[b]))); rb_fk(lq,cq,ct); } }
-static void a2_calibrate(const Q4* mq,const V3* mp,V3 camP){
+// derive THIS rig's offsets + scale from your saved pose: pose the avatar to your measured limb directions, then
+// O_b = M_j(cal)^-1 * R_z(your facing - avatar facing) * A_b(cal); scale = your eye height / the avatar's
+static void a2_apply_ucal(){
     static Q4 aq[RB_MAX]; static V3 at[RB_MAX];
-    V3 lu=vsub(mp[10],mp[15]); double thU=yaw_of_left(V(lu.x,lu.y,0));
-    a2_avatar_calpose(mp,thU,aq,at);
-    load_status("A2: calibration pose: arm tilt L%.0f R%.0f, knee bend L%.0f R%.0f; avatar posed to match (L arm %.0f/%.0f deg)",
-        elev_deg(vsub(mp[19],mp[10])),elev_deg(vsub(mp[45],mp[15])),ang_deg(vsub(mp[71],mp[70]),vsub(mp[73],mp[71])),
-        ang_deg(vsub(mp[78],mp[77]),vsub(mp[80],mp[78])),elev_deg(vsub(at[iLF],at[iLA])),elev_deg(vsub(at[iLH],at[iLF])));
-    Q4 ral=qyaw(thU-g_thM);
-    for(int k=0;k<BM_N;k++){ BtMap& m=g_bm[k]; if(m.bi<0) continue; m.off=qnorm(qmul(qinv(mq[m.joint]),qmul(ral,aq[m.bi]))); m.haveOff=true; }
-    double s=(g_avEyeH>50)?camP.z/g_avEyeH:1.0; if(s<0.6) s=0.6; if(s>1.4) s=1.4; g_btScale=s;
-    a2_save_cal(); g_calOK=true;
-    load_status("A2 CALIBRATED: you face %.0f deg, avatar faces %.0f deg; scale %.3f (your eyes %.0f cm / avatar eyes %.0f cm); saved %s",
-        thU,g_thM,s,camP.z,g_avEyeH,g_calPath); }
+    a2_avatar_calpose(g_ucP,g_ucThU,aq,at);
+    Q4 ral=qyaw(g_ucThU-g_thM); int nb=0;
+    for(int k=0;k<BM_N;k++){ BtMap& m=g_bm[k]; m.haveOff=false; if(m.bi<0) continue;
+        m.off=qnorm(qmul(qinv(g_ucQ[m.joint]),qmul(ral,aq[m.bi]))); m.haveOff=true; nb++; }
+    double s=(g_avEyeH>50)?g_ucEye/g_avEyeH:1.0; if(s<0.6) s=0.6; if(s>1.4) s=1.4; g_btScale=s; g_calOK=true;
+    load_status("A2: your calibration applied to this rig: %d bones, scale %.3f (your eyes %.0f / avatar eyes %.0f cm); avatar arm posed to %.0f/%.0f deg",
+        nb,s,g_ucEye,g_avEyeH,iLF>=0?elev_deg(vsub(at[iLF],at[iLA])):0.0,(iLF>=0&&iLH>=0)?elev_deg(vsub(at[iLH],at[iLF])):0.0); }
+static void a2_calibrate(const Q4* mq,const V3* mp,V3 camP){
+    for(int j=0;j<BT_NJ;j++){ g_ucQ[j]=mq[j]; g_ucP[j]=mp[j]; }
+    V3 lu=vsub(mp[10],mp[15]); g_ucThU=yaw_of_left(V(lu.x,lu.y,0)); g_ucEye=camP.z; g_ucal=true;
+    a2_save_ucal();
+    load_status("A2 CALIBRATED (once, for every skin): you face %.0f deg, eyes %.0f cm; arm tilt L%.0f R%.0f, knee bend L%.0f R%.0f; saved %s",
+        g_ucThU,g_ucEye,elev_deg(vsub(mp[19],mp[10])),elev_deg(vsub(mp[45],mp[15])),ang_deg(vsub(mp[71],mp[70]),vsub(mp[73],mp[71])),
+        ang_deg(vsub(mp[78],mp[77]),vsub(mp[80],mp[78])),g_ucPath);
+    if(g_rbOK) a2_apply_ucal(); }
 static void a2_hide_bone(uintptr_t c,int i){ if(!g_fnHideBone||i<0) return; int oN=prop_offset(g_fnHideBone,"BoneName",0); if(oN<0) return;
     static uint8_t b[64]; memset(b,0,sizeof b); memcpy(b+oN,&g_rb_fn[i],8); call_uf(c,g_fnHideBone,b); }
 static void a2_set_scale(uintptr_t c,double s){ if(!c||!g_fnRelScale) return; int o=prop_offset(g_fnRelScale,"NewScale3D",0); if(o<0) return;
@@ -1583,10 +1604,10 @@ static void a2_ik_arm(int a,int f,int h,V3 W,V3 P,Q4* tq,const Q4* cq,const V3* 
     V3 E=vadd(S,vadd(vmul(dir,x),vmul(vnorm(pp),hh))), Wc=vadd(S,vmul(dir,d));
     tq[a]=qnorm(qmul(qbetween(vsub(ct[f],S),vsub(E,S)),cq[a]));
     tq[f]=qnorm(qmul(qbetween(qrot(tq[f],g_rb_lt[h]),vsub(Wc,E)),tq[f])); }
-static void a2_fk(const Q4* tq,const bool* dv,Q4* cq,V3* ct){
+static void a2_fk(const Q4* tq,const bool* dv,Q4* cq,V3* ct){          // Hips takes Meta's hip position even if it isn't the root
     for(int i=0;i<g_rb_n;i++){ int p=g_rb_par[i];
-        if(p<0){ cq[i]=dv[i]?tq[i]:g_rb_lq[i]; ct[i]=dv[i]?g_hipsCur:g_rb_lt[i]; }
-        else { cq[i]=dv[i]?tq[i]:qnorm(qmul(cq[p],g_rb_lq[i])); ct[i]=vadd(ct[p],qrot(cq[p],g_rb_lt[i])); } } }
+        cq[i]=dv[i]?tq[i]:(p<0?g_rb_lq[i]:qnorm(qmul(cq[p],g_rb_lq[i])));
+        ct[i]=(i==iHips&&dv[i])?g_hipsCur:(p<0?g_rb_lt[i]:vadd(ct[p],qrot(cq[p],g_rb_lt[i]))); } }
 static void a2_set_bone(uintptr_t comp,int i,Q4 q,V3 t){
     static int oN=-2,oX=-1,oS=-1; static uint16_t psz=0;
     if(oN==-2){ oN=prop_offset(g_fnSetBoneXf,"BoneName",0); oX=prop_offset(g_fnSetBoneXf,"InTransform",0); oS=prop_offset(g_fnSetBoneXf,"BoneSpace",0); psz=rd16(g_fnSetBoneXf+0xB6);
@@ -1606,8 +1627,8 @@ static void a2_drive(const Q4* mq,const V3* mp,Q4 camQ,V3 camP,float dt){
         tq[iHead]=hc; dv[iHead]=true; if(iNeck>=0&&dv[iNeck]) tq[iNeck]=qnorm(qmul(qslerp(QI,dH,0.5),tq[iNeck])); }   // neck: half the seam
     a2_fk(tq,dv,cq,ct);
     double eL=-1,eR=-1;
-    if(iLA>=0&&iLF>=0&&iLH>=0&&dv[iLA]&&dv[iLF]) a2_ik_arm(iLA,iLF,iLH,vmul(mp[19],is),vmul(mp[11],is),tq,cq,ct,&eL);
-    if(iRA>=0&&iRF>=0&&iRH>=0&&dv[iRA]&&dv[iRF]) a2_ik_arm(iRA,iRF,iRH,vmul(mp[45],is),vmul(mp[16],is),tq,cq,ct,&eR);
+    if(g_ikL&&dv[iLA]&&dv[iLF]) a2_ik_arm(iLA,iLF,iLH,vmul(mp[19],is),vmul(mp[11],is),tq,cq,ct,&eL);
+    if(g_ikR&&dv[iRA]&&dv[iRF]) a2_ik_arm(iRA,iRF,iRH,vmul(mp[45],is),vmul(mp[16],is),tq,cq,ct,&eR);
     a2_fk(tq,dv,cq,ct);
     for(int i=0;i<g_rb_n;i++) if(dv[i]){ a2_set_bone(g_pmA,i,cq[i],ct[i]); if(g_pmB) a2_set_bone(g_pmB,i,cq[i],ct[i]); }
     { static int good=0; if(g_a2Marker && ++good>=120){ a2_marker(false); load_status("A2: 120 frames driven OK (crash guard cleared)"); } }
@@ -1616,12 +1637,26 @@ static void a2_drive(const Q4* mq,const V3* mp,Q4 camQ,V3 camP,float dt){
         int rA=-1,rB=-1; uint8_t* r=call_ret(g_pmA,g_fnRendered,1,0.5f); if(r) rA=*r; if(g_pmB){ r=call_ret(g_pmB,g_fnRendered,1,0.5f); if(r) rB=*r; }
         load_status("A2 live: dt=%.4f hips=(%.0f,%.0f,%.0f) eyes-vs-MetaHead fwd/right/up=(%.1f,%.1f,%.1f) wristIK err L%.1f R%.1f cm | rendered A=%d B=%d",
             dt,mp[1].x,mp[1].y,mp[1].z,d.x,d.y,d.z,eL*g_btScale,eR*g_btScale,rA,rB); } }
+// skin changed (do_load put the new mesh on our actor's component): drop the old tracked meshes and rebuild for the new
+// rig. Fresh components (not an asset swap) because a same-bone-count asset swap keeps the old rig's hidden-bone indices.
+static void a2_drop_meshes(){
+    uintptr_t cs[2]={g_pmA,g_pmB};
+    for(int k=0;k<2;k++){ uintptr_t c=cs[k]; if(!c) continue; call_bool2(c,g_fnVis,0,1); unroot_object(c);
+        if(g_fnDestroyComp){ int o=prop_offset(g_fnDestroyComp,"Object",0); static uint8_t b[16]; memset(b,0,sizeof b); if(o>=0){ *(uintptr_t*)(b+o)=c; call_uf(c,g_fnDestroyComp,b); } } }
+    g_pmA=g_pmB=0; g_a2Live=false; }
+static void a2_rerig(){
+    a2_drop_meshes();
+    g_rbTried=true; g_rbOK=a2_build_rest();                            // reads the NEW rig; applies your calibration to it
+    if(!g_rbOK){ call_bool2(g_isoComp,g_fnVis,1,1); load_status("A2: new skin can't be body-tracked -> it follows you, stiff"); return; }
+    if(!g_calOK) call_bool2(g_isoComp,g_fnVis,1,1);                    // until you've calibrated once, show the follow body
+    load_status("A2: re-rigged for the new skin (%d bones)%s",g_rb_n,g_calOK?" -> live on the next frame":" -- waiting for your calibration pose"); }
 // per frame (pawn tick): fetch body state, then calibrate or drive
 static void bt_frame(float dt){
     if(!g_bt_started||!g_btLayoutOK||!g_isoComp||!g_camComp||g_a2Fail) return;
-    if(g_a2Recal){ g_a2Recal=0; g_calOK=false; g_a2Live=false; g_tposeHold=0;
+    if(g_a2Recal){ g_a2Recal=0; g_ucal=false; g_calOK=false; g_a2Live=false; g_tposeHold=0;
         if(g_pmA) call_bool2(g_pmA,g_fnVis,0,1); if(g_pmB) call_bool2(g_pmB,g_fnVis,0,1); call_bool2(g_isoComp,g_fnVis,1,1);
-        load_status("A2: recalibrating -> follow mode until the next T-pose"); }
+        load_status("A2: recalibrating -> follow mode until your next calibration pose"); }
+    if(g_skin_changed){ g_skin_changed=0; a2_rerig(); }
     memset(g_btParms,0,sizeof g_btParms); uint8_t* s=g_btParms+bt_oState;
     *(uintptr_t*)(s+0x10)=(uintptr_t)g_btJoints; *(int32_t*)(s+0x18)=BT_NJ; *(int32_t*)(s+0x1C)=BT_NJ;
     if(bt_oW2M>=0) *(float*)(g_btParms+bt_oW2M)=g_w2m;
@@ -1632,10 +1667,10 @@ static void bt_frame(float dt){
     { static int fr=0,nw=0; static float lt=-1; float tm=*(float*)(s+12);  // advisor Q2: fresh every frame, or 30 Hz steps?
       if(fr<150){ fr++; if(tm!=lt){ nw++; lt=tm; }
         if(fr==150){ g_smooth=(nw<105); load_status("A2 rate: %d frames, %d new samples -> %s",fr,nw,g_smooth?"stepping: smoothing ON (tau 30 ms)":"fresh every frame: no smoothing"); } } }
-    if(!g_rbOK){ if(g_rbTried) return; g_rbTried=true; g_rbOK=a2_build_rest(); if(!g_rbOK){ g_a2Fail=true; return; } }
+    if(!g_rbTried){ g_rbTried=true; g_rbOK=a2_build_rest(); }          // a rig that can't be tracked keeps following, stiff
     double cr[3]={0,0,0}, cl[3]={0,0,0}; if(g_offRelRot<0||g_offRelLoc<0||!sr(g_camComp+g_offRelRot,cr,24)||!sr(g_camComp+g_offRelLoc,cl,24)) return;
     Q4 camQ=rot2q(cr); V3 camP=V(cl[0],cl[1],cl[2]);
-    if(!g_calOK){
+    if(!g_ucal){                                                       // your pose is captured once, whatever skin is on
         static V3 pWL,pWR,pH; static double spd=100; static bool have=false;          // motion: fastest of wrists/head, smoothed 0.3 s
         double inst=(have&&dt>1e-4)?fmax(vlen(vsub(mp[19],pWL)),fmax(vlen(vsub(mp[45],pWR)),vlen(vsub(mp[7],pH))))/dt:100;
         pWL=mp[19]; pWR=mp[45]; pH=mp[7]; have=true; double k=dt/0.3; if(k>1) k=1; spd+=(inst-spd)*k;
@@ -1645,6 +1680,7 @@ static void bt_frame(float dt){
         static double logT=0; logT+=dt; if(logT>=3.0){ logT=0; load_status("A2 waiting for a still calibration pose (stand; arms straight, T or A; ~1 s): %s -> %s",why,ok?"GOOD, hold":"not yet"); }
         if(g_tposeHold<1.0) return;
         a2_calibrate(mq,mp,camP); }
+    if(!g_rbOK||!g_calOK) return;
     if(!g_a2Live){ a2_go_live(); if(!g_a2Live) return; }
     a2_drive(mq,mp,camQ,camP,dt); }
 extern "C" void repl_pe(void* self,void* func,void* parms){
@@ -1708,16 +1744,17 @@ static void a2_resolve(){
     g_noSplit=file_present("bt_nosplit");
     if(file_present("a2_inflight")){ char p[600]; snprintf(p,sizeof p,"%s/a2_inflight",OUTDIR); unlink(p); g_a2Fail=true;
         load_status("A2: the previous launch died while going live -> retarget DISABLED this launch (auto-retries next launch)"); }
-    char skin[256]; if(read_trim_file("active_skin.txt",skin,sizeof skin)) snprintf(g_calPath,sizeof g_calPath,"%s/skins/%s.bt.txt",OUTDIR,skin);
-    else snprintf(g_calPath,sizeof g_calPath,"%s/custom.glb.bt.txt",OUTDIR);
-    g_calLoaded=a2_load_cal();
+    g_fnDestroyComp=find_by_path("/Script/Engine.ActorComponent.K2_DestroyComponent",0);
+    snprintf(g_ucPath,sizeof g_ucPath,"%s/bt_user_calib.txt",OUTDIR);
+    g_ucal=a2_load_ucal();
     load_status("A2 resolve: bones(num=0x%lx name=0x%lx parent=0x%lx refpose=0x%lx hide=0x%lx) setSkinned=0x%lx addComp=0x%lx setOwner=0x%lx attach=0x%lx relScale=0x%lx attachParent=0x%lx",
         (unsigned long)g_fnNumBones,(unsigned long)g_fnBoneName,(unsigned long)g_fnParentBone,(unsigned long)g_fnRefPose,(unsigned long)g_fnHideBone,
         (unsigned long)g_fnSetSkinned,(unsigned long)g_fnAddComp,(unsigned long)g_fnSetOwner,(unsigned long)g_fnAttach,(unsigned long)g_fnRelScale,(unsigned long)g_fnAttachParent);
     load_status("A2 resolve: setBoneXf=0x%lx poseCls=0x%lx onlyOwnerSee=0x%lx tickGroup=0x%lx coll=0x%lx shadow=0x%lx RelLoc@0x%x RelRot@0x%x Snap=%lld KeepRel=%lld CompSpace=%lld WorldToMeters=%.1f (using %.1f) nosplit=%d",
         (unsigned long)g_fnSetBoneXf,(unsigned long)g_poseCls,(unsigned long)g_fnOnlyOwnerSee,(unsigned long)g_fnTickGroup,(unsigned long)g_fnColl2,(unsigned long)g_fnShad2,
         g_offRelLoc,g_offRelRot,(long long)g_attSnap,(long long)g_attKeepRel,(long long)g_boneCS,w2m,g_w2m,(int)g_noSplit);
-    load_status("A2 resolve: calibration %s -> %s",g_calPath,g_calLoaded?"LOADED (no T-pose needed)":"none yet (hold a T-pose once)");
+    load_status("A2 resolve: destroyComp=0x%lx; your calibration %s -> %s",(unsigned long)g_fnDestroyComp,g_ucPath,
+        g_ucal?"LOADED (every skin works without a pose)":"none yet (stand still once with straight arms, T or A)");
 }
 static void* dump_thread(void*){
     LOGI("dumper thread up; base=0x%lx; poll %s/dump_now",(unsigned long)g_base,OUTDIR);
@@ -1749,8 +1786,10 @@ static void* dump_thread(void*){
           if(bt==-1 && orig_pe && (g_loaded_once||auto_done) && file_present("body_tracking")) bt=6;
           if(bt>0 && --bt==0){ if(bt_resolve()){ a2_resolve(); g_bt_req=1; load_status("BT: armed; starting on the game thread"); } else load_status("BT: resolve failed; not started"); }
           { char rp[600]; snprintf(rp,sizeof rp,"%s/bt_recalibrate",OUTDIR); int fr=open(rp,O_RDONLY);     // one-shot: redo the T-pose
-            if(fr>=0){ close(fr); unlink(rp); if(g_calPath[0]) unlink(g_calPath); g_a2Recal=1; load_status("A2: bt_recalibrate seen -> calibration deleted; hold a T-pose"); } }
+            if(fr>=0){ close(fr); unlink(rp); if(g_ucPath[0]) unlink(g_ucPath); g_a2Recal=1; load_status("A2: bt_recalibrate seen -> your calibration deleted; stand still with straight arms once"); } }
           if(file_present("bt_calibrate_now")){ char cp[600]; snprintf(cp,sizeof cp,"%s/bt_calibrate_now",OUTDIR); unlink(cp); g_a2CalNow=1; }  // manual capture
+          if(file_present("next_skin")){ char np2[600]; snprintf(np2,sizeof np2,"%s/next_skin",OUTDIR); unlink(np2);            // remote skin switch
+            if(g_loaded_once&&orig_pe){ advance_skin(); g_load_req=1; } else load_status("next_skin: no skin loaded yet"); }
           if(g_bt_started && g_btPolls<24){ pt++; if(pt==2||pt==6||pt==20||(pt>=60&&pt%60==0)) g_bt_poll_req=1; } }
         // RENDER report schedule: first at ~3s after attach, then every ~10s, up to 8 reports (drained on the game thread).
         if(g_report_ticks>0 && --g_report_ticks==0){ if(g_reports<8){ g_report_req=1; g_report_ticks=20; } }

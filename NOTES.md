@@ -4023,3 +4023,28 @@ offsets are taken, so any still straight-armed pose works; knee limit 40, stilln
 tribemod/bt_calibrate_now). Compiled (144,368 B) but NOT yet run on device.
 Next: deploy + verify the measured-pose build; skin cycle must rebuild rest skeleton/meshes + load that skin's
 calibration; remove the obsolete Tribe-slot keeper/blocker; foot planting; first-person/selfie visual check.
+
+## Session 3c — skins that "just work": one calibration per PERSON, re-rig on skin change, PC-side skin checker
+
+User (after A2): "everything seemed good while playing and the head didnt interfere with my vision" -> the owner-no-see /
+only-owner-see split works in first person. User will make more skins -> they must work without per-skin fiddling.
+- CALIBRATION IS NOW PER PERSON: the raw capture (all 84 Meta joints rot+pos, eye height, facing) is saved to
+  tribemod/bt_user_calib.txt; each rig's offsets + scale are DERIVED at load (a2_apply_ucal: pose the avatar to the
+  measured limb directions, O_b = M_j^-1 * R_z(you-avatar) * A_b, scale = your eyes / its eyes). A new skin needs no
+  pose. Capture no longer depends on the current skin being trackable. Old per-rig files (skins/*.bt.txt) are ignored.
+- RE-RIG ON SKIN CHANGE: do_load now always puts the new mesh on our actor (it used to bail out when Tribe's
+  never-drawn AvatarBodyMesh slot was missing) and flags g_skin_changed; bt_frame drops the tracked meshes
+  (K2_DestroyComponent -- fresh components because an asset swap with the same bone count keeps the old rig's hidden-bone
+  indices), rebuilds the rest skeleton, re-applies your calibration, and goes live again. A rig that can't be tracked
+  (half-body RPM: no arm/leg bones) shows the stiff follow body instead of failing the whole feature.
+- RIG ROBUSTNESS: bone names match after stripping a "prefix:" (mixamorig:); Hips gets Meta's hip position even when it
+  isn't the skeleton root (Blender "Armature" root); wrist IK only when Arm > ForeArm > Hand is a direct chain;
+  guarded diagnostic logs for rigs without hand bones (was an out-of-bounds read).
+- tribemod/next_skin (one-shot): remote skin switch (advance_skin + reload) for testing.
+- scripts/check_skin.py: PC-side checker for Blender exports -> two verdicts, LOADS and MOVES WITH YOU; --push
+  --activate copy to the headset. Negative-tested on in-memory broken variants of skullbuck: mirrored L/R names -> FAIL
+  (moves), cm units -> FAIL (loads), unapplied armature scale -> WARN+FAIL, mixamo prefix -> passes. Existing skins:
+  skullbuck = loads + moves; default/mentor = ReadyPlayerMe HALF-bodies (38 bones, no arms/legs) -> load, follow stiff.
+Built 147,168 B. NOT yet run on device (headset charging). Test plan: calibrate once (any still straight-arm pose) ->
+next_skin through default/mentor (expect stiff follow) -> back to skullbuck (expect live, no pose) -> a mixamo-prefixed
+skullbuck variant (expect 22/22 mapped, live) -> delete test skin; then the in-headset Tribe avatar-menu cycle.

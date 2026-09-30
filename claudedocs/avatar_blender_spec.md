@@ -71,10 +71,19 @@ hands" half-body. Full-body avatars add `LeftUpLeg/LeftLeg/LeftFoot` (and right)
 
 ## Test it
 
-1. Save as e.g. `myavatar.glb`.
-2. Put it in the mod's skins folder: `tribemod/skins/myavatar.glb`.
-3. Point the mod at it: set `active_skin.txt` to `myavatar.glb`.
-4. Relaunch Tribe (or ask me to hot-swap it live).
+1. Save as e.g. `myavatar.glb` (in the repo's `skins/` folder).
+2. **Check it on the PC first** — this catches the usual Blender export mistakes before you put the headset on:
+   ```
+   python scripts/check_skin.py skins/myavatar.glb
+   ```
+   It ends with two verdicts: **LOADS** (will the mod load it at all) and **MOVES WITH YOU** (can body tracking
+   drive it). Every FAIL/WARN line says what to fix in Blender.
+3. Copy it to the headset and make it the active skin (headset plugged in over USB):
+   ```
+   python scripts/check_skin.py skins/myavatar.glb --push --activate
+   ```
+   (It refuses to push a skin that won't load.)
+4. Relaunch Tribe.
 
 If it loads with the wrong colors, the material/texture didn't come across — re-check step 4 of the workflow.
 If the avatar doesn't appear at all, the mesh probably isn't skinned to the armature (requirement #2).
@@ -88,12 +97,17 @@ follow you. Tribe's tracked hands replace the model's hands (the model's hand bo
 
 For a new skin to animate, its armature needs these bone names (the RPM/Mixamo names above):
 `Hips, Spine, Spine1, Spine2, Neck, Head, LeftShoulder, LeftArm, LeftForeArm, LeftHand, LeftHandMiddle1,
-LeftUpLeg, LeftLeg, LeftFoot, LeftToeBase` plus the `Right…` mirrors. `LeftEye`/`RightEye` are optional; with them the
-mod matches the avatar's eye height to yours. A missing bone just doesn't animate.
+LeftUpLeg, LeftLeg, LeftFoot, LeftToeBase` plus the `Right…` mirrors, each hanging from the one before it
+(`LeftArm` under `LeftShoulder`, `LeftForeArm` under `LeftArm`, …). A Mixamo-style prefix like `mixamorig:` is fine.
+`LeftEye`/`RightEye` are optional; with them the mod matches the avatar's eye height to yours. A missing bone just
+doesn't animate. The rest pose can be a T-pose or an A-pose. `scripts/check_skin.py` checks all of this.
 
-**One-time calibration per skin:** the first time a skin is used, stand still with your arms straight out (T-pose)
-for about a second. The result is saved as `tribemod/skins/<skin>.glb.bt.txt`, and after that it's automatic. To redo
-it, delete that file (or create `tribemod/bt_recalibrate`).
+Half-body avatars (no arm/leg bones, like Tribe's old ReadyPlayerMe ones) still load, but they follow you stiffly.
+
+**One-time calibration (per person, not per skin):** the first time, stand still for about a second with your arms
+straight — out to the sides (T) or down at your sides (A). The mod saves your pose as `tribemod/bt_user_calib.txt`
+and works out every skin's fit from it, so new skins need no calibration of their own. To redo it (say, someone else
+is playing), delete that file or create `tribemod/bt_recalibrate`.
 
 Two copies of the body are drawn: the full one (with head) for the selfie cam and others, and a headless one that only
 you see, so the avatar's head never blocks your view.
@@ -102,5 +116,5 @@ you see, so the avatar's head never blocks your view.
 
 - **Feet aren't planted:** legs follow the tracking, so feet can float or sink a few cm.
 - **Hands are Tribe's**, not the model's.
-- **Switching skins in-headset doesn't re-rig the moving body yet.**
+- **Switching skins re-rigs the moving body** (built; in-headset verification pending).
 - **One material / one mesh** for now (matches how the loader reads index 0).
