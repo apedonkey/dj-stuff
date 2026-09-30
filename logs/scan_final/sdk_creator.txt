@@ -1,0 +1,1809 @@
+Default__Object=0x7bf5cae140 vtable=0x7c0cd617b0 vtable_rva=0x6d537b0 (ghidra=0x6e537b0)
+  vt[00] rva=0x0188b840 ghidra=0x0198b840
+  vt[01] rva=0x0187bb64 ghidra=0x0197bb64
+  vt[02] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[03] rva=0x0187bbcc ghidra=0x0197bbcc
+  vt[04] rva=0x0146a6e8 ghidra=0x0156a6e8
+  vt[05] rva=0x01447068 ghidra=0x01547068
+  vt[06] rva=0x0187e890 ghidra=0x0197e890
+  vt[07] rva=0x0187e8ac ghidra=0x0197e8ac
+  vt[08] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[09] rva=0x016d337c ghidra=0x017d337c
+  vt[10] rva=0x01885140 ghidra=0x01985140
+  vt[11] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[12] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[13] rva=0x01447068 ghidra=0x01547068
+  vt[14] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[15] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[16] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[17] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[18] rva=0x017d3d28 ghidra=0x018d3d28
+  vt[19] rva=0x01447068 ghidra=0x01547068
+  vt[20] rva=0x01447060 ghidra=0x01547060
+  vt[21] rva=0x017d1488 ghidra=0x018d1488
+  vt[22] rva=0x017d3794 ghidra=0x018d3794
+  vt[23] rva=0x017cf134 ghidra=0x018cf134
+  vt[24] rva=0x01447060 ghidra=0x01547060
+  vt[25] rva=0x017d33d4 ghidra=0x018d33d4
+  vt[26] rva=0x017d3f3c ghidra=0x018d3f3c
+  vt[27] rva=0x017d06e0 ghidra=0x018d06e0
+  vt[28] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[29] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[30] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[31] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[32] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[33] rva=0x016d338c ghidra=0x017d338c
+  vt[34] rva=0x017d3364 ghidra=0x018d3364
+  vt[35] rva=0x017d3054 ghidra=0x018d3054
+  vt[36] rva=0x01447060 ghidra=0x01547060
+  vt[37] rva=0x01447068 ghidra=0x01547068
+  vt[38] rva=0x01447068 ghidra=0x01547068
+  vt[39] rva=0x01447068 ghidra=0x01547068
+  vt[40] rva=0x01447068 ghidra=0x01547068
+  vt[41] rva=0x01447068 ghidra=0x01547068
+  vt[42] rva=0x017d3d38 ghidra=0x018d3d38
+  vt[43] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[44] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[45] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[46] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[47] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[48] rva=0x017d105c ghidra=0x018d105c
+  vt[49] rva=0x016d33a0 ghidra=0x017d33a0
+  vt[50] rva=0x017d3478 ghidra=0x018d3478
+  vt[51] rva=0x01447068 ghidra=0x01547068
+  vt[52] rva=0x017d5474 ghidra=0x018d5474
+  vt[53] rva=0x016d33b0 ghidra=0x017d33b0
+  vt[54] rva=0x0145cb10 ghidra=0x0155cb10
+  vt[55] rva=0x01447060 ghidra=0x01547060
+  vt[56] rva=0x017d4a68 ghidra=0x018d4a68
+  vt[57] rva=0x017d4560 ghidra=0x018d4560
+  vt[58] rva=0x017d5580 ghidra=0x018d5580
+  vt[59] rva=0x017d5644 ghidra=0x018d5644
+  vt[60] rva=0x017d56ec ghidra=0x018d56ec
+  vt[61] rva=0x017d5778 ghidra=0x018d5778
+  vt[62] rva=0x017d57b8 ghidra=0x018d57b8
+  vt[63] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[64] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[65] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[66] rva=0x017d93c0 ghidra=0x018d93c0
+  vt[67] rva=0x017d9428 ghidra=0x018d9428
+  vt[68] rva=0x017d9478 ghidra=0x018d9478
+  vt[69] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[70] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[71] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[72] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[73] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[74] rva=0x017d43a8 ghidra=0x018d43a8
+  vt[75] rva=0x0145cb10 ghidra=0x0155cb10
+  vt[76] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[77] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[78] rva=0x01858dd4 ghidra=0x01958dd4
+  vt[79] rva=0x01505a34 ghidra=0x01605a34
+  vt[80] rva=0x01447068 ghidra=0x01547068
+  vt[81] rva=0x016d3408 ghidra=0x017d3408
+  vt[82] rva=0x0145cb10 ghidra=0x0155cb10
+  vt[83] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[84] rva=0x017d444c ghidra=0x018d444c
+  vt[85] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[86] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[87] rva=0x014c208c ghidra=0x015c208c
+  vt[88] rva=0x00000000 ghidra=0x00000000
+  vt[89] rva=0x00000000 ghidra=0x00000000
+  vt[90] rva=0x01615bd8 ghidra=0x01715bd8
+  vt[91] rva=0x014c952c ghidra=0x015c952c
+  vt[92] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[93] rva=0x01447ca4 ghidra=0x01547ca4
+  vt[94] rva=0x016141ac ghidra=0x017141ac
+  vt[95] rva=0x0145cb10 ghidra=0x0155cb10
+
+==== properties of /Game/GameModes/TribeGameInstanceBP.TribeGameInstanceBP_C  (class=0x7b66ec0400) ====
+  [TribeGameInstanceBP_C] PropertiesSize=0x4e9
+    +0x04a0  StructProperty             UberGraphFrame                           elem=0x610057
+    +0x04a8  ByteProperty               HMD                                      elem=0x3a0074
+    +0x04b0  StrProperty                InitialDefaultRenderDeviceId             elem=0x740065
+    +0x04c0  StrProperty                CurrentDefaultRenderDeviceId             elem=0x70006d
+    +0x04d0  BoolProperty               bThirdPersonSpectator                    elem=0x6d0073
+    +0x04d8  MulticastInlineDelegateProperty OnSpectateModeChanged                    elem=0x6e0065
+    +0x04e8  ByteProperty               DisplayMirrorMode                        elem=0x650072
+  [TribeGameInstance] PropertiesSize=0x4a0
+    +0x01c0  MulticastInlineDelegateProperty OnVROriginRecentered                     elem=0x0
+    +0x01d0  MulticastInlineDelegateProperty OnLoadingScreenToggled                   elem=0x0
+    +0x01e0  MulticastInlineDelegateProperty OnOnlineStatusChanged                    elem=0x0
+    +0x01f0  MulticastInlineDelegateProperty OnOnlinePlatformLoginChanged             elem=0x0
+    +0x0200  MulticastInlineDelegateProperty OnTribeBackendLoginChanged               elem=0x0
+    +0x0210  MulticastInlineDelegateProperty OnCurrentCultureChanged                  elem=0x0
+    +0x0220  MulticastInlineDelegateProperty OnTribeInviteSent                        elem=0x0
+    +0x0230  MulticastInlineDelegateProperty OnTribeInviteReceived                    elem=0x0
+    +0x0240  MulticastInlineDelegateProperty OnFriendsRefreshedDelegate               elem=0x0
+    +0x0250  MulticastInlineDelegateProperty OnTribeSessionsFound                     elem=0x0
+    +0x0260  MulticastInlineDelegateProperty OnSessionStateChanged                    elem=0x0
+    +0x0270  MulticastInlineDelegateProperty OnTribeLeaderboardRead                   elem=0x0
+    +0x0280  MulticastInlineDelegateProperty OnTribeLocalUserLeaderboardRead          elem=0x0
+    +0x0290  MulticastInlineDelegateProperty OnTribeDLCLoaded                         elem=0x0
+    +0x02a0  MulticastInlineDelegateProperty OnTribeSubscriptionUpdated               elem=0x0
+    +0x02b0  MulticastInlineDelegateProperty OnTribeSubscriptionStatusConfirmed       elem=0x0
+    +0x02c0  MulticastInlineDelegateProperty OnTribeAddonDownloaded                   elem=0x0
+    +0x02d0  MulticastInlineDelegateProperty OnExperimentalTrackingToggled            elem=0x0
+    +0x02e0  MulticastInlineDelegateProperty OnTribePointsAdded                       elem=0x0
+    +0x02f0  MulticastInlineDelegateProperty OnLeaderboardsReady                      elem=0x0
+    +0x0300  BoolProperty               bIsOnline                                elem=0x0
+    +0x0308  StrProperty                OnlineId                                 elem=0x0
+    +0x0318  StrProperty                AvatarId                                 elem=0x0
+    +0x0328  ArrayProperty              PendingErrorMessages                     elem=0x0
+    +0x0338  ArrayProperty              AvailableAddons                          elem=0x0
+    +0x0348  IntProperty                ActiveLeaderboardQueries                 elem=0x0
+    +0x0350  ObjectProperty             TribeOnlineSessionInterface              elem=0x0
+    +0x0360  ObjectProperty             TribeAccountsManager                     elem=0x0
+    +0x03a0  StructProperty             PlayerStats                              elem=0x0
+    +0x03f0  MapProperty                CachedLeaderboardRanks                   elem=0x8
+  [GameInstance] PropertiesSize=0x1c0
+    +0x0038  ArrayProperty              LocalPlayers                             elem=0x0
+    +0x0048  ObjectProperty             OnlineSession                            elem=0x0
+    +0x0050  ArrayProperty              ReferencedObjects                        elem=0x0
+    +0x0078  MulticastInlineDelegateProperty OnPawnControllerChangedDelegates         elem=0x0
+    +0x00a0  MulticastInlineDelegateProperty OnInputDeviceConnectionChange            elem=0x0
+    +0x00b0  MulticastInlineDelegateProperty OnUserInputDevicePairingChange           elem=0x0
+  [Object] PropertiesSize=0x28
+
+==== properties of /Game/Visuals/BP_TribeVisualsManager.BP_TribeVisualsManager_C  (class=0x7b1aff99a0) ====
+  [BP_TribeVisualsManager_C] PropertiesSize=0x8d0
+    +0x03e0  StructProperty             UberGraphFrame                           elem=0x7b
+    +0x03e8  ObjectProperty             DefaultSceneRoot                         elem=0x0
+    +0x03f0  ObjectProperty             CurrentBeatmatchTrack                    elem=0x0
+    +0x03f8  ObjectProperty             CurrentBeatmatchDeck                     elem=0x0
+    +0x0400  MapProperty                Skins                                    elem=0x0
+    +0x0450  MapProperty                RigSkins                                 elem=0x0
+    +0x04a0  MapProperty                CustomSkins                              elem=0x0
+    +0x04f0  ObjectProperty             ActiveRigSkin                            elem=0x0
+    +0x04f8  MulticastInlineDelegateProperty OnActiveSkinChanged                      elem=0x0
+    +0x0508  StrProperty                K_SkinsSection                           elem=0x0
+    +0x0518  StrProperty                K_DeckSkin                               elem=0x0
+    +0x0528  StrProperty                K_OculusAvatarSkin                       elem=0x0
+    +0x0538  MapProperty                OculusAvatarSkins                        elem=0x0
+    +0x0588  MapProperty                RPMAvatarSkins                           elem=0x0
+    +0x05d8  MapProperty                ActiveSkins                              elem=0x0
+    +0x0628  MulticastInlineDelegateProperty OnSkinsLoaded                            elem=0x0
+    +0x0638  BoolProperty               bSkinsLoaded                             elem=0x0
+    +0x0639  BoolProperty               bSkinsReadyToApply                       elem=0x0
+    +0x0640  ArrayProperty              LockedSkins                              elem=0x0
+    +0x0650  MapProperty                EquipmentSkins                           elem=0x0
+    +0x06a0  SoftObjectProperty         BoothSpotlight                           elem=0x0
+    +0x06c8  SoftObjectProperty         BackdropSpotlight                        elem=0x0
+    +0x06f0  SoftObjectProperty         RoomSkyLight                             elem=0x0
+    +0x0718  DoubleProperty             RoomSkyLightIntensity                    elem=0x0
+    +0x0720  DoubleProperty             BoothSpotlightIntensity                  elem=0x0
+    +0x0728  DoubleProperty             LightDimFactor                           elem=0x0
+    +0x0730  StructProperty             LastBackdropColor                        elem=0x0
+    +0x0740  ObjectProperty             TribeGameState                           elem=0x0
+    +0x0748  MapProperty                PropSkins                                elem=0x0
+    +0x0798  MulticastInlineDelegateProperty OnSkinsReadyToApply                      elem=0x0
+    +0x07a8  BoolProperty               bLightingDisabled                        elem=0x0
+    +0x07b0  StrProperty                K_EnvironmentSkin                        elem=0x0
+    +0x07c0  MapProperty                EnvironmentSkins                         elem=0x0
+    +0x0810  StrProperty                K_AvatarPropSkin                         elem=0x0
+    +0x0820  SoftObjectProperty         NDIInputTexture                          elem=0x0
+    +0x0848  MapProperty                LessonPackSkins                          elem=0x0
+    +0x0898  StrProperty                K_LessonPackSkin                         elem=0x0
+    +0x08a8  BoolProperty               bRadialFXEnabled                         elem=0x0
+    +0x08b0  ArrayProperty              RadialFXComponents                       elem=0x0
+    +0x08c0  ArrayProperty              RadialFXMaterials                        elem=0x0
+  [TribeVisualsManager] PropertiesSize=0x3e0
+    +0x0290  MulticastInlineDelegateProperty OnGifPlayed                              elem=0x0
+    +0x02a0  ObjectProperty             BackdropImagesRenderTarget               elem=0x0
+    +0x02a8  ObjectProperty             BackdropTextRenderTarget                 elem=0x0
+    +0x02b0  ObjectProperty             HeaderFont                               elem=0x0
+    +0x02b8  IntProperty                MaxGifsDownloading                       elem=0x0
+    +0x02bc  BoolProperty               bSaveGifDownloads                        elem=0x0
+    +0x02c0  StrProperty                VideoUrl                                 elem=0x0
+    +0x02d0  ObjectProperty             BackdropStaticMeshActor                  elem=0x0
+    +0x02d8  ObjectProperty             BackdropMediaPlayer                      elem=0x0
+    +0x02e0  ObjectProperty             BackdropVideoMaterialInterface           elem=0x0
+    +0x02e8  ObjectProperty             BackdropGifMaterialInterface             elem=0x0
+    +0x02f0  ObjectProperty             NdiStreamMaterialInterface               elem=0x0
+    +0x02f8  ObjectProperty             DefaultMaterialInterface                 elem=0x0
+    +0x0300  MulticastInlineDelegateProperty OnMediaPlayerOpenSuccess                 elem=0x0
+    +0x0310  ObjectProperty             MediaFolder                              elem=0x0
+    +0x0318  ObjectProperty             GifFolder                                elem=0x0
+    +0x0320  ObjectProperty             GifDownloadsFolder                       elem=0x0
+    +0x0328  ObjectProperty             VideoFolder                              elem=0x0
+    +0x0330  ObjectProperty             SphereVideoFolder                        elem=0x0
+    +0x0338  ObjectProperty             DLCFolder                                elem=0x0
+    +0x0340  ObjectProperty             NdiSourceFile                            elem=0x0
+    +0x0348  ArrayProperty              InstalledVisualsPackAddons               elem=0x0
+    +0x0358  ArrayProperty              InstalledVideoSphereAddons               elem=0x0
+    +0x0390  ArrayProperty              BackdropGifs                             elem=0x0
+    +0x03a0  ArrayProperty              PendingGifs                              elem=0x2d
+  [Actor] PropertiesSize=0x290
+    +0x0028  StructProperty             PrimaryActorTick                         elem=0x0
+    +0x0058  BoolProperty               bNetTemporary                            elem=0x0
+    +0x0058  BoolProperty               bOnlyRelevantToOwner                     elem=0x0
+    +0x0058  BoolProperty               bAlwaysRelevant                          elem=0x0
+    +0x0058  BoolProperty               bReplicateMovement                       elem=0x0
+    +0x0058  BoolProperty               bCallPreReplication                      elem=0x0
+    +0x0058  BoolProperty               bCallPreReplicationForReplay             elem=0x0
+    +0x0058  BoolProperty               bHidden                                  elem=0x0
+    +0x0059  BoolProperty               bTearOff                                 elem=0x0
+    +0x0059  BoolProperty               bForceNetAddressable                     elem=0x0
+    +0x0059  BoolProperty               bExchangedRoles                          elem=0x0
+    +0x0059  BoolProperty               bNetLoadOnClient                         elem=0x0
+    +0x0059  BoolProperty               bNetUseOwnerRelevancy                    elem=0x0
+    +0x0059  BoolProperty               bRelevantForNetworkReplays               elem=0x0
+    +0x0059  BoolProperty               bRelevantForLevelBounds                  elem=0x0
+    +0x0059  BoolProperty               bReplayRewindable                        elem=0x0
+    +0x005a  BoolProperty               bAllowTickBeforeBeginPlay                elem=0x0
+    +0x005a  BoolProperty               bAutoDestroyWhenFinished                 elem=0x0
+    +0x005a  BoolProperty               bCanBeDamaged                            elem=0x0
+    +0x005a  BoolProperty               bBlockInput                              elem=0x0
+    +0x005a  BoolProperty               bCollideWhenPlacing                      elem=0x0
+    +0x005a  BoolProperty               bFindCameraComponentWhenViewTarget       elem=0x0
+    +0x005a  BoolProperty               bGenerateOverlapEventsDuringLevelStreaming elem=0x0
+    +0x005a  BoolProperty               bIgnoresOriginShifting                   elem=0x0
+    +0x005b  BoolProperty               bEnableAutoLODGeneration                 elem=0x0
+    +0x005b  BoolProperty               bIsEditorOnlyActor                       elem=0x0
+    +0x005b  BoolProperty               bActorSeamlessTraveled                   elem=0x0
+    +0x005b  BoolProperty               bReplicates                              elem=0x0
+    +0x005b  BoolProperty               bCanBeInCluster                          elem=0x0
+    +0x005b  BoolProperty               bAllowReceiveTickEventOnDedicatedServer  elem=0x0
+    +0x005b  BoolProperty               bReplicateUsingRegisteredSubObjectList   elem=0x0
+    +0x005c  BoolProperty               bActorEnableCollision                    elem=0x0
+    +0x005d  BoolProperty               bActorIsBeingDestroyed                   elem=0x0
+    +0x005d  BoolProperty               bAsyncPhysicsTickEnabled                 elem=0x0
+    +0x005e  EnumProperty               UpdateOverlapsMethodDuringLevelStreaming elem=0x0
+    +0x005f  EnumProperty               DefaultUpdateOverlapsMethodDuringLevelStreaming elem=0x0
+    +0x0060  ByteProperty               RemoteRole                               elem=0x0
+    +0x0064  FloatProperty              InitialLifeSpan                          elem=0x0
+    +0x0068  FloatProperty              CustomTimeDilation                       elem=0x0
+    +0x006c  IntProperty                RayTracingGroupId                        elem=0x0
+    +0x0070  StructProperty             AttachmentReplication                    elem=0x0
+    +0x00d0  StructProperty             ReplicatedMovement                       elem=0x0
+    +0x0140  ObjectProperty             Owner                                    elem=0x0
+    +0x0148  NameProperty               NetDriverName                            elem=0x0
+    +0x0150  ByteProperty               Role                                     elem=0x0
+    +0x0151  ByteProperty               NetDormancy                              elem=0x0
+    +0x0152  EnumProperty               SpawnCollisionHandlingMethod             elem=0x0
+    +0x0153  ByteProperty               AutoReceiveInput                         elem=0x0
+    +0x0154  IntProperty                InputPriority                            elem=0x0
+    +0x0160  ObjectProperty             InputComponent                           elem=0x0
+    +0x0168  FloatProperty              NetCullDistanceSquared                   elem=0x0
+    +0x016c  IntProperty                NetTag                                   elem=0x0
+    +0x0170  FloatProperty              NetUpdateFrequency                       elem=0x0
+    +0x0174  FloatProperty              MinNetUpdateFrequency                    elem=0x0
+    +0x0178  FloatProperty              NetPriority                              elem=0x0
+    +0x017c  EnumProperty               PhysicsReplicationMode                   elem=0x0
+    +0x0188  ObjectProperty             Instigator                               elem=0x0
+    +0x0190  ArrayProperty              Children                                 elem=0x0
+    +0x01a0  ObjectProperty             RootComponent                            elem=0x0
+    +0x01b0  ArrayProperty              Layers                                   elem=0x0
+    +0x01c0  WeakObjectProperty         ParentComponent                          elem=0x0
+    +0x01c8  ArrayProperty              Tags                                     elem=0x0
+    +0x01d8  MulticastSparseDelegateProperty OnTakeAnyDamage                          elem=0x0
+    +0x01d9  MulticastSparseDelegateProperty OnTakePointDamage                        elem=0x0
+    +0x01da  MulticastSparseDelegateProperty OnTakeRadialDamage                       elem=0x0
+    +0x01db  MulticastSparseDelegateProperty OnActorBeginOverlap                      elem=0x0
+    +0x01dc  MulticastSparseDelegateProperty OnActorEndOverlap                        elem=0x0
+    +0x01dd  MulticastSparseDelegateProperty OnBeginCursorOver                        elem=0x0
+    +0x01de  MulticastSparseDelegateProperty OnEndCursorOver                          elem=0x0
+    +0x01df  MulticastSparseDelegateProperty OnClicked                                elem=0x0
+    +0x01e0  MulticastSparseDelegateProperty OnReleased                               elem=0x0
+    +0x01e1  MulticastSparseDelegateProperty OnInputTouchBegin                        elem=0x0
+    +0x01e2  MulticastSparseDelegateProperty OnInputTouchEnd                          elem=0x0
+    +0x01e3  MulticastSparseDelegateProperty OnInputTouchEnter                        elem=0x0
+    +0x01e4  MulticastSparseDelegateProperty OnInputTouchLeave                        elem=0x0
+    +0x01e5  MulticastSparseDelegateProperty OnActorHit                               elem=0x0
+    +0x01e6  MulticastSparseDelegateProperty OnDestroyed                              elem=0x0
+    +0x01e7  MulticastSparseDelegateProperty OnEndPlay                                elem=0x0
+    +0x0268  ArrayProperty              InstanceComponents                       elem=0x0
+    +0x0278  ArrayProperty              BlueprintCreatedComponents               elem=0x0
+  [Object] PropertiesSize=0x28
+
+==== properties of /Game/Pawn/TribePawnBP.TribePawnBP_C  (class=0x7b1affc4f0) ====
+  [TribePawnBP_C] PropertiesSize=0x5e2
+    +0x03c0  StructProperty             UberGraphFrame                           elem=0x0
+    +0x03c8  ObjectProperty             TribeAvatar                              elem=0x0
+    +0x03d0  ObjectProperty             VRBodyReplication                        elem=0x0
+    +0x03d8  ObjectProperty             AvatarPropMesh                           elem=0x0
+    +0x03e0  ObjectProperty             HeadCollisionSphere                      elem=0x0
+    +0x03e8  ObjectProperty             VROrigin                                 elem=0x0
+    +0x03f0  ObjectProperty             MotionControllerR                        elem=0x0
+    +0x03f8  ObjectProperty             MotionControllerL                        elem=0x0
+    +0x0400  ObjectProperty             Camera                                   elem=0x0
+    +0x0408  ObjectProperty             LeftHand                                 elem=0x0
+    +0x0410  ObjectProperty             RightHand                                elem=0x0
+    +0x0418  StructProperty             PlayerInfo                               elem=0x0
+    +0x0440  BoolProperty               bPossessed                               elem=0x0
+    +0x0441  BoolProperty               bHost                                    elem=0x0
+    +0x0448  ObjectProperty             ActiveWidgetHand                         elem=0x0
+    +0x0450  ObjectProperty             OwnedRig                                 elem=0x0
+    +0x0458  ClassProperty              TribeHandsClass                          elem=0x0
+    +0x0460  DoubleProperty             ReducedInteractSensitivity               elem=0x0
+    +0x0468  BoolProperty               bDJing                                   elem=0x0
+    +0x0469  BoolProperty               bDancing                                 elem=0x0
+    +0x0470  MapProperty                ActiveSkinClasses                        elem=0x0
+    +0x04c0  ArrayProperty              ActiveSkins                              elem=0x0
+    +0x04d0  ObjectProperty             TribeGameState                           elem=0x0
+    +0x04d8  MulticastInlineDelegateProperty OnDJModeToggled                          elem=0x0
+    +0x04e8  DoubleProperty             ScrollBias                               elem=0x0
+    +0x04f0  BoolProperty               bMenuInteractionDisabled                 elem=0x0
+    +0x04f1  BoolProperty               bIndexLeftGrip                           elem=0x0
+    +0x04f2  BoolProperty               bIndexRightGrip                          elem=0x0
+    +0x04f8  ObjectProperty             CurrentAttachedRecord                    elem=0x0
+    +0x0500  BoolProperty               bHasVRInputFocus                         elem=0x0
+    +0x0501  BoolProperty               bVirtualHeadphonesEnabled                elem=0x0
+    +0x0508  DoubleProperty             MouseScale                               elem=0x0
+    +0x0510  StructProperty             CameraInputDir                           elem=0x0
+    +0x0528  StructProperty             CameraLocation                           elem=0x0
+    +0x0540  StructProperty             SpectateLocation                         elem=0x0
+    +0x0558  StructProperty             SpectateRotation                         elem=0x0
+    +0x0570  DoubleProperty             CameraMoveSpeed                          elem=0x0
+    +0x0578  DoubleProperty             CameraZoomSpeed                          elem=0x0
+    +0x0580  BoolProperty               bCameraOverview                          elem=0x0
+    +0x0588  ObjectProperty             DJMouseMesh                              elem=0x0
+    +0x0590  ObjectProperty             MenuMouseMesh                            elem=0x0
+    +0x0598  BoolProperty               bViewportMenuHovered                     elem=0x0
+    +0x05a0  MulticastInlineDelegateProperty OnInputModeChanged                       elem=0x0
+    +0x05b0  BoolProperty               bScrollMenuHovered                       elem=0x0
+    +0x05b1  BoolProperty               bShiftAll                                elem=0x0
+    +0x05b8  ObjectProperty             DesktopViewportWidget                    elem=0x0
+    +0x05c0  ArrayProperty              bShifted                                 elem=0x0
+    +0x05d0  ObjectProperty             DesktopAvatarMesh                        elem=0x0
+    +0x05d8  ObjectProperty             DesktopAvatarTexture                     elem=0x0
+    +0x05e0  BoolProperty               bHandTrackingEnabled                     elem=0x0
+    +0x05e1  BoolProperty               bPrivacyBubbleEnabled                    elem=0x0
+  [TribePawn] PropertiesSize=0x3c0
+    +0x0318  ObjectProperty             InputReplay                              elem=0x0
+    +0x0320  EnumProperty               InputMode                                elem=0x0
+    +0x0321  EnumProperty               AttachMode                               elem=0x0
+    +0x0328  ObjectProperty             AttachActor                              elem=0x0
+    +0x0330  FloatProperty              HeightOffset                             elem=0x0
+    +0x0340  StructProperty             CustomAnchorOffset                       elem=0x0
+    +0x03a0  MulticastInlineDelegateProperty OnPlayerStateReplicated                  elem=0x0
+    +0x03b0  StructProperty             CameraInput                              elem=0x0
+  [Pawn] PropertiesSize=0x318
+    +0x0298  BoolProperty               bUseControllerRotationPitch              elem=0x0
+    +0x0298  BoolProperty               bUseControllerRotationYaw                elem=0x0
+    +0x0298  BoolProperty               bUseControllerRotationRoll               elem=0x0
+    +0x0298  BoolProperty               bCanAffectNavigationGeneration           elem=0x0
+    +0x0298  BoolProperty               bIsLocalViewTarget                       elem=0x0
+    +0x029c  FloatProperty              BaseEyeHeight                            elem=0x0
+    +0x02a0  ByteProperty               AutoPossessPlayer                        elem=0x0
+    +0x02a1  EnumProperty               AutoPossessAI                            elem=0x0
+    +0x02a2  ByteProperty               RemoteViewPitch                          elem=0x0
+    +0x02a8  ClassProperty              AIControllerClass                        elem=0x0
+    +0x02b0  ObjectProperty             PlayerState                              elem=0x0
+    +0x02c0  ObjectProperty             LastHitBy                                elem=0x0
+    +0x02c8  ObjectProperty             Controller                               elem=0x0
+    +0x02d0  ObjectProperty             PreviousController                       elem=0x0
+    +0x02dc  MulticastSparseDelegateProperty ReceiveControllerChangedDelegate         elem=0x0
+    +0x02dd  MulticastSparseDelegateProperty ReceiveRestartedDelegate                 elem=0x0
+    +0x02e0  StructProperty             ControlInputVector                       elem=0x0
+    +0x02f8  StructProperty             LastControlInputVector                   elem=0x0
+    +0x0310  ClassProperty              OverrideInputComponentClass              elem=0x0
+  [Actor] PropertiesSize=0x290
+    +0x0028  StructProperty             PrimaryActorTick                         elem=0x0
+    +0x0058  BoolProperty               bNetTemporary                            elem=0x0
+    +0x0058  BoolProperty               bOnlyRelevantToOwner                     elem=0x0
+    +0x0058  BoolProperty               bAlwaysRelevant                          elem=0x0
+    +0x0058  BoolProperty               bReplicateMovement                       elem=0x0
+    +0x0058  BoolProperty               bCallPreReplication                      elem=0x0
+    +0x0058  BoolProperty               bCallPreReplicationForReplay             elem=0x0
+    +0x0058  BoolProperty               bHidden                                  elem=0x0
+    +0x0059  BoolProperty               bTearOff                                 elem=0x0
+    +0x0059  BoolProperty               bForceNetAddressable                     elem=0x0
+    +0x0059  BoolProperty               bExchangedRoles                          elem=0x0
+    +0x0059  BoolProperty               bNetLoadOnClient                         elem=0x0
+    +0x0059  BoolProperty               bNetUseOwnerRelevancy                    elem=0x0
+    +0x0059  BoolProperty               bRelevantForNetworkReplays               elem=0x0
+    +0x0059  BoolProperty               bRelevantForLevelBounds                  elem=0x0
+    +0x0059  BoolProperty               bReplayRewindable                        elem=0x0
+    +0x005a  BoolProperty               bAllowTickBeforeBeginPlay                elem=0x0
+    +0x005a  BoolProperty               bAutoDestroyWhenFinished                 elem=0x0
+    +0x005a  BoolProperty               bCanBeDamaged                            elem=0x0
+    +0x005a  BoolProperty               bBlockInput                              elem=0x0
+    +0x005a  BoolProperty               bCollideWhenPlacing                      elem=0x0
+    +0x005a  BoolProperty               bFindCameraComponentWhenViewTarget       elem=0x0
+    +0x005a  BoolProperty               bGenerateOverlapEventsDuringLevelStreaming elem=0x0
+    +0x005a  BoolProperty               bIgnoresOriginShifting                   elem=0x0
+    +0x005b  BoolProperty               bEnableAutoLODGeneration                 elem=0x0
+    +0x005b  BoolProperty               bIsEditorOnlyActor                       elem=0x0
+    +0x005b  BoolProperty               bActorSeamlessTraveled                   elem=0x0
+    +0x005b  BoolProperty               bReplicates                              elem=0x0
+    +0x005b  BoolProperty               bCanBeInCluster                          elem=0x0
+    +0x005b  BoolProperty               bAllowReceiveTickEventOnDedicatedServer  elem=0x0
+    +0x005b  BoolProperty               bReplicateUsingRegisteredSubObjectList   elem=0x0
+    +0x005c  BoolProperty               bActorEnableCollision                    elem=0x0
+    +0x005d  BoolProperty               bActorIsBeingDestroyed                   elem=0x0
+    +0x005d  BoolProperty               bAsyncPhysicsTickEnabled                 elem=0x0
+    +0x005e  EnumProperty               UpdateOverlapsMethodDuringLevelStreaming elem=0x0
+    +0x005f  EnumProperty               DefaultUpdateOverlapsMethodDuringLevelStreaming elem=0x0
+    +0x0060  ByteProperty               RemoteRole                               elem=0x0
+    +0x0064  FloatProperty              InitialLifeSpan                          elem=0x0
+    +0x0068  FloatProperty              CustomTimeDilation                       elem=0x0
+    +0x006c  IntProperty                RayTracingGroupId                        elem=0x0
+    +0x0070  StructProperty             AttachmentReplication                    elem=0x0
+    +0x00d0  StructProperty             ReplicatedMovement                       elem=0x0
+    +0x0140  ObjectProperty             Owner                                    elem=0x0
+    +0x0148  NameProperty               NetDriverName                            elem=0x0
+    +0x0150  ByteProperty               Role                                     elem=0x0
+    +0x0151  ByteProperty               NetDormancy                              elem=0x0
+    +0x0152  EnumProperty               SpawnCollisionHandlingMethod             elem=0x0
+    +0x0153  ByteProperty               AutoReceiveInput                         elem=0x0
+    +0x0154  IntProperty                InputPriority                            elem=0x0
+    +0x0160  ObjectProperty             InputComponent                           elem=0x0
+    +0x0168  FloatProperty              NetCullDistanceSquared                   elem=0x0
+    +0x016c  IntProperty                NetTag                                   elem=0x0
+    +0x0170  FloatProperty              NetUpdateFrequency                       elem=0x0
+    +0x0174  FloatProperty              MinNetUpdateFrequency                    elem=0x0
+    +0x0178  FloatProperty              NetPriority                              elem=0x0
+    +0x017c  EnumProperty               PhysicsReplicationMode                   elem=0x0
+    +0x0188  ObjectProperty             Instigator                               elem=0x0
+    +0x0190  ArrayProperty              Children                                 elem=0x0
+    +0x01a0  ObjectProperty             RootComponent                            elem=0x0
+    +0x01b0  ArrayProperty              Layers                                   elem=0x0
+    +0x01c0  WeakObjectProperty         ParentComponent                          elem=0x0
+    +0x01c8  ArrayProperty              Tags                                     elem=0x0
+    +0x01d8  MulticastSparseDelegateProperty OnTakeAnyDamage                          elem=0x0
+    +0x01d9  MulticastSparseDelegateProperty OnTakePointDamage                        elem=0x0
+    +0x01da  MulticastSparseDelegateProperty OnTakeRadialDamage                       elem=0x0
+    +0x01db  MulticastSparseDelegateProperty OnActorBeginOverlap                      elem=0x0
+    +0x01dc  MulticastSparseDelegateProperty OnActorEndOverlap                        elem=0x0
+    +0x01dd  MulticastSparseDelegateProperty OnBeginCursorOver                        elem=0x0
+    +0x01de  MulticastSparseDelegateProperty OnEndCursorOver                          elem=0x0
+    +0x01df  MulticastSparseDelegateProperty OnClicked                                elem=0x0
+    +0x01e0  MulticastSparseDelegateProperty OnReleased                               elem=0x0
+    +0x01e1  MulticastSparseDelegateProperty OnInputTouchBegin                        elem=0x0
+    +0x01e2  MulticastSparseDelegateProperty OnInputTouchEnd                          elem=0x0
+    +0x01e3  MulticastSparseDelegateProperty OnInputTouchEnter                        elem=0x0
+    +0x01e4  MulticastSparseDelegateProperty OnInputTouchLeave                        elem=0x0
+    +0x01e5  MulticastSparseDelegateProperty OnActorHit                               elem=0x0
+    +0x01e6  MulticastSparseDelegateProperty OnDestroyed                              elem=0x0
+    +0x01e7  MulticastSparseDelegateProperty OnEndPlay                                elem=0x0
+    +0x0268  ArrayProperty              InstanceComponents                       elem=0x0
+    +0x0278  ArrayProperty              BlueprintCreatedComponents               elem=0x0
+  [Object] PropertiesSize=0x28
+
+==== properties of /Game/Visuals/Skins/OculusAvatar/BP_ReadyPlayerMeAvatarSkin.BP_ReadyPlayerMeAvatarSkin_C  (class=0x7b1affad50) ====
+  [BP_ReadyPlayerMeAvatarSkin_C] PropertiesSize=0xb8
+    +0x00b0  StructProperty             UberGraphFrame                           elem=0x0
+  [BP_OculusAvatarSkin_C] PropertiesSize=0xb0
+    +0x0098  StructProperty             UberGraphFrame                           elem=0x0
+    +0x00a0  StrProperty                AvatarId                                 elem=0x0
+  [BP_TribeSkinBase_C] PropertiesSize=0x98
+    +0x0028  StructProperty             UberGraphFrame                           elem=0x7b
+    +0x0030  NameProperty               Name                                     elem=0x0
+    +0x0038  StructProperty             SkinInfo                                 elem=0x0
+    +0x0060  MulticastInlineDelegateProperty OnApplied                                elem=0x0
+    +0x0070  BoolProperty               bOwned                                   elem=0x0
+    +0x0078  ObjectProperty             DynamicThumbnail                         elem=0x0
+    +0x0080  MulticastInlineDelegateProperty OnThumbnailUpdated                       elem=0x0
+    +0x0090  ObjectProperty             Addon                                    elem=0x0
+  [Object] PropertiesSize=0x28
+
+==== properties of /Game/Visuals/Skins/OculusAvatar/BP_OculusAvatarSkin.BP_OculusAvatarSkin_C  (class=0x7b1affb140) ====
+  [BP_OculusAvatarSkin_C] PropertiesSize=0xb0
+    +0x0098  StructProperty             UberGraphFrame                           elem=0x0
+    +0x00a0  StrProperty                AvatarId                                 elem=0x0
+  [BP_TribeSkinBase_C] PropertiesSize=0x98
+    +0x0028  StructProperty             UberGraphFrame                           elem=0x7b
+    +0x0030  NameProperty               Name                                     elem=0x0
+    +0x0038  StructProperty             SkinInfo                                 elem=0x0
+    +0x0060  MulticastInlineDelegateProperty OnApplied                                elem=0x0
+    +0x0070  BoolProperty               bOwned                                   elem=0x0
+    +0x0078  ObjectProperty             DynamicThumbnail                         elem=0x0
+    +0x0080  MulticastInlineDelegateProperty OnThumbnailUpdated                       elem=0x0
+    +0x0090  ObjectProperty             Addon                                    elem=0x0
+  [Object] PropertiesSize=0x28
+
+==== functions of /Game/Menus/W_RPMAvatarCreator.W_RPMAvatarCreator_C (class=0x7b22aa0e30) [FName id -> name] ====
+  [W_RPMAvatarCreator_C        ] FName=0x001a1955  GetRPMCustomSkin
+  [W_RPMAvatarCreator_C        ] FName=0x001a199c  ReloadAvatarAtUrl
+  [W_RPMAvatarCreator_C        ] FName=0x001a1994  PasteAvatarUrl
+  [W_RPMAvatarCreator_C        ] FName=0x00175d29  HandleAvatarLoaded
+  [W_RPMAvatarCreator_C        ] FName=0x001a195e  HandleAvatarCached
+  [W_RPMAvatarCreator_C        ] FName=0x001a1968  LoadAvatarAtUrl
+  [W_RPMAvatarCreator_C        ] FName=0x001a07e1  ClearAvatarUrl
+  [W_RPMAvatarCreator_C        ] FName=0x000054a3  PreConstruct
+  [W_RPMAvatarCreator_C        ] FName=0x001a1888  BndEvt__W_ContentMenu_RPMLaunchWebButton_K2Node_ComponentBoundEvent_10_OnButtonClickedEvent__DelegateSignature
+  [W_RPMAvatarCreator_C        ] FName=0x001a18c0  BndEvt__W_ContentMenu_RPMPasteButton_K2Node_ComponentBoundEvent_11_OnButtonClickedEvent__DelegateSignature
+  [W_RPMAvatarCreator_C        ] FName=0x001a1851  BndEvt__W_ContentMenu_RPMCreateButton_K2Node_ComponentBoundEvent_12_OnButtonClickedEvent__DelegateSignature
+  [W_RPMAvatarCreator_C        ] FName=0x00005375  Construct
+  [W_RPMAvatarCreator_C        ] FName=0x001a1942  ExecuteUbergraph_W_RPMAvatarCreator
+  [W_RPMAvatarCreator_C        ] FName=0x001a1971  OnAvatarSkinLoaded__DelegateSignature
+  [W_RPMAvatarCreator_C        ] FName=0x001a1985  OnGoBack__DelegateSignature
+  [UserWidget                  ] FName=0x0001c89a  UnregisterInputComponent
+  [UserWidget                  ] FName=0x0001c88c  UnbindFromAnimationStarted
+  [UserWidget                  ] FName=0x0001c87d  UnbindFromAnimationFinished
+  [UserWidget                  ] FName=0x0001c86d  UnbindAllFromAnimationStarted
+  [UserWidget                  ] FName=0x0001c85d  UnbindAllFromAnimationFinished
+  [UserWidget                  ] FName=0x000054aa  Tick
+  [UserWidget                  ] FName=0x0001c84e  StopListeningForInputAction
+  [UserWidget                  ] FName=0x0001c83d  StopListeningForAllInputActions
+  [UserWidget                  ] FName=0x0001c82d  StopAnimationsAndLatentActions
+  [UserWidget                  ] FName=0x0001c825  StopAnimation
+  [UserWidget                  ] FName=0x0001c81b  StopAllAnimations
+  [UserWidget                  ] FName=0x0001c80f  SetPositionInViewport
+  [UserWidget                  ] FName=0x0001c806  SetPlaybackSpeed
+  [UserWidget                  ] FName=0x0001c800  SetPadding
+  [UserWidget                  ] FName=0x0001c7f7  SetOwningPlayer
+  [UserWidget                  ] FName=0x0001c7ed  SetNumLoopsToPlay
+  [UserWidget                  ] FName=0x0001c7e1  SetInputActionPriority
+  [UserWidget                  ] FName=0x0001c7d5  SetInputActionBlocking
+  [UserWidget                  ] FName=0x0001c7cb  SetForegroundColor
+  [UserWidget                  ] FName=0x0001c7be  SetDesiredSizeInViewport
+  [UserWidget                  ] FName=0x0001c7b4  SetColorAndOpacity
+  [UserWidget                  ] FName=0x0001c7a7  SetAnimationCurrentTime
+  [UserWidget                  ] FName=0x0001c79c  SetAnchorsInViewport
+  [UserWidget                  ] FName=0x0001c790  SetAlignmentInViewport
+  [UserWidget                  ] FName=0x0001c787  ReverseAnimation
+  [UserWidget                  ] FName=0x0001c77d  RemoveFromViewport
+  [UserWidget                  ] FName=0x0001c774  RemoveExtensions
+  [UserWidget                  ] FName=0x0001c76b  RemoveExtension
+  [UserWidget                  ] FName=0x0001c75f  RegisterInputComponent
+  [UserWidget                  ] FName=0x0001c755  QueueStopAnimation
+  [UserWidget                  ] FName=0x0001c749  QueueStopAllAnimations
+  [UserWidget                  ] FName=0x0001c73a  QueuePlayAnimationTimeRange
+  [UserWidget                  ] FName=0x0001c72c  QueuePlayAnimationReverse
+  [UserWidget                  ] FName=0x0001c71e  QueuePlayAnimationForward
+  [UserWidget                  ] FName=0x0001c714  QueuePlayAnimation
+  [UserWidget                  ] FName=0x0001c709  QueuePauseAnimation
+  [UserWidget                  ] FName=0x000054a3  PreConstruct
+  [UserWidget                  ] FName=0x0001c703  PlaySound
+  [UserWidget                  ] FName=0x0001c6f7  PlayAnimationTimeRange
+  [UserWidget                  ] FName=0x0001c6ec  PlayAnimationReverse
+  [UserWidget                  ] FName=0x0001c6e1  PlayAnimationForward
+  [UserWidget                  ] FName=0x0001a9c1  PlayAnimation
+  [UserWidget                  ] FName=0x0001c6d9  PauseAnimation
+  [UserWidget                  ] FName=0x0000549b  OnTouchStarted
+  [UserWidget                  ] FName=0x00005494  OnTouchMoved
+  [UserWidget                  ] FName=0x0000548c  OnTouchGesture
+  [UserWidget                  ] FName=0x00005481  OnTouchForceChanged
+  [UserWidget                  ] FName=0x0000547a  OnTouchEnded
+  [UserWidget                  ] FName=0x0000546e  OnRemovedFromFocusPath
+  [UserWidget                  ] FName=0x00005461  OnPreviewMouseButtonDown
+  [UserWidget                  ] FName=0x00005458  OnPreviewKeyDown
+  [UserWidget                  ] FName=0x00005453  OnPaint
+  [UserWidget                  ] FName=0x0000544c  OnMouseWheel
+  [UserWidget                  ] FName=0x00005445  OnMouseMove
+  [UserWidget                  ] FName=0x0000543e  OnMouseLeave
+  [UserWidget                  ] FName=0x00005437  OnMouseEnter
+  [UserWidget                  ] FName=0x0000542d  OnMouseCaptureLost
+  [UserWidget                  ] FName=0x00005424  OnMouseButtonUp
+  [UserWidget                  ] FName=0x0000541a  OnMouseButtonDown
+  [UserWidget                  ] FName=0x0000540d  OnMouseButtonDoubleClick
+  [UserWidget                  ] FName=0x00005404  OnMotionDetected
+  [UserWidget                  ] FName=0x000053ff  OnKeyUp
+  [UserWidget                  ] FName=0x000053f9  OnKeyDown
+  [UserWidget                  ] FName=0x000053f3  OnKeyChar
+  [UserWidget                  ] FName=0x000053eb  OnInitialized
+  [UserWidget                  ] FName=0x000053e2  OnFocusReceived
+  [UserWidget                  ] FName=0x000053db  OnFocusLost
+  [UserWidget                  ] FName=0x000053d7  OnDrop
+  [UserWidget                  ] FName=0x000053d1  OnDragOver
+  [UserWidget                  ] FName=0x000053ca  OnDragLeave
+  [UserWidget                  ] FName=0x000053c3  OnDragEnter
+  [UserWidget                  ] FName=0x000053bb  OnDragDetected
+  [UserWidget                  ] FName=0x000053b2  OnDragCancelled
+  [UserWidget                  ] FName=0x000053a8  OnAnimationStarted
+  [UserWidget                  ] FName=0x0000539d  OnAnimationFinished
+  [UserWidget                  ] FName=0x00005392  OnAnalogValueChanged
+  [UserWidget                  ] FName=0x00005388  OnAddedToFocusPath
+  [UserWidget                  ] FName=0x0001c6ce  ListenForInputAction
+  [UserWidget                  ] FName=0x0001c6c4  IsPlayingAnimation
+  [UserWidget                  ] FName=0x0001c6b6  IsListeningForInputAction
+  [UserWidget                  ] FName=0x00005380  IsInteractable
+  [UserWidget                  ] FName=0x0001c6aa  IsAnyAnimationPlaying
+  [UserWidget                  ] FName=0x0001c69c  IsAnimationPlayingForward
+  [UserWidget                  ] FName=0x0001c692  IsAnimationPlaying
+  [UserWidget                  ] FName=0x0001c687  GetOwningPlayerPawn
+  [UserWidget                  ] FName=0x0001c678  GetOwningPlayerCameraManager
+  [UserWidget                  ] FName=0x0001c671  GetIsVisible
+  [UserWidget                  ] FName=0x0001c669  GetExtensions
+  [UserWidget                  ] FName=0x0001c662  GetExtension
+  [UserWidget                  ] FName=0x0001c655  GetAnimationCurrentTime
+  [UserWidget                  ] FName=0x0001c64a  GetAnchorsInViewport
+  [UserWidget                  ] FName=0x0001c63e  GetAlignmentInViewport
+  [UserWidget                  ] FName=0x0001c635  FlushAnimations
+  [UserWidget                  ] FName=0x0000537b  Destruct
+  [UserWidget                  ] FName=0x00005375  Construct
+  [UserWidget                  ] FName=0x0001c62a  CancelLatentActions
+  [UserWidget                  ] FName=0x0001c61e  BindToAnimationStarted
+  [UserWidget                  ] FName=0x0001c611  BindToAnimationFinished
+  [UserWidget                  ] FName=0x0001c606  BindToAnimationEvent
+  [UserWidget                  ] FName=0x0001c5fe  AddToViewport
+  [UserWidget                  ] FName=0x0001c5f4  AddToPlayerScreen
+  [UserWidget                  ] FName=0x0001c5ed  AddExtension
+  [Widget                      ] FName=0x00017ee9  SetVisibility
+  [Widget                      ] FName=0x0001c43e  SetUserFocus
+  [Widget                      ] FName=0x0001c436  SetToolTipText
+  [Widget                      ] FName=0x0001c430  SetToolTip
+  [Widget                      ] FName=0x0001c425  SetRenderTranslation
+  [Widget                      ] FName=0x0001c418  SetRenderTransformPivot
+  [Widget                      ] FName=0x0001c40b  SetRenderTransformAngle
+  [Widget                      ] FName=0x0001c401  SetRenderTransform
+  [Widget                      ] FName=0x0001c3f9  SetRenderShear
+  [Widget                      ] FName=0x0001c3f1  SetRenderScale
+  [Widget                      ] FName=0x0001c3e8  SetRenderOpacity
+  [Widget                      ] FName=0x0001c3da  SetNavigationRuleExplicit
+  [Widget                      ] FName=0x0001c3c9  SetNavigationRuleCustomBoundary
+  [Widget                      ] FName=0x0001c3bc  SetNavigationRuleCustom
+  [Widget                      ] FName=0x0001c3b0  SetNavigationRuleBase
+  [Widget                      ] FName=0x0001c3a6  SetNavigationRule
+  [Widget                      ] FName=0x0001c39d  SetKeyboardFocus
+  [Widget                      ] FName=0x0001c396  SetIsEnabled
+  [Widget                      ] FName=0x0001c391  SetFocus
+  [Widget                      ] FName=0x0001c38b  SetCursor
+  [Widget                      ] FName=0x0001c384  SetClipping
+  [Widget                      ] FName=0x0001c378  SetAllNavigationRules
+  [Widget                      ] FName=0x0001c371  ResetCursor
+  [Widget                      ] FName=0x0001c368  RemoveFromParent
+  [Widget                      ] FName=0x000efc1c  OnReply__DelegateSignature
+  [Widget                      ] FName=0x000efbfe  OnPointerEvent__DelegateSignature
+  [Widget                      ] FName=0x0001c356  K2_RemoveFieldValueChangedDelegate
+  [Widget                      ] FName=0x0001c346  K2_BroadcastFieldValueChanged
+  [Widget                      ] FName=0x0001c335  K2_AddFieldValueChangedDelegate
+  [Widget                      ] FName=0x00017d55  IsVisible
+  [Widget                      ] FName=0x0001c32f  IsRendered
+  [Widget                      ] FName=0x0001c328  IsInViewport
+  [Widget                      ] FName=0x0001c322  IsHovered
+  [Widget                      ] FName=0x0001c312  InvalidateLayoutAndVolatility
+  [Widget                      ] FName=0x0001c304  HasUserFocusedDescendants
+  [Widget                      ] FName=0x0001c2fd  HasUserFocus
+  [Widget                      ] FName=0x0001c2f1  HasMouseCaptureByUser
+  [Widget                      ] FName=0x0001c2e8  HasMouseCapture
+  [Widget                      ] FName=0x0001c2df  HasKeyboardFocus
+  [Widget                      ] FName=0x0001c2d3  HasFocusedDescendants
+  [Widget                      ] FName=0x0001c2ca  HasAnyUserFocus
+  [Widget                      ] FName=0x000efbbc  GetWidget__DelegateSignature
+  [Widget                      ] FName=0x0001ba24  GetVisibility
+  [Widget                      ] FName=0x0001c2bf  GetTickSpaceGeometry
+  [Widget                      ] FName=0x000efbae  GetText__DelegateSignature
+  [Widget                      ] FName=0x000efb21  GetSlateVisibility__DelegateSignature
+  [Widget                      ] FName=0x000efb10  GetSlateColor__DelegateSignature
+  [Widget                      ] FName=0x000efaa1  GetSlateBrush__DelegateSignature
+  [Widget                      ] FName=0x0001c2b2  GetRenderTransformAngle
+  [Widget                      ] FName=0x0001c2a9  GetRenderOpacity
+  [Widget                      ] FName=0x0001c2a3  GetParent
+  [Widget                      ] FName=0x0001c297  GetPaintSpaceGeometry
+  [Widget                      ] FName=0x0001c28e  GetOwningPlayer
+  [Widget                      ] FName=0x0001c283  GetOwningLocalPlayer
+  [Widget                      ] FName=0x000efa8f  GetMouseCursor__DelegateSignature
+  [Widget                      ] FName=0x000efa7d  GetLinearColor__DelegateSignature
+  [Widget                      ] FName=0x0001c27c  GetIsEnabled
+  [Widget                      ] FName=0x000efa6e  GetInt32__DelegateSignature
+  [Widget                      ] FName=0x0001c273  GetGameInstance
+  [Widget                      ] FName=0x000efa5f  GetFloat__DelegateSignature
+  [Widget                      ] FName=0x0001c26b  GetDesiredSize
+  [Widget                      ] FName=0x0001c264  GetClipping
+  [Widget                      ] FName=0x000efa4c  GetCheckBoxState__DelegateSignature
+  [Widget                      ] FName=0x0001c25a  GetCachedGeometry
+  [Widget                      ] FName=0x000efa3e  GetBool__DelegateSignature
+  [Widget                      ] FName=0x0001c250  GetAccessibleText
+  [Widget                      ] FName=0x0001c243  GetAccessibleSummaryText
+  [Widget                      ] FName=0x000efa28  GenerateWidgetForString__DelegateSignature
+  [Widget                      ] FName=0x000efa12  GenerateWidgetForObject__DelegateSignature
+  [Widget                      ] FName=0x0001c23b  ForceVolatile
+  [Widget                      ] FName=0x0001c231  ForceLayoutPrepass
+
+==== UFunction /Game/Visuals/BP_TribeVisualsManager.BP_TribeVisualsManager_C.InitMyRPMAvatarSkin  (0x7b1a68d520) ====
+  raw[0..0xE0] @0x7b1a68d520:
+  +000: 28 9d d4 0c 7c 00 00 00 01 00 28 00 8c a6 00 00  (...|.....(.....
+  +010: 80 c6 81 f5 7b 00 00 00 90 3f 17 00 00 00 00 00  ....{....?......
+  +020: a0 99 ff 1a 7b 00 00 00 60 d3 68 1a 7b 00 00 00  ....{...`.h.{...
+  +030: 90 64 2c 1a 7b 00 00 00 00 00 00 00 00 00 00 00  .d,.{...........
+  +040: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +050: 00 06 33 1a 7b 00 00 00 28 00 00 00 08 00 00 00  ..3.{...(.......
+  +060: 80 4a 57 1a 7b 00 00 00 9f 02 00 00 c0 02 00 00  .JW.{...........
+  +070: 00 06 33 1a 7b 00 00 00 00 06 33 1a 7b 00 00 00  ..3.{.....3.{...
+  +080: 80 05 33 1a 7b 00 00 00 00 06 33 1a 7b 00 00 00  ..3.{.....3.{...
+  +090: 00 1c d0 1a 7b 00 00 00 08 00 00 00 18 00 00 00  ....{...........
+  +0a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0b0: 00 00 42 0c 01 00 08 00 ff ff 00 00 00 00 00 00  ..B.............
+  +0c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0d0: 00 00 00 00 00 00 00 00 48 62 86 07 7c 00 00 00  ........Hb..|...
+  UStruct.Script @0x60: Data=0x7b1a574a80 Num=671 Max=704
+  ChildProperties (params+locals):
+    +0x0000 ObjectProperty         AvatarSkin                   elem=0x0
+    +0x0008 StrProperty            CallFunc_ReadConfigString_OutValue elem=0x0
+    +0x0018 BoolProperty           CallFunc_ReadConfigString_ReturnValue elem=0x0
+    +0x0020 ObjectProperty         CallFunc_SpawnObject_ReturnValue elem=0x0
+  FunctionFlags=0x0c420000 NumParms=1 ParmsSize=0x8 native=no Func=0x7c07866248 Func_rva=0x1858248 (ghidra=0x1958248)
+  Script bytecode[0..cap] @0x7b1a574a80:
+  +000: 14 00 00 05 33 1a 7b 00 00 00 68 a0 f4 c3 60 7b  ....3.{...h...`{
+  +010: 00 00 00 1f 54 72 69 62 65 41 76 61 74 61 72 00  ....TribeAvatar.
+  +020: 1f 52 65 61 64 79 50 6c 61 79 65 72 4d 65 41 76  .ReadyPlayerMeAv
+  +030: 61 74 61 72 55 72 6c 00 00 80 05 33 1a 7b 00 00  atarUrl....3.{..
+  +040: 00 16 07 91 02 00 00 00 00 05 33 1a 7b 00 00 00  ..........3.{...
+  +050: 5f 00 80 04 33 1a 7b 00 00 00 68 60 d3 95 60 7b  _...3.{...h`..`{
+  +060: 00 00 00 20 50 ad ff 1a 7b 00 00 00 17 16 0f 00  ... P...{.......
+  +070: aa 54 1a 7b 00 00 00 19 00 80 04 33 1a 7b 00 00  .T.{.......3.{..
+  +080: 00 09 00 00 00 00 aa 54 1a 7b 00 00 00 01 00 aa  .......T.{......
+  +090: 54 1a 7b 00 00 00 00 80 05 33 1a 7b 00 00 00 19  T.{......3.{....
+  +0a0: 00 80 04 33 1a 7b 00 00 00 1c 00 00 00 00 00 00  ...3.{..........
+  +0b0: 00 00 00 00 00 45 ac 3f 17 00 00 00 00 00 00 00  .....E.?........
+  +0c0: 00 00 21 f0 42 17 00 00 00 00 00 00 00 00 00 27  ..!.B..........'
+  +0d0: 16 0f 80 ab 2e 1a 7b 00 00 00 42 80 ab 2e 1a 7b  ......{...B....{
+  +0e0: 00 00 00 19 00 80 04 33 1a 7b 00 00 00 09 00 00  .......3.{......
+  +0f0: 00 80 b0 54 1a 7b 00 00 00 01 80 b0 54 1a 7b 00  ...T.{......T.{.
+  +100: 00 00 29 01 1f 4d 79 20 52 65 61 64 79 20 50 6c  ..)..My Ready Pl
+  +110: 61 79 65 72 20 4d 65 20 41 76 61 74 61 72 00 1f  ayer Me Avatar..
+  +120: 37 39 33 44 32 30 30 36 34 42 34 39 41 30 36 31  793D20064B49A061
+  +130: 41 37 32 36 46 31 41 43 34 46 37 39 30 37 33 32  A726F1AC4F790732
+  +140: 00 1f 00 0f 00 ab 2e 1a 7b 00 00 00 42 00 ab 2e  ........{...B...
+  +150: 1a 7b 00 00 00 19 00 80 04 33 1a 7b 00 00 00 09  .{.......3.{....
+  +160: 00 00 00 80 b0 54 1a 7b 00 00 00 01 80 b0 54 1a  .....T.{......T.
+  +170: 7b 00 00 00 29 01 1f 55 73 65 20 79 6f 75 72 20  {...)..Use your 
+  +180: 6c 61 74 65 73 74 20 63 75 73 74 6f 6d 20 61 76  latest custom av
+  +190: 61 74 61 72 20 66 72 6f 6d 20 74 72 69 62 65 78  atar from tribex
+  +1a0: 72 2e 72 65 61 64 79 70 6c 61 79 65 72 2e 6d 65  r.readyplayer.me
+  +1b0: 0d 0a 54 68 69 73 20 69 73 20 74 68 65 20 61 76  ..This is the av
+  +1c0: 61 74 61 72 20 6f 74 68 65 72 73 20 77 69 6c 6c  atar others will
+  +1d0: 20 73 65 65 20 69 6e 20 6d 75 6c 74 69 70 6c 61   see in multipla
+  +1e0: 79 65 72 00 1f 33 38 34 41 38 43 42 37 34 44 31  yer..384A8CB74D1
+  +1f0: 46 46 38 34 35 37 43 30 37 42 32 39 32 44 31 46  FF8457C07B292D1F
+  +200: 46 30 33 39 34 00 1f 00 5f 42 80 aa 2e 1a 7b 00  F0394..._B....{.
+  +210: 00 00 19 00 80 04 33 1a 7b 00 00 00 09 00 00 00  ......3.{.......
+  +220: 80 b0 54 1a 7b 00 00 00 01 80 b0 54 1a 7b 00 00  ..T.{......T.{..
+  +230: 00 20 00 34 b4 21 7b 00 00 00 45 b7 37 17 00 00  . .4.!{...E.7...
+  +240: 00 00 00 00 00 00 00 01 40 61 45 1a 7b 00 00 00  ........@aE.{...
+  +250: 19 00 80 04 33 1a 7b 00 00 00 09 00 00 00 00 b1  ....3.{.........
+  +260: 54 1a 7b 00 00 00 01 00 b1 54 1a 7b 00 00 00 00  T.{......T.{....
+  +270: 80 04 33 1a 7b 00 00 00 16 5f 48 00 06 33 1a 7b  ..3.{...._H..3.{
+  +280: 00 00 00 00 80 04 33 1a 7b 00 00 00 06 9c 02 00  ......3.{.......
+  +290: 00 5f 48 00 06 33 1a 7b 00 00 00 2a 04 0b 53  ._H..3.{...*..S
+  --- bytecode pointer refs (property/function/object) ---
+    @  2  FField  BoolProperty           CallFunc_ReadConfigString_ReturnValue
+    @ 11  UObj    Function               ReadConfigString
+    @ 57  FField  StrProperty            CallFunc_ReadConfigString_OutValue
+    @ 72  FField  BoolProperty           CallFunc_ReadConfigString_ReturnValue
+    @ 82  FField  ObjectProperty         CallFunc_SpawnObject_ReturnValue
+    @ 91  UObj    Function               SpawnObject
+    @100  UObj    BlueprintGeneratedClass BP_ReadyPlayerMeAvatarSkin_C
+    @111  FField  StrProperty            AvatarId
+    @121  FField  ObjectProperty         CallFunc_SpawnObject_ReturnValue
+    @133  FField  StrProperty            AvatarId
+    @142  FField  StrProperty            AvatarId
+    @151  FField  StrProperty            CallFunc_ReadConfigString_OutValue
+    @161  FField  ObjectProperty         CallFunc_SpawnObject_ReturnValue
+    @210  FField  TextProperty           Name_35_E7DE038E465538A12C9EACA2BF5E26BB
+    @219  FField  TextProperty           Name_35_E7DE038E465538A12C9EACA2BF5E26BB
+    @229  FField  ObjectProperty         CallFunc_SpawnObject_ReturnValue
+    @241  FField  StructProperty         SkinInfo
+    @250  FField  StructProperty         SkinInfo
+    @324  FField  TextProperty           Description_33_8DFD67B84938FBD626FD5599E59F8F95
+    @333  FField  TextProperty           Description_33_8DFD67B84938FBD626FD5599E59F8F95
+    @343  FField  ObjectProperty         CallFunc_SpawnObject_ReturnValue
+    @355  FField  StructProperty         SkinInfo
+    @364  FField  StructProperty         SkinInfo
+    @522  FField  ObjectProperty         PreviewImage_31_D88F12D74D813857029C7BBDCC3B3736
+    @532  FField  ObjectProperty         CallFunc_SpawnObject_ReturnValue
+    @544  FField  StructProperty         SkinInfo
+    @553  FField  StructProperty         SkinInfo
+    @562  UObj    Texture2D              T_SkinPreview_ReadyPlayerMe_Custom
+    @584  FField  MapProperty            RPMAvatarSkins
+    @594  FField  ObjectProperty         CallFunc_SpawnObject_ReturnValue
+    @606  FField  NameProperty           Name
+    @615  FField  NameProperty           Name
+    @624  FField  ObjectProperty         CallFunc_SpawnObject_ReturnValue
+    @635  FField  ObjectProperty         AvatarSkin
+    @644  FField  ObjectProperty         CallFunc_SpawnObject_ReturnValue
+    @659  FField  ObjectProperty         AvatarSkin
+  --- bytecode by-name calls (EX_[Local]VirtualFunction) ---
+    @181  LocalVirtual FName=0x00173fac  InitSkin
+    @570  LocalVirtual FName=0x001737b7  AddSkin
+
+==== UFunction /Game/Visuals/BP_TribeVisualsManager.BP_TribeVisualsManager_C.AddOrUpdateCachedRPMAvatarSkin  (0x7b1a68b220) ====
+  raw[0..0xE0] @0x7b1a68b220:
+  +000: 28 9d d4 0c 7c 00 00 00 01 00 28 00 73 a6 00 00  (...|.....(.s...
+  +010: 80 c6 81 f5 7b 00 00 00 a7 37 17 00 00 00 00 00  ....{....7......
+  +020: a0 99 ff 1a 7b 00 00 00 e0 b3 68 1a 7b 00 00 00  ....{.....h.{...
+  +030: e0 5d 2c 1a 7b 00 00 00 00 00 00 00 00 00 00 00  .],.{...........
+  +040: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +050: 80 c2 54 1a 7b 00 00 00 11 01 00 00 08 00 00 00  ..T.{...........
+  +060: 30 e9 22 71 7b 00 00 00 71 04 00 00 90 04 00 00  0."q{...q.......
+  +070: 80 c2 54 1a 7b 00 00 00 80 c1 54 1a 7b 00 00 00  ..T.{.....T.{...
+  +080: 80 c2 54 1a 7b 00 00 00 80 c2 54 1a 7b 00 00 00  ..T.{.....T.{...
+  +090: 40 ab a4 1a 7b 00 00 00 0e 00 00 00 18 00 00 00  @...{...........
+  +0a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0b0: 00 00 c2 0c 03 00 28 00 ff ff 00 00 00 00 00 00  ......(.........
+  +0c0: 80 bd 54 1a 7b 00 00 00 00 00 00 00 00 00 00 00  ..T.{...........
+  +0d0: 00 00 00 00 00 00 00 00 48 62 86 07 7c 00 00 00  ........Hb..|...
+  UStruct.Script @0x60: Data=0x7b7122e930 Num=1137 Max=1168
+  ChildProperties (params+locals):
+    +0x0000 StrProperty            OldFilename                  elem=0x2b
+    +0x0010 StrProperty            NewFilename                  elem=0x0
+    +0x0020 ObjectProperty         UpdatedSkin                  elem=0x0
+    +0x0028 ObjectProperty         UpdatedAvatarSkin            elem=0x0
+    +0x0030 NameProperty           OldSkinName                  elem=0x0
+    +0x0038 ObjectProperty         CallFunc_AddCachedRPMAvatarSkin_NewSkin elem=0x0
+    +0x0040 StrProperty            CallFunc_GetCleanFilename_ReturnValue elem=0x0
+    +0x0050 NameProperty           CallFunc_Conv_StringToName_ReturnValue elem=0x0
+    +0x0058 BoolProperty           CallFunc_NotEqual_ObjectObject_ReturnValue elem=0x0
+    +0x0060 StrProperty            CallFunc_GetCleanFilename_ReturnValue elem=0x0
+    +0x0070 TextProperty           CallFunc_Conv_NameToText_ReturnValue elem=0x0
+    +0x0080 NameProperty           CallFunc_Conv_StringToName_ReturnValue elem=0x0
+    +0x0088 StructProperty         K2Node_MakeStruct_FormatArgumentData elem=0x0
+    +0x00d0 ArrayProperty          K2Node_MakeArray_Array       elem=0x0
+    +0x00e0 TextProperty           CallFunc_Format_ReturnValue  elem=0x0
+    +0x00f0 BoolProperty           CallFunc_Map_Remove_ReturnValue elem=0x0
+    +0x00f8 ObjectProperty         CallFunc_Map_Find_Value      elem=0x0
+    +0x0100 BoolProperty           CallFunc_Map_Find_ReturnValue elem=0x0
+    +0x0108 ObjectProperty         K2Node_DynamicCast_AsBP_Ready_Player_Me_Avatar_Skin elem=0x0
+    +0x0110 BoolProperty           K2Node_DynamicCast_bSuccess  elem=0x0
+  FunctionFlags=0x0cc20000 NumParms=3 ParmsSize=0x28 native=no Func=0x7c07866248 Func_rva=0x1858248 (ghidra=0x1958248)
+  Script bytecode[0..cap] @0x7b7122e930:
+  +000: 4c 6e 04 00 00 4c 35 04 00 00 0f 80 bf 54 1a 7b  Ln...L5......T.{
+  +010: 00 00 00 00 80 bf 54 1a 7b 00 00 00 68 e0 ba a0  ......T.{...h...
+  +020: 60 7b 00 00 00 48 80 c2 54 1a 7b 00 00 00 16 0f  `{...H..T.{.....
+  +030: 00 bf 54 1a 7b 00 00 00 00 00 bf 54 1a 7b 00 00  ..T.{......T.{..
+  +040: 00 68 20 57 a0 60 7b 00 00 00 00 80 bf 54 1a 7b  .h W.`{......T.{
+  +050: 00 00 00 16 0f 80 c0 54 1a 7b 00 00 00 00 80 c0  .......T.{......
+  +060: 54 1a 7b 00 00 00 00 00 bf 54 1a 7b 00 00 00 14  T.{......T.{....
+  +070: 00 80 b9 54 1a 7b 00 00 00 19 20 d0 d2 24 71 7b  ...T.{.... ..$q{
+  +080: 00 00 00 25 00 00 00 80 b9 54 1a 7b 00 00 00 1c  ...%.....T.{....
+  +090: 60 be 88 60 7b 00 00 00 01 40 61 45 1a 7b 00 00  `..`{....@aE.{..
+  +0a0: 00 00 80 c0 54 1a 7b 00 00 00 00 00 ba 54 1a 7b  ....T.{......T.{
+  +0b0: 00 00 00 16 0f 00 00 00 00 00 00 00 00 00 00 b9  ................
+  +0c0: 54 1a 7b 00 00 00 2e 50 ad ff 1a 7b 00 00 00 00  T.{....P...{....
+  +0d0: 00 ba 54 1a 7b 00 00 00 0f 00 00 00 00 00 00 00  ..T.{...........
+  +0e0: 00 00 80 b8 54 1a 7b 00 00 00 38 01 00 00 b9 54  ....T.{...8....T
+  +0f0: 1a 7b 00 00 00 5f 00 00 c1 54 1a 7b 00 00 00 00  .{..._...T.{....
+  +100: 00 b9 54 1a 7b 00 00 00 14 00 80 be 54 1a 7b 00  ..T.{.......T.{.
+  +110: 00 00 68 00 43 9d 60 7b 00 00 00 00 00 c1 54 1a  ..h.C.`{......T.
+  +120: 7b 00 00 00 2a 16 07 4d 04 00 00 00 80 be 54 1a  {...*..M......T.
+  +130: 7b 00 00 00 14 00 80 ba 54 1a 7b 00 00 00 19 20  {.......T.{.... 
+  +140: d0 d2 24 71 7b 00 00 00 1c 00 00 00 80 ba 54 1a  ..$q{.........T.
+  +150: 7b 00 00 00 1c 00 ba 88 60 7b 00 00 00 01 40 61  {.......`{....@a
+  +160: 45 1a 7b 00 00 00 00 80 c0 54 1a 7b 00 00 00 16  E.{......T.{....
+  +170: 0f 00 aa 54 1a 7b 00 00 00 19 00 00 c1 54 1a 7b  ...T.{.......T.{
+  +180: 00 00 00 09 00 00 00 00 aa 54 1a 7b 00 00 00 01  .........T.{....
+  +190: 00 aa 54 1a 7b 00 00 00 00 00 c2 54 1a 7b 00 00  ..T.{......T.{..
+  +1a0: 00 0f 00 be 54 1a 7b 00 00 00 00 00 be 54 1a 7b  ....T.{......T.{
+  +1b0: 00 00 00 68 e0 ba a0 60 7b 00 00 00 00 00 c2 54  ...h...`{......T
+  +1c0: 1a 7b 00 00 00 16 0f 00 bd 54 1a 7b 00 00 00 00  .{.......T.{....
+  +1d0: 00 bd 54 1a 7b 00 00 00 68 20 57 a0 60 7b 00 00  ..T.{...h W.`{..
+  +1e0: 00 00 00 be 54 1a 7b 00 00 00 16 0f 00 b1 54 1a  ....T.{.......T.
+  +1f0: 7b 00 00 00 19 00 00 c1 54 1a 7b 00 00 00 09 00  {.......T.{.....
+  +200: 00 00 00 b1 54 1a 7b 00 00 00 01 00 b1 54 1a 7b  ....T.{......T.{
+  +210: 00 00 00 00 00 bd 54 1a 7b 00 00 00 19 20 d0 d2  ......T.{.... ..
+  +220: 24 71 7b 00 00 00 3b 00 00 00 00 00 00 00 00 00  $q{...;.........
+  +230: 00 00 1c 00 c1 88 60 7b 00 00 00 01 40 61 45 1a  ......`{....@aE.
+  +240: 7b 00 00 00 19 00 00 c1 54 1a 7b 00 00 00 09 00  {.......T.{.....
+  +250: 00 00 00 b1 54 1a 7b 00 00 00 01 00 b1 54 1a 7b  ....T.{......T.{
+  +260: 00 00 00 00 00 c1 54 1a 7b 00 00 00 16 0f 80 bd  ......T.{.......
+  +270: 54 1a 7b 00 00 00 00 80 bd 54 1a 7b 00 00 00 68  T.{......T.{...h
+  +280: 00 04 82 60 7b 00 00 00 19 00 00 c1 54 1a 7b 00  ...`{.......T.{.
+  +290: 00 00 09 00 00 00 00 b1 54 1a 7b 00 00 00 01 00  ........T.{.....
+  +2a0: b1 54 1a 7b 00 00 00 16 0f 00 ae d3 7a 7b 00 00  .T.{........z{..
+  +2b0: 00 42 00 ae d3 7a 7b 00 00 00 00 80 bc 54 1a 7b  .B...z{......T.{
+  +2c0: 00 00 00 1f 66 69 6c 65 6e 61 6d 65 00 0f 00 af  ....filename....
+  +2d0: d3 7a 7b 00 00 00 42 00 af d3 7a 7b 00 00 00 00  .z{...B...z{....
+  +2e0: 80 bc 54 1a 7b 00 00 00 24 04 0f 80 af d3 7a 7b  ..T.{...$.....z{
+  +2f0: 00 00 00 42 80 af d3 7a 7b 00 00 00 00 80 bc 54  ...B...z{......T
+  +300: 1a 7b 00 00 00 00 80 bd 54 1a 7b 00 00 00 0f 00  .{......T.{.....
+  +310: b0 d3 7a 7b 00 00 00 42 00 b0 d3 7a 7b 00 00 00  ..z{...B...z{...
+  +320: 00 80 bc 54 1a 7b 00 00 00 35 00 00 00 00 00 00  ...T.{...5......
+  +330: 00 00 0f 80 b0 d3 7a 7b 00 00 00 42 80 b0 d3 7a  ......z{...B...z
+  +340: 7b 00 00 00 00 80 bc 54 1a 7b 00 00 00 1e 00 00  {......T.{......
+  +350: 00 00 0f 00 b1 d3 7a 7b 00 00 00 42 00 b1 d3 7a  ......z{...B...z
+  +360: 7b 00 00 00 00 80 bc 54 1a 7b 00 00 00 37 00 00  {......T.{...7..
+  +370: 00 00 00 00 00 00 0f 80 b2 d3 7a 7b 00 00 00 42  ..........z{...B
+  +380: 80 b2 d3 7a 7b 00 00 00 00 80 bc 54 1a 7b 00 00  ...z{......T.{..
+  +390: 00 24 00 31 00 00 bc 54 1a 7b 00 00 00 00 80 bc  .$.1...T.{......
+  +3a0: 54 1a 7b 00 00 00 32 0f 00 bb 54 1a 7b 00 00 00  T.{...2...T.{...
+  +3b0: 00 00 bb 54 1a 7b 00 00 00 68 40 33 82 60 7b 00  ...T.{...h@3.`{.
+  +3c0: 00 00 29 04 00 00 00 00 00 00 00 00 1f 53 54 5f  ..)..........ST_
+  +3d0: 54 72 69 62 65 43 6f 6d 6d 6f 6e 50 68 72 61 73  TribeCommonPhras
+  +3e0: 65 73 00 1f 53 61 76 65 64 41 76 61 74 61 72 00  es..SavedAvatar.
+  +3f0: 00 00 bc 54 1a 7b 00 00 00 16 0f 00 ab 2e 1a 7b  ...T.{.........{
+  +400: 00 00 00 42 00 ab 2e 1a 7b 00 00 00 19 00 00 c1  ...B....{.......
+  +410: 54 1a 7b 00 00 00 09 00 00 00 80 b0 54 1a 7b 00  T.{.........T.{.
+  +420: 00 00 01 80 b0 54 1a 7b 00 00 00 00 00 bb 54 1a  .....T.{......T.
+  +430: 7b 00 00 00 4d 5f 48 80 c1 54 1a 7b 00 00 00 00  {...M_H..T.{....
+  +440: 00 c1 54 1a 7b 00 00 00 06 6e 04 00 00 45 9b 37  ..T.{....n...E.7
+  +450: 17 00 00 00 00 00 00 00 00 00 00 00 c2 54 1a 7b  .............T.{
+  +460: 00 00 00 00 00 c0 54 1a 7b 00 00 00 16 4d 04 0b  ......T.{....M..
+  +470: 53  S
+  --- bytecode pointer refs (property/function/object) ---
+    @ 11  FField  StrProperty            CallFunc_GetCleanFilename_ReturnValue
+    @ 20  FField  StrProperty            CallFunc_GetCleanFilename_ReturnValue
+    @ 29  UObj    Function               GetCleanFilename
+    @ 38  FField  StrProperty            OldFilename
+    @ 48  FField  NameProperty           CallFunc_Conv_StringToName_ReturnValue
+    @ 57  FField  NameProperty           CallFunc_Conv_StringToName_ReturnValue
+    @ 66  UObj    Function               Conv_StringToName
+    @ 75  FField  StrProperty            CallFunc_GetCleanFilename_ReturnValue
+    @ 85  FField  NameProperty           OldSkinName
+    @ 94  FField  NameProperty           OldSkinName
+    @103  FField  NameProperty           CallFunc_Conv_StringToName_ReturnValue
+    @113  FField  BoolProperty           CallFunc_Map_Find_ReturnValue
+    @123  UObj    BlueprintMapLibrary    Default__BlueprintMapLibrary
+    @135  FField  BoolProperty           CallFunc_Map_Find_ReturnValue
+    @144  UObj    Function               Map_Find
+    @153  FField  MapProperty            RPMAvatarSkins
+    @162  FField  NameProperty           OldSkinName
+    @171  FField  ObjectProperty         CallFunc_Map_Find_Value
+    @190  FField  ObjectProperty         K2Node_DynamicCast_AsBP_Ready_Player_Me_Avatar_Skin
+    @199  UObj    BlueprintGeneratedClass BP_ReadyPlayerMeAvatarSkin_C
+    @208  FField  ObjectProperty         CallFunc_Map_Find_Value
+    @226  FField  BoolProperty           K2Node_DynamicCast_bSuccess
+    @237  FField  ObjectProperty         K2Node_DynamicCast_AsBP_Ready_Player_Me_Avatar_Skin
+    @247  FField  ObjectProperty         UpdatedAvatarSkin
+    @256  FField  ObjectProperty         K2Node_DynamicCast_AsBP_Ready_Player_Me_Avatar_Skin
+    @266  FField  BoolProperty           CallFunc_NotEqual_ObjectObject_ReturnValue
+    @275  UObj    Function               NotEqual_ObjectObject
+    @284  FField  ObjectProperty         UpdatedAvatarSkin
+    @300  FField  BoolProperty           CallFunc_NotEqual_ObjectObject_ReturnValue
+    @310  FField  BoolProperty           CallFunc_Map_Remove_ReturnValue
+    @320  UObj    BlueprintMapLibrary    Default__BlueprintMapLibrary
+    @332  FField  BoolProperty           CallFunc_Map_Remove_ReturnValue
+    @341  UObj    Function               Map_Remove
+    @350  FField  MapProperty            RPMAvatarSkins
+    @359  FField  NameProperty           OldSkinName
+    @369  FField  StrProperty            AvatarId
+    @379  FField  ObjectProperty         UpdatedAvatarSkin
+    @391  FField  StrProperty            AvatarId
+    @400  FField  StrProperty            AvatarId
+    @409  FField  StrProperty            NewFilename
+    @418  FField  StrProperty            CallFunc_GetCleanFilename_ReturnValue
+    @427  FField  StrProperty            CallFunc_GetCleanFilename_ReturnValue
+    @436  UObj    Function               GetCleanFilename
+    @445  FField  StrProperty            NewFilename
+    @455  FField  NameProperty           CallFunc_Conv_StringToName_ReturnValue
+    @464  FField  NameProperty           CallFunc_Conv_StringToName_ReturnValue
+    @473  UObj    Function               Conv_StringToName
+    @482  FField  StrProperty            CallFunc_GetCleanFilename_ReturnValue
+    @492  FField  NameProperty           Name
+    @502  FField  ObjectProperty         UpdatedAvatarSkin
+    @514  FField  NameProperty           Name
+    @523  FField  NameProperty           Name
+    @532  FField  NameProperty           CallFunc_Conv_StringToName_ReturnValue
+    @542  UObj    BlueprintMapLibrary    Default__BlueprintMapLibrary
+    @563  UObj    Function               Map_Add
+    @572  FField  MapProperty            RPMAvatarSkins
+    @582  FField  ObjectProperty         UpdatedAvatarSkin
+    @594  FField  NameProperty           Name
+    @603  FField  NameProperty           Name
+    @612  FField  ObjectProperty         UpdatedAvatarSkin
+    @622  FField  TextProperty           CallFunc_Conv_NameToText_ReturnValue
+    @631  FField  TextProperty           CallFunc_Conv_NameToText_ReturnValue
+    @640  UObj    Function               Conv_NameToText
+    @650  FField  ObjectProperty         UpdatedAvatarSkin
+    @662  FField  NameProperty           Name
+    @671  FField  NameProperty           Name
+    @681  FField  StrProperty            ArgumentName
+    @690  FField  StrProperty            ArgumentName
+    @699  FField  StructProperty         K2Node_MakeStruct_FormatArgumentData
+    @718  FField  ByteProperty           ArgumentValueType
+    @727  FField  ByteProperty           ArgumentValueType
+    @736  FField  StructProperty         K2Node_MakeStruct_FormatArgumentData
+    @747  FField  TextProperty           ArgumentValue
+    @756  FField  TextProperty           ArgumentValue
+    @765  FField  StructProperty         K2Node_MakeStruct_FormatArgumentData
+    @774  FField  TextProperty           CallFunc_Conv_NameToText_ReturnValue
+    @783  FField  Int64Property          ArgumentValueInt
+    @792  FField  Int64Property          ArgumentValueInt
+    @801  FField  StructProperty         K2Node_MakeStruct_FormatArgumentData
+    @819  FField  FloatProperty          ArgumentValueFloat
+    @828  FField  FloatProperty          ArgumentValueFloat
+    @837  FField  StructProperty         K2Node_MakeStruct_FormatArgumentData
+    @851  FField  DoubleProperty         ArgumentValueDouble
+    @860  FField  DoubleProperty         ArgumentValueDouble
+    @869  FField  StructProperty         K2Node_MakeStruct_FormatArgumentData
+    @887  FField  EnumProperty           ArgumentValueGender
+    @896  FField  EnumProperty           ArgumentValueGender
+    @905  FField  StructProperty         K2Node_MakeStruct_FormatArgumentData
+    @917  FField  ArrayProperty          K2Node_MakeArray_Array
+    @926  FField  StructProperty         K2Node_MakeStruct_FormatArgumentData
+    @936  FField  TextProperty           CallFunc_Format_ReturnValue
+    @945  FField  TextProperty           CallFunc_Format_ReturnValue
+    @954  UObj    Function               Format
+    @1009  FField  ArrayProperty          K2Node_MakeArray_Array
+    @1019  FField  TextProperty           Description_33_8DFD67B84938FBD626FD5599E59F8F95
+    @1028  FField  TextProperty           Description_33_8DFD67B84938FBD626FD5599E59F8F95
+    @1038  FField  ObjectProperty         UpdatedAvatarSkin
+    @1050  FField  StructProperty         SkinInfo
+    @1059  FField  StructProperty         SkinInfo
+    @1068  FField  TextProperty           CallFunc_Format_ReturnValue
+    @1079  FField  ObjectProperty         UpdatedSkin
+    @1088  FField  ObjectProperty         UpdatedAvatarSkin
+    @1115  FField  StrProperty            NewFilename
+    @1124  FField  ObjectProperty         CallFunc_AddCachedRPMAvatarSkin_NewSkin
+  --- bytecode by-name calls (EX_[Local]VirtualFunction) ---
+    @1101  LocalVirtual FName=0x0017379b  AddCachedRPMAvatarSkin
+
+==== UFunction /Game/Visuals/BP_TribeVisualsManager.BP_TribeVisualsManager_C.ApplySkinToPlayer  (0x7b1a68aea0) ====
+  raw[0..0xE0] @0x7b1a68aea0:
+  +000: 28 9d d4 0c 7c 00 00 00 01 00 28 00 76 a6 00 00  (...|.....(.v...
+  +010: 80 c6 81 f5 7b 00 00 00 d5 37 17 00 00 00 00 00  ....{....7......
+  +020: a0 99 ff 1a 7b 00 00 00 60 f6 68 1a 7b 00 00 00  ....{...`.h.{...
+  +030: c0 68 2c 1a 7b 00 00 00 00 00 00 00 00 00 00 00  .h,.{...........
+  +040: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +050: 00 36 33 1a 7b 00 00 00 39 00 00 00 08 00 00 00  .63.{...9.......
+  +060: 00 32 de 5f 7b 00 00 00 e8 01 00 00 00 02 00 00  .2._{...........
+  +070: 00 36 33 1a 7b 00 00 00 00 36 33 1a 7b 00 00 00  .63.{....63.{...
+  +080: 00 00 00 00 00 00 00 00 00 36 33 1a 7b 00 00 00  .........63.{...
+  +090: 00 a3 d0 1a 7b 00 00 00 09 00 00 00 18 00 00 00  ....{...........
+  +0a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0b0: 00 00 02 0c 01 00 08 00 ff ff 00 00 00 00 00 00  ................
+  +0c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0d0: 00 00 00 00 00 00 00 00 48 62 86 07 7c 00 00 00  ........Hb..|...
+  UStruct.Script @0x60: Data=0x7b5fde3200 Num=488 Max=512
+  ChildProperties (params+locals):
+    +0x0000 ObjectProperty         Skin                         elem=0x7b
+    +0x0008 ClassProperty          NewSkinClass                 elem=0x0
+    +0x0010 ObjectProperty         PrevSkin                     elem=0x0
+    +0x0018 ObjectProperty         LocalPawn                    elem=0x0
+    +0x0020 ClassProperty          CallFunc_GetSkinClass_SkinClass elem=0x0
+    +0x0028 BoolProperty           CallFunc_IsValidClass_ReturnValue elem=0x0
+    +0x0030 ObjectProperty         CallFunc_Map_Find_Value      elem=0x0
+    +0x0038 BoolProperty           CallFunc_Map_Find_ReturnValue elem=0x0
+  FunctionFlags=0x0c020000 NumParms=1 ParmsSize=0x8 native=no Func=0x7c07866248 Func_rva=0x1858248 (ghidra=0x1958248)
+  Script bytecode[0..cap] @0x7b5fde3200:
+  +000: 4c e5 01 00 00 4c 4e 00 00 00 19 00 00 36 33 1a  L....LN......63.
+  +010: 7b 00 00 00 2d 00 00 00 00 00 00 00 00 00 00 00  {...-...........
+  +020: 45 cf 37 17 00 00 00 00 00 00 00 00 00 19 01 80  E.7.............
+  +030: a1 33 1a 7b 00 00 00 09 00 00 00 00 a4 2e 1a 7b  .3.{...........{
+  +040: 00 00 00 01 00 a4 2e 1a 7b 00 00 00 16 4d 19 00  ........{....M..
+  +050: 00 36 33 1a 7b 00 00 00 17 00 00 00 00 00 00 00  .63.{...........
+  +060: 00 00 00 00 45 05 3f 17 00 00 00 00 00 00 00 00  ....E.?.........
+  +070: 00 00 80 4e 33 1a 7b 00 00 00 16 5f 00 00 50 33  ...N3.{...._..P3
+  +080: 1a 7b 00 00 00 00 80 4e 33 1a 7b 00 00 00 14 00  .{.....N3.{.....
+  +090: 00 4e 33 1a 7b 00 00 00 68 60 5c cc 7a 7b 00 00  .N3.{...h`\.z{..
+  +0a0: 00 00 00 50 33 1a 7b 00 00 00 16 4f 00 00 4e 33  ...P3.{....O..N3
+  +0b0: 1a 7b 00 00 00 14 00 00 4d 33 1a 7b 00 00 00 19  .{......M3.{....
+  +0c0: 20 d0 d2 24 71 7b 00 00 00 25 00 00 00 00 4d 33   ..$q{...%....M3
+  +0d0: 1a 7b 00 00 00 1c 60 be 88 60 7b 00 00 00 01 a0  .{....`..`{.....
+  +0e0: 60 45 1a 7b 00 00 00 00 00 50 33 1a 7b 00 00 00  `E.{.....P3.{...
+  +0f0: 00 80 4d 33 1a 7b 00 00 00 16 07 84 01 00 00 00  ..M3.{..........
+  +100: 00 4d 33 1a 7b 00 00 00 14 00 00 4d 33 1a 7b 00  .M3.{......M3.{.
+  +110: 00 00 19 20 d0 d2 24 71 7b 00 00 00 25 00 00 00  ... ..$q{...%...
+  +120: 00 4d 33 1a 7b 00 00 00 1c 60 be 88 60 7b 00 00  .M3.{....`..`{..
+  +130: 00 01 a0 60 45 1a 7b 00 00 00 00 00 50 33 1a 7b  ...`E.{.....P3.{
+  +140: 00 00 00 00 80 4d 33 1a 7b 00 00 00 16 5f 00 80  .....M3.{...._..
+  +150: 4f 33 1a 7b 00 00 00 00 80 4d 33 1a 7b 00 00 00  O3.{.....M3.{...
+  +160: 19 00 80 4f 33 1a 7b 00 00 00 0e 00 00 00 00 00  ...O3.{.........
+  +170: 00 00 00 00 00 00 45 2c 43 17 00 00 00 00 00 00  ......E,C.......
+  +180: 00 00 00 16 19 20 d0 d2 24 71 7b 00 00 00 25 00  ..... ..$q{...%.
+  +190: 00 00 00 00 00 00 00 00 00 00 1c 00 c1 88 60 7b  ..............`{
+  +1a0: 00 00 00 01 a0 60 45 1a 7b 00 00 00 00 00 50 33  .....`E.{.....P3
+  +1b0: 1a 7b 00 00 00 00 00 36 33 1a 7b 00 00 00 16 63  .{.....63.{....c
+  +1c0: 60 cc 68 1a 7b 00 00 00 01 80 8c 33 1a 7b 00 00  `.h.{......3.{..
+  +1d0: 00 00 80 4f 33 1a 7b 00 00 00 00 00 36 33 1a 7b  ...O3.{.....63.{
+  +1e0: 00 00 00 16 4d 04 0b 53  ....M..S
+  --- bytecode pointer refs (property/function/object) ---
+    @ 12  FField  ObjectProperty         Skin
+    @ 47  FField  ObjectProperty         TribeGameState
+    @ 59  FField  ObjectProperty         LocalPawn
+    @ 68  FField  ObjectProperty         LocalPawn
+    @ 80  FField  ObjectProperty         Skin
+    @114  FField  ClassProperty          CallFunc_GetSkinClass_SkinClass
+    @125  FField  ClassProperty          NewSkinClass
+    @134  FField  ClassProperty          CallFunc_GetSkinClass_SkinClass
+    @144  FField  BoolProperty           CallFunc_IsValidClass_ReturnValue
+    @153  UObj    Function               IsValidClass
+    @162  FField  ClassProperty          NewSkinClass
+    @173  FField  BoolProperty           CallFunc_IsValidClass_ReturnValue
+    @183  FField  BoolProperty           CallFunc_Map_Find_ReturnValue
+    @193  UObj    BlueprintMapLibrary    Default__BlueprintMapLibrary
+    @205  FField  BoolProperty           CallFunc_Map_Find_ReturnValue
+    @214  UObj    Function               Map_Find
+    @223  FField  MapProperty            ActiveSkins
+    @232  FField  ClassProperty          NewSkinClass
+    @241  FField  ObjectProperty         CallFunc_Map_Find_Value
+    @256  FField  BoolProperty           CallFunc_Map_Find_ReturnValue
+    @266  FField  BoolProperty           CallFunc_Map_Find_ReturnValue
+    @276  UObj    BlueprintMapLibrary    Default__BlueprintMapLibrary
+    @288  FField  BoolProperty           CallFunc_Map_Find_ReturnValue
+    @297  UObj    Function               Map_Find
+    @306  FField  MapProperty            ActiveSkins
+    @315  FField  ClassProperty          NewSkinClass
+    @324  FField  ObjectProperty         CallFunc_Map_Find_Value
+    @335  FField  ObjectProperty         PrevSkin
+    @344  FField  ObjectProperty         CallFunc_Map_Find_Value
+    @354  FField  ObjectProperty         PrevSkin
+    @390  UObj    BlueprintMapLibrary    Default__BlueprintMapLibrary
+    @411  UObj    Function               Map_Add
+    @420  FField  MapProperty            ActiveSkins
+    @429  FField  ClassProperty          NewSkinClass
+    @438  FField  ObjectProperty         Skin
+    @448  UObj    Function               OnActiveSkinChanged__DelegateSignature
+    @457  FField  MulticastInlineDelegateProperty OnActiveSkinChanged
+    @466  FField  ObjectProperty         PrevSkin
+    @475  FField  ObjectProperty         Skin
+  --- bytecode by-name calls (EX_[Local]VirtualFunction) ---
+    @ 32  LocalVirtual FName=0x001737cf  ApplySkin
+    @100  LocalVirtual FName=0x00173f05  GetSkinClass
+    @374  LocalVirtual FName=0x0017432c  ReleaseSkinResources
+
+==== UFunction /Game/Menus/W_RPMAvatarCreator.W_RPMAvatarCreator_C.PasteAvatarUrl  (0x7b21029e00) ====
+  raw[0..0xE0] @0x7b21029e00:
+  +000: 28 9d d4 0c 7c 00 00 00 01 00 28 00 d7 74 00 00  (...|.....(..t..
+  +010: 80 c6 81 f5 7b 00 00 00 94 19 1a 00 00 00 00 00  ....{...........
+  +020: 30 0e aa 22 7b 00 00 00 80 a1 02 21 7b 00 00 00  0.."{......!{...
+  +030: 60 f0 bb 1c 7b 00 00 00 00 00 00 00 00 00 00 00  `...{...........
+  +040: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +050: 00 cd 85 1a 7b 00 00 00 10 00 00 00 08 00 00 00  ....{...........
+  +060: 00 15 6e 21 7b 00 00 00 36 00 00 00 40 00 00 00  ..n!{...6...@...
+  +070: 00 cd 85 1a 7b 00 00 00 00 00 00 00 00 00 00 00  ....{...........
+  +080: 00 cd 85 1a 7b 00 00 00 00 cd 85 1a 7b 00 00 00  ....{.......{...
+  +090: 60 9d 0a 1f 7b 00 00 00 01 00 00 00 04 00 00 00  `...{...........
+  +0a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0b0: 00 00 02 0c 00 00 00 00 ff ff 00 00 00 00 00 00  ................
+  +0c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0d0: 00 00 00 00 00 00 00 00 48 62 86 07 7c 00 00 00  ........Hb..|...
+  UStruct.Script @0x60: Data=0x7b216e1500 Num=54 Max=64
+  ChildProperties (params+locals):
+    +0x0000 StrProperty            CallFunc_GetStringFromClipboard_ReturnValue elem=0x0
+  FunctionFlags=0x0c020000 NumParms=0 ParmsSize=0x0 native=no Func=0x7c07866248 Func_rva=0x1858248 (ghidra=0x1958248)
+  Script bytecode[0..cap] @0x7b216e1500:
+  +000: 0f 00 cd 85 1a 7b 00 00 00 00 00 cd 85 1a 7b 00  .....{........{.
+  +010: 00 00 68 e0 d6 c3 60 7b 00 00 00 16 45 68 19 1a  ..h...`{....Eh..
+  +020: 00 00 00 00 00 00 00 00 00 00 00 cd 85 1a 7b 00  ..............{.
+  +030: 00 00 16 04 0b 53  .....S
+  --- bytecode pointer refs (property/function/object) ---
+    @  1  FField  StrProperty            CallFunc_GetStringFromClipboard_ReturnValue
+    @ 10  FField  StrProperty            CallFunc_GetStringFromClipboard_ReturnValue
+    @ 19  UObj    Function               GetStringFromClipboard
+    @ 42  FField  StrProperty            CallFunc_GetStringFromClipboard_ReturnValue
+  --- bytecode by-name calls (EX_[Local]VirtualFunction) ---
+    @ 28  LocalVirtual FName=0x001a1968  LoadAvatarAtUrl
+
+==== UFunction /Game/Menus/W_RPMAvatarCreator.W_RPMAvatarCreator_C.LoadAvatarAtUrl  (0x7b2102a0a0) ====
+  raw[0..0xE0] @0x7b2102a0a0:
+  +000: 28 9d d4 0c 7c 00 00 00 01 00 28 00 d4 74 00 00  (...|.....(..t..
+  +010: 80 c6 81 f5 7b 00 00 00 68 19 1a 00 00 00 00 00  ....{...h.......
+  +020: 30 0e aa 22 7b 00 00 00 c0 a6 02 21 7b 00 00 00  0.."{......!{...
+  +030: 40 f1 bb 1c 7b 00 00 00 00 00 00 00 00 00 00 00  @...{...........
+  +040: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +050: 00 ce 85 1a 7b 00 00 00 10 00 00 00 08 00 00 00  ....{...........
+  +060: a0 a5 10 22 7b 00 00 00 2c 00 00 00 30 00 00 00  ..."{...,...0...
+  +070: 00 ce 85 1a 7b 00 00 00 00 00 00 00 00 00 00 00  ....{...........
+  +080: 00 ce 85 1a 7b 00 00 00 00 ce 85 1a 7b 00 00 00  ....{.......{...
+  +090: 60 82 0a 1f 7b 00 00 00 01 00 00 00 04 00 00 00  `...{...........
+  +0a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0b0: 00 00 02 0c 01 00 10 00 ff ff 00 00 00 00 00 00  ................
+  +0c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0d0: 00 00 00 00 00 00 00 00 48 62 86 07 7c 00 00 00  ........Hb..|...
+  UStruct.Script @0x60: Data=0x7b2210a5a0 Num=44 Max=48
+  ChildProperties (params+locals):
+    +0x0000 StrProperty            AvatarUrl                    elem=0x0
+  FunctionFlags=0x0c020000 NumParms=1 ParmsSize=0x10 native=no Func=0x7c07866248 Func_rva=0x1858248 (ghidra=0x1958248)
+  Script bytecode[0..cap] @0x7b2210a5a0:
+  +000: 0f 00 66 0a 1b 7b 00 00 00 01 00 66 0a 1b 7b 00  ..f..{.....f..{.
+  +010: 00 00 00 00 ce 85 1a 7b 00 00 00 45 9c 19 1a 00  .......{...E....
+  +020: 00 00 00 00 00 00 00 00 16 04 0b 53  ...........S
+  --- bytecode pointer refs (property/function/object) ---
+    @  1  FField  StrProperty            AvatarUrl
+    @ 10  FField  StrProperty            AvatarUrl
+    @ 19  FField  StrProperty            AvatarUrl
+  --- bytecode by-name calls (EX_[Local]VirtualFunction) ---
+    @  4  Virtual      FName=0x0000007b  icastDelegateProperty??LazyObjectProperty?SoftObjectPropertylInt64Property?VInt32Property?HInt16Property?*Int8Property?U
+    @ 13  Virtual      FName=0x0000007b  icastDelegateProperty??LazyObjectProperty?SoftObjectPropertylInt64Property?VInt32Property?HInt16Property?*Int8Property?U
+    @ 27  LocalVirtual FName=0x001a199c  ReloadAvatarAtUrl
+
+==== UFunction /Game/Menus/W_RPMAvatarCreator.W_RPMAvatarCreator_C.ReloadAvatarAtUrl  (0x7b21029c40) ====
+  raw[0..0xE0] @0x7b21029c40:
+  +000: 28 9d d4 0c 7c 00 00 00 01 00 28 00 d9 74 00 00  (...|.....(..t..
+  +010: 80 c6 81 f5 7b 00 00 00 9c 19 1a 00 00 00 00 00  ....{...........
+  +020: 30 0e aa 22 7b 00 00 00 00 9e 02 21 7b 00 00 00  0.."{......!{...
+  +030: 40 f0 bb 1c 7b 00 00 00 00 00 00 00 00 00 00 00  @...{...........
+  +040: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +050: 00 cc 85 1a 7b 00 00 00 64 00 00 00 08 00 00 00  ....{...d.......
+  +060: 00 eb ef 1b 7b 00 00 00 d6 02 00 00 00 03 00 00  ....{...........
+  +070: 00 cc 85 1a 7b 00 00 00 00 cc 85 1a 7b 00 00 00  ....{.......{...
+  +080: 80 c9 85 1a 7b 00 00 00 00 cc 85 1a 7b 00 00 00  ....{.......{...
+  +090: c0 16 3d 20 7b 00 00 00 07 00 00 00 18 00 00 00  ..= {...........
+  +0a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0b0: 00 00 82 0c 00 00 00 00 ff ff 00 00 00 00 00 00  ................
+  +0c0: 80 c9 85 1a 7b 00 00 00 00 00 00 00 00 00 00 00  ....{...........
+  +0d0: 00 00 00 00 00 00 00 00 48 62 86 07 7c 00 00 00  ........Hb..|...
+  UStruct.Script @0x60: Data=0x7b1befeb00 Num=726 Max=768
+  ChildProperties (params+locals):
+    +0x0000 ObjectProperty         TribePawnBP                  elem=0x0
+    +0x0008 DelegateProperty       K2Node_CreateDelegate_OutputDelegate elem=0x0
+    +0x0018 ObjectProperty         CallFunc_GetGameState_ReturnValue elem=0x0
+    +0x0020 ObjectProperty         K2Node_DynamicCast_AsTribe_Game_State_BP elem=0x0
+    +0x0028 BoolProperty           K2Node_DynamicCast_bSuccess  elem=0x0
+    +0x0030 TextProperty           CallFunc_MakeLiteralText_ReturnValue elem=0x0
+    +0x0040 TextProperty           CallFunc_MakeLiteralText_ReturnValue elem=0x0
+    +0x0050 BoolProperty           CallFunc_IsValidReadyPlayerMeAvatarID_ReturnValue elem=0x0
+    +0x0054 DelegateProperty       K2Node_CreateDelegate_OutputDelegate elem=0x0
+  FunctionFlags=0x0c820000 NumParms=0 ParmsSize=0x0 native=no Func=0x7c07866248 Func_rva=0x1858248 (ghidra=0x1958248)
+  Script bytecode[0..cap] @0x7b1befeb00:
+  +000: 5f 00 00 cb 85 1a 7b 00 00 00 68 c0 a6 95 60 7b  _.....{...h...`{
+  +010: 00 00 00 17 16 0f 00 00 00 00 00 00 00 00 00 80  ................
+  +020: ca 85 1a 7b 00 00 00 2e d0 cc ff 1a 7b 00 00 00  ...{........{...
+  +030: 00 00 cb 85 1a 7b 00 00 00 0f 00 00 00 00 00 00  .....{..........
+  +040: 00 00 00 00 ca 85 1a 7b 00 00 00 38 01 00 80 ca  .......{...8....
+  +050: 85 1a 7b 00 00 00 5f 00 00 cc 85 1a 7b 00 00 00  ..{..._.....{...
+  +060: 19 00 80 ca 85 1a 7b 00 00 00 09 00 00 00 00 a4  ......{.........
+  +070: 2e 1a 7b 00 00 00 01 00 a4 2e 1a 7b 00 00 00 14  ..{........{....
+  +080: 00 80 c8 85 1a 7b 00 00 00 68 60 fd c3 60 7b 00  .....{...h`..`{.
+  +090: 00 00 01 00 66 0a 1b 7b 00 00 00 16 07 42 02 00  ....f..{.....B..
+  +0a0: 00 00 80 c8 85 1a 7b 00 00 00 0f 80 c9 85 1a 7b  ......{........{
+  +0b0: 00 00 00 00 80 c9 85 1a 7b 00 00 00 68 60 94 cc  ........{...h`..
+  +0c0: 7a 7b 00 00 00 29 01 1f 4c 6f 61 64 69 6e 67 20  z{...)..Loading 
+  +0d0: 61 76 61 74 61 72 2e 2e 2e 00 1f 32 37 34 38 39  avatar.....27489
+  +0e0: 43 34 32 34 44 35 42 41 35 34 46 41 31 43 46 41  C424D5BA54FA1CFA
+  +0f0: 33 39 36 30 37 43 45 34 46 37 46 00 1f 00 16 19  39607CE4F7F.....
+  +100: 01 80 6a 0a 1b 7b 00 00 00 17 00 00 00 00 00 00  ..j..{..........
+  +110: 00 00 00 00 00 1b bf ce 01 00 00 00 00 00 00 00  ................
+  +120: 00 00 00 80 c9 85 1a 7b 00 00 00 16 61 29 5d 17  .......{....a)].
+  +130: 00 00 00 00 00 00 00 00 00 00 00 c8 85 1a 7b 00  ..............{.
+  +140: 00 00 17 5c 19 19 00 00 cc 85 1a 7b 00 00 00 09  ...\.......{....
+  +150: 00 00 00 00 ae 4f 1a 7b 00 00 00 01 00 ae 4f 1a  .....O.{......O.
+  +160: 7b 00 00 00 09 00 00 00 80 76 c2 60 7b 00 00 00  {........v.`{...
+  +170: 01 80 76 c2 60 7b 00 00 00 00 00 c8 85 1a 7b 00  ..v.`{........{.
+  +180: 00 00 61 5e 19 1a 00 00 00 00 00 00 00 00 00 00  ..a^............
+  +190: 80 cb 85 1a 7b 00 00 00 17 5c 19 19 00 00 cc 85  ....{....\......
+  +1a0: 1a 7b 00 00 00 09 00 00 00 00 ae 4f 1a 7b 00 00  .{.........O.{..
+  +1b0: 00 01 00 ae 4f 1a 7b 00 00 00 09 00 00 00 00 77  ....O.{........w
+  +1c0: c2 60 7b 00 00 00 01 00 77 c2 60 7b 00 00 00 00  .`{.....w.`{....
+  +1d0: 80 cb 85 1a 7b 00 00 00 68 c0 1a c6 60 7b 00 00  ....{...h...`{..
+  +1e0: 00 1f 54 72 69 62 65 41 76 61 74 61 72 00 1f 52  ..TribeAvatar..R
+  +1f0: 65 61 64 79 50 6c 61 79 65 72 4d 65 41 76 61 74  eadyPlayerMeAvat
+  +200: 61 72 55 72 6c 00 01 00 66 0a 1b 7b 00 00 00 16  arUrl...f..{....
+  +210: 19 00 00 cc 85 1a 7b 00 00 00 17 00 00 00 00 00  ......{.........
+  +220: 00 00 00 00 00 00 45 42 76 17 00 00 00 00 00 00  ......EBv.......
+  +230: 00 00 00 01 00 66 0a 1b 7b 00 00 00 16 06 d3 02  .....f..{.......
+  +240: 00 00 0f 00 c9 85 1a 7b 00 00 00 00 00 c9 85 1a  .......{........
+  +250: 7b 00 00 00 68 60 94 cc 7a 7b 00 00 00 29 01 1f  {...h`..z{...)..
+  +260: 45 72 72 6f 72 3a 20 49 6e 76 61 6c 69 64 20 52  Error: Invalid R
+  +270: 65 61 64 79 50 6c 61 79 65 72 4d 65 20 55 52 4c  eadyPlayerMe URL
+  +280: 00 1f 39 35 43 30 30 30 46 34 34 34 31 44 35 46  ..95C000F4441D5F
+  +290: 30 32 33 44 41 46 33 46 41 30 31 44 43 30 32 43  023DAF3FA01DC02C
+  +2a0: 36 32 00 1f 00 16 19 01 80 6a 0a 1b 7b 00 00 00  62.......j..{...
+  +2b0: 17 00 00 00 00 00 00 00 00 00 00 00 1b bf ce 01  ................
+  +2c0: 00 00 00 00 00 00 00 00 00 00 00 c9 85 1a 7b 00  ..............{.
+  +2d0: 00 00 16 04 0b 53  .....S
+  --- bytecode pointer refs (property/function/object) ---
+    @  2  FField  ObjectProperty         CallFunc_GetGameState_ReturnValue
+    @ 11  UObj    Function               GetGameState
+    @ 31  FField  ObjectProperty         K2Node_DynamicCast_AsTribe_Game_State_BP
+    @ 40  UObj    BlueprintGeneratedClass TribeGameStateBP_C
+    @ 49  FField  ObjectProperty         CallFunc_GetGameState_ReturnValue
+    @ 67  FField  BoolProperty           K2Node_DynamicCast_bSuccess
+    @ 78  FField  ObjectProperty         K2Node_DynamicCast_AsTribe_Game_State_BP
+    @ 88  FField  ObjectProperty         TribePawnBP
+    @ 98  FField  ObjectProperty         K2Node_DynamicCast_AsTribe_Game_State_BP
+    @110  FField  ObjectProperty         LocalPawn
+    @119  FField  ObjectProperty         LocalPawn
+    @129  FField  BoolProperty           CallFunc_IsValidReadyPlayerMeAvatarID_ReturnValue
+    @138  UObj    Function               IsValidReadyPlayerMeAvatarID
+    @147  FField  StrProperty            AvatarUrl
+    @162  FField  BoolProperty           CallFunc_IsValidReadyPlayerMeAvatarID_ReturnValue
+    @171  FField  TextProperty           CallFunc_MakeLiteralText_ReturnValue
+    @180  FField  TextProperty           CallFunc_MakeLiteralText_ReturnValue
+    @189  UObj    Function               MakeLiteralText
+    @257  FField  ObjectProperty         MessageText
+    @291  FField  TextProperty           CallFunc_MakeLiteralText_ReturnValue
+    @314  FField  DelegateProperty       K2Node_CreateDelegate_OutputDelegate
+    @327  FField  ObjectProperty         TribePawnBP
+    @339  FField  ObjectProperty         TribeAvatar
+    @348  FField  ObjectProperty         TribeAvatar
+    @360  FField  MulticastInlineDelegateProperty OnAvatarLoaded
+    @369  FField  MulticastInlineDelegateProperty OnAvatarLoaded
+    @378  FField  DelegateProperty       K2Node_CreateDelegate_OutputDelegate
+    @400  FField  DelegateProperty       K2Node_CreateDelegate_OutputDelegate
+    @413  FField  ObjectProperty         TribePawnBP
+    @425  FField  ObjectProperty         TribeAvatar
+    @434  FField  ObjectProperty         TribeAvatar
+    @446  FField  MulticastInlineDelegateProperty OnAvatarCached
+    @455  FField  MulticastInlineDelegateProperty OnAvatarCached
+    @464  FField  DelegateProperty       K2Node_CreateDelegate_OutputDelegate
+    @473  UObj    Function               WriteConfigString
+    @519  FField  StrProperty            AvatarUrl
+    @530  FField  ObjectProperty         TribePawnBP
+    @564  FField  StrProperty            AvatarUrl
+    @579  FField  TextProperty           CallFunc_MakeLiteralText_ReturnValue
+    @588  FField  TextProperty           CallFunc_MakeLiteralText_ReturnValue
+    @597  UObj    Function               MakeLiteralText
+    @680  FField  ObjectProperty         MessageText
+    @714  FField  TextProperty           CallFunc_MakeLiteralText_ReturnValue
+  --- bytecode by-name calls (EX_[Local]VirtualFunction) ---
+    @150  Virtual      FName=0x0000007b  icastDelegateProperty??LazyObjectProperty?SoftObjectPropertylInt64Property?VInt32Property?HInt16Property?*Int8Property?U
+    @260  Virtual      FName=0x0000007b  icastDelegateProperty??LazyObjectProperty?SoftObjectPropertylInt64Property?VInt32Property?HInt16Property?*Int8Property?U
+    @277  Virtual      FName=0x0001cebf  SetText
+    @522  Virtual      FName=0x0000007b  icastDelegateProperty??LazyObjectProperty?SoftObjectPropertylInt64Property?VInt32Property?HInt16Property?*Int8Property?U
+    @550  LocalVirtual FName=0x00177642  SetAvatarID
+    @567  Virtual      FName=0x0000007b  icastDelegateProperty??LazyObjectProperty?SoftObjectPropertylInt64Property?VInt32Property?HInt16Property?*Int8Property?U
+    @683  Virtual      FName=0x0000007b  icastDelegateProperty??LazyObjectProperty?SoftObjectPropertylInt64Property?VInt32Property?HInt16Property?*Int8Property?U
+    @700  Virtual      FName=0x0001cebf  SetText
+
+==== UFunction /Game/Menus/W_RPMAvatarCreator.W_RPMAvatarCreator_C.HandleAvatarLoaded  (0x7b2102a180) ====
+  raw[0..0xE0] @0x7b2102a180:
+  +000: 28 9d d4 0c 7c 00 00 00 01 00 28 00 d3 74 00 00  (...|.....(..t..
+  +010: 80 c6 81 f5 7b 00 00 00 29 5d 17 00 00 00 00 00  ....{...)]......
+  +020: 30 0e aa 22 7b 00 00 00 60 a2 02 21 7b 00 00 00  0.."{...`..!{...
+  +030: 50 ed bb 1c 7b 00 00 00 00 00 00 00 00 00 00 00  P...{...........
+  +040: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +050: 00 d0 85 1a 7b 00 00 00 30 00 00 00 08 00 00 00  ....{...0.......
+  +060: 20 56 ef 1a 7b 00 00 00 1d 01 00 00 20 01 00 00   V..{....... ...
+  +070: 00 d0 85 1a 7b 00 00 00 00 d0 85 1a 7b 00 00 00  ....{.......{...
+  +080: 80 cf 85 1a 7b 00 00 00 00 d0 85 1a 7b 00 00 00  ....{.......{...
+  +090: a0 9d 0a 1f 7b 00 00 00 04 00 00 00 04 00 00 00  ....{...........
+  +0a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0b0: 00 00 02 0c 01 00 08 00 ff ff 00 00 00 00 00 00  ................
+  +0c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0d0: 00 00 00 00 00 00 00 00 48 62 86 07 7c 00 00 00  ........Hb..|...
+  UStruct.Script @0x60: Data=0x7b1aef5620 Num=285 Max=288
+  ChildProperties (params+locals):
+    +0x0000 ObjectProperty         AvatarComponent              elem=0x0
+    +0x0008 StrProperty            CachedAvatarFilename         elem=0x0
+    +0x0018 ObjectProperty         CallFunc_InitMyRPMAvatarSkin_AvatarSkin elem=0x0
+    +0x0020 DelegateProperty       K2Node_CreateDelegate_OutputDelegate elem=0x0
+  FunctionFlags=0x0c020000 NumParms=1 ParmsSize=0x8 native=no Func=0x7c07866248 Func_rva=0x1858248 (ghidra=0x1958248)
+  Script bytecode[0..cap] @0x7b1aef5620:
+  +000: 61 29 5d 17 00 00 00 00 00 00 00 00 00 00 80 ce  a)].............
+  +010: 85 1a 7b 00 00 00 17 62 19 00 00 d0 85 1a 7b 00  ..{....b......{.
+  +020: 00 00 09 00 00 00 80 76 c2 60 7b 00 00 00 01 80  .......v.`{.....
+  +030: 76 c2 60 7b 00 00 00 00 80 ce 85 1a 7b 00 00 00  v.`{........{...
+  +040: 19 01 80 6a 0a 1b 7b 00 00 00 4e 00 00 00 00 00  ...j..{...N.....
+  +050: 00 00 00 00 00 00 1b bf ce 01 00 00 00 00 00 00  ................
+  +060: 00 00 00 29 01 1f 41 76 61 74 61 72 20 4c 6f 61  ...)..Avatar Loa
+  +070: 64 65 64 20 61 6e 64 20 53 61 76 65 64 21 00 1f  ded and Saved!..
+  +080: 33 37 43 38 30 33 31 30 34 46 34 30 32 46 36 30  37C803104F402F60
+  +090: 45 38 38 36 33 35 38 33 36 33 42 39 35 45 41 46  E886358363B95EAF
+  +0a0: 00 1f 00 16 19 01 00 65 0a 1b 7b 00 00 00 17 00  .......e..{.....
+  +0b0: 00 00 00 00 00 00 00 00 00 00 45 90 3f 17 00 00  ..........E.?...
+  +0c0: 00 00 00 00 00 00 00 00 00 cf 85 1a 7b 00 00 00  ............{...
+  +0d0: 16 63 c0 9f 02 21 7b 00 00 00 01 80 65 0a 1b 7b  .c...!{.....e..{
+  +0e0: 00 00 00 00 00 cf 85 1a 7b 00 00 00 16 19 01 00  ........{.......
+  +0f0: 65 0a 1b 7b 00 00 00 17 00 00 00 00 00 00 00 00  e..{............
+  +100: 00 00 00 45 d5 37 17 00 00 00 00 00 00 00 00 00  ...E.7..........
+  +110: 00 00 cf 85 1a 7b 00 00 00 16 04 0b 53  .....{......S
+  --- bytecode pointer refs (property/function/object) ---
+    @ 14  FField  DelegateProperty       K2Node_CreateDelegate_OutputDelegate
+    @ 26  FField  ObjectProperty         AvatarComponent
+    @ 38  FField  MulticastInlineDelegateProperty OnAvatarLoaded
+    @ 47  FField  MulticastInlineDelegateProperty OnAvatarLoaded
+    @ 56  FField  DelegateProperty       K2Node_CreateDelegate_OutputDelegate
+    @ 66  FField  ObjectProperty         MessageText
+    @166  FField  ObjectProperty         VisualsManager
+    @200  FField  ObjectProperty         CallFunc_InitMyRPMAvatarSkin_AvatarSkin
+    @210  UObj    Function               OnAvatarSkinLoaded__DelegateSignature
+    @219  FField  MulticastInlineDelegateProperty OnAvatarSkinLoaded
+    @228  FField  ObjectProperty         CallFunc_InitMyRPMAvatarSkin_AvatarSkin
+    @239  FField  ObjectProperty         VisualsManager
+    @273  FField  ObjectProperty         CallFunc_InitMyRPMAvatarSkin_AvatarSkin
+  --- bytecode by-name calls (EX_[Local]VirtualFunction) ---
+    @ 69  Virtual      FName=0x0000007b  icastDelegateProperty??LazyObjectProperty?SoftObjectPropertylInt64Property?VInt32Property?HInt16Property?*Int8Property?U
+    @ 86  Virtual      FName=0x0001cebf  SetText
+    @169  Virtual      FName=0x0000007b  icastDelegateProperty??LazyObjectProperty?SoftObjectPropertylInt64Property?VInt32Property?HInt16Property?*Int8Property?U
+    @186  LocalVirtual FName=0x00173f90  InitMyRPMAvatarSkin
+    @222  Virtual      FName=0x0000007b  icastDelegateProperty??LazyObjectProperty?SoftObjectPropertylInt64Property?VInt32Property?HInt16Property?*Int8Property?U
+    @242  Virtual      FName=0x0000007b  icastDelegateProperty??LazyObjectProperty?SoftObjectPropertylInt64Property?VInt32Property?HInt16Property?*Int8Property?U
+    @259  LocalVirtual FName=0x001737d5  ApplySkinToPlayer
+
+==== UFunction /Game/Menus/W_RPMAvatarCreator.W_RPMAvatarCreator_C.HandleAvatarCached  (0x7b2102a260) ====
+  raw[0..0xE0] @0x7b2102a260:
+  +000: 28 9d d4 0c 7c 00 00 00 01 00 28 00 d2 74 00 00  (...|.....(..t..
+  +010: 80 c6 81 f5 7b 00 00 00 5e 19 1a 00 00 00 00 00  ....{...^.......
+  +020: 30 0e aa 22 7b 00 00 00 a0 a0 02 21 7b 00 00 00  0.."{......!{...
+  +030: 70 ed bb 1c 7b 00 00 00 00 00 00 00 00 00 00 00  p...{...........
+  +040: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +050: 80 d2 85 1a 7b 00 00 00 30 00 00 00 08 00 00 00  ....{...0.......
+  +060: 80 d0 85 1a 7b 00 00 00 72 00 00 00 80 00 00 00  ....{...r.......
+  +070: 80 d2 85 1a 7b 00 00 00 00 d1 85 1a 7b 00 00 00  ....{.......{...
+  +080: 80 d2 85 1a 7b 00 00 00 80 d2 85 1a 7b 00 00 00  ....{.......{...
+  +090: c0 9d 0a 1f 7b 00 00 00 04 00 00 00 04 00 00 00  ....{...........
+  +0a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0b0: 00 00 02 0c 02 00 20 00 ff ff 00 00 00 00 00 00  ...... .........
+  +0c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0d0: 00 00 00 00 00 00 00 00 48 62 86 07 7c 00 00 00  ........Hb..|...
+  UStruct.Script @0x60: Data=0x7b1a85d080 Num=114 Max=128
+  ChildProperties (params+locals):
+    +0x0000 StrProperty            CachedAvatarFilename         elem=0x0
+    +0x0010 StrProperty            OriginalFilename             elem=0x0
+    +0x0020 BoolProperty           CallFunc_IsValidReadyPlayerMeAvatarUrl_ReturnValue elem=0x0
+    +0x0028 ObjectProperty         CallFunc_AddOrUpdateCachedRPMAvatarSkin_UpdatedSkin elem=0x0
+  FunctionFlags=0x0c020000 NumParms=2 ParmsSize=0x20 native=no Func=0x7c07866248 Func_rva=0x1858248 (ghidra=0x1958248)
+  Script bytecode[0..cap] @0x7b1a85d080:
+  +000: 14 00 80 d1 85 1a 7b 00 00 00 68 80 fc c3 60 7b  ......{...h...`{
+  +010: 00 00 00 00 00 d2 85 1a 7b 00 00 00 16 07 30 00  ........{.....0.
+  +020: 00 00 00 80 d1 85 1a 7b 00 00 00 06 6f 00 00 00  .......{....o...
+  +030: 19 01 00 65 0a 1b 7b 00 00 00 29 00 00 00 00 00  ...e..{...).....
+  +040: 00 00 00 00 00 00 45 a7 37 17 00 00 00 00 00 00  ......E.7.......
+  +050: 00 00 00 00 00 d2 85 1a 7b 00 00 00 00 80 d2 85  ........{.......
+  +060: 1a 7b 00 00 00 00 00 d1 85 1a 7b 00 00 00 16 04  .{........{.....
+  +070: 0b 53  .S
+  --- bytecode pointer refs (property/function/object) ---
+    @  2  FField  BoolProperty           CallFunc_IsValidReadyPlayerMeAvatarUrl_ReturnValue
+    @ 11  UObj    Function               IsValidReadyPlayerMeAvatarUrl
+    @ 20  FField  StrProperty            OriginalFilename
+    @ 35  FField  BoolProperty           CallFunc_IsValidReadyPlayerMeAvatarUrl_ReturnValue
+    @ 50  FField  ObjectProperty         VisualsManager
+    @ 84  FField  StrProperty            OriginalFilename
+    @ 93  FField  StrProperty            CachedAvatarFilename
+    @102  FField  ObjectProperty         CallFunc_AddOrUpdateCachedRPMAvatarSkin_UpdatedSkin
+  --- bytecode by-name calls (EX_[Local]VirtualFunction) ---
+    @ 53  Virtual      FName=0x0000007b  icastDelegateProperty??LazyObjectProperty?SoftObjectPropertylInt64Property?VInt32Property?HInt16Property?*Int8Property?U
+    @ 70  LocalVirtual FName=0x001737a7  AddOrUpdateCachedRPMAvatarSkin
+
+==== UFunction /Game/Menus/W_RPMAvatarCreator.W_RPMAvatarCreator_C.GetRPMCustomSkin  (0x7b2102a340) ====
+  raw[0..0xE0] @0x7b2102a340:
+  +000: 28 9d d4 0c 7c 00 00 00 01 00 28 00 d1 74 00 00  (...|.....(..t..
+  +010: 80 c6 81 f5 7b 00 00 00 55 19 1a 00 00 00 00 00  ....{...U.......
+  +020: 30 0e aa 22 7b 00 00 00 40 9c 02 21 7b 00 00 00  0.."{...@..!{...
+  +030: 10 4e 59 21 7b 00 00 00 00 00 00 00 00 00 00 00  .NY!{...........
+  +040: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +050: 00 d5 85 1a 7b 00 00 00 21 00 00 00 08 00 00 00  ....{...!.......
+  +060: e0 02 86 1a 7b 00 00 00 9a 00 00 00 a0 00 00 00  ....{...........
+  +070: 00 d5 85 1a 7b 00 00 00 00 d5 85 1a 7b 00 00 00  ....{.......{...
+  +080: 00 00 00 00 00 00 00 00 00 d5 85 1a 7b 00 00 00  ............{...
+  +090: e0 9d 0a 1f 7b 00 00 00 04 00 00 00 04 00 00 00  ....{...........
+  +0a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0b0: 00 00 42 5c 01 00 08 00 ff ff 00 00 00 00 00 00  ..B\............
+  +0c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0d0: 00 00 00 00 00 00 00 00 48 62 86 07 7c 00 00 00  ........Hb..|...
+  UStruct.Script @0x60: Data=0x7b1a8602e0 Num=154 Max=160
+  ChildProperties (params+locals):
+    +0x0000 ObjectProperty         RPMCustomSkin                elem=0x0
+    +0x0008 BoolProperty           CallFunc_GetSkin_bSuccess    elem=0x0
+    +0x0010 ObjectProperty         CallFunc_GetSkin_Skin        elem=0x0
+    +0x0018 ObjectProperty         K2Node_DynamicCast_AsBP_Ready_Player_Me_Avatar_Skin elem=0x0
+    +0x0020 BoolProperty           K2Node_DynamicCast_bSuccess  elem=0x0
+  FunctionFlags=0x5c420000 NumParms=1 ParmsSize=0x8 native=no Func=0x7c07866248 Func_rva=0x1858248 (ghidra=0x1958248)
+  Script bytecode[0..cap] @0x7b1a8602e0:
+  +000: 19 01 00 65 0a 1b 7b 00 00 00 2d 00 00 00 00 00  ...e..{...-.....
+  +010: 00 00 00 00 00 00 45 67 34 17 00 00 00 00 00 00  ......Eg4.......
+  +020: 00 00 00 21 f0 42 17 00 00 00 00 00 00 00 00 00  ...!.B..........
+  +030: 00 80 d4 85 1a 7b 00 00 00 00 00 d4 85 1a 7b 00  .....{........{.
+  +040: 00 00 16 0f 00 00 00 00 00 00 00 00 00 80 d3 85  ................
+  +050: 1a 7b 00 00 00 2e 50 ad ff 1a 7b 00 00 00 00 00  .{....P...{.....
+  +060: d4 85 1a 7b 00 00 00 0f 00 00 00 00 00 00 00 00  ...{............
+  +070: 00 00 d3 85 1a 7b 00 00 00 38 01 00 80 d3 85 1a  .....{...8......
+  +080: 7b 00 00 00 5f 48 00 d5 85 1a 7b 00 00 00 00 80  {..._H....{.....
+  +090: d3 85 1a 7b 00 00 00 04 0b 53  ...{.....S
+  --- bytecode pointer refs (property/function/object) ---
+    @  2  FField  ObjectProperty         VisualsManager
+    @ 49  FField  BoolProperty           CallFunc_GetSkin_bSuccess
+    @ 58  FField  ObjectProperty         CallFunc_GetSkin_Skin
+    @ 77  FField  ObjectProperty         K2Node_DynamicCast_AsBP_Ready_Player_Me_Avatar_Skin
+    @ 86  UObj    BlueprintGeneratedClass BP_ReadyPlayerMeAvatarSkin_C
+    @ 95  FField  ObjectProperty         CallFunc_GetSkin_Skin
+    @113  FField  BoolProperty           K2Node_DynamicCast_bSuccess
+    @124  FField  ObjectProperty         K2Node_DynamicCast_AsBP_Ready_Player_Me_Avatar_Skin
+    @134  FField  ObjectProperty         RPMCustomSkin
+    @143  FField  ObjectProperty         K2Node_DynamicCast_AsBP_Ready_Player_Me_Avatar_Skin
+  --- bytecode by-name calls (EX_[Local]VirtualFunction) ---
+    @  5  Virtual      FName=0x0000007b  icastDelegateProperty??LazyObjectProperty?SoftObjectPropertylInt64Property?VInt32Property?HInt16Property?*Int8Property?U
+    @ 22  LocalVirtual FName=0x00173467  GetSkin
+
+==== UFunction /Game/Menus/W_RPMAvatarCreator.W_RPMAvatarCreator_C.ClearAvatarUrl  (0x7b2102a6c0) ====
+  raw[0..0xE0] @0x7b2102a6c0:
+  +000: 28 9d d4 0c 7c 00 00 00 01 00 28 00 ce 74 00 00  (...|.....(..t..
+  +010: 80 c6 81 f5 7b 00 00 00 e1 07 1a 00 00 00 00 00  ....{...........
+  +020: 30 0e aa 22 7b 00 00 00 20 9d 02 21 7b 00 00 00  0.."{... ..!{...
+  +030: 50 bd 33 23 7b 00 00 00 00 00 00 00 00 00 00 00  P.3#{...........
+  +040: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +050: 00 00 00 00 00 00 00 00 00 00 00 00 01 00 00 00  ................
+  +060: 10 a5 10 22 7b 00 00 00 29 00 00 00 30 00 00 00  ..."{...)...0...
+  +070: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +080: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +090: 40 c5 40 1a 7b 00 00 00 01 00 00 00 04 00 00 00  @.@.{...........
+  +0a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0b0: 00 00 02 0c 00 00 00 00 ff ff 00 00 00 00 00 00  ................
+  +0c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0d0: 00 00 00 00 00 00 00 00 48 62 86 07 7c 00 00 00  ........Hb..|...
+  UStruct.Script @0x60: Data=0x7b2210a510 Num=41 Max=48
+  ChildProperties (params+locals):
+  FunctionFlags=0x0c020000 NumParms=0 ParmsSize=0x0 native=no Func=0x7c07866248 Func_rva=0x1858248 (ghidra=0x1958248)
+  Script bytecode[0..cap] @0x7b2210a510:
+  +000: 19 01 80 6a 0a 1b 7b 00 00 00 10 00 00 00 00 00  ...j..{.........
+  +010: 00 00 00 00 00 00 1b bf ce 01 00 00 00 00 00 00  ................
+  +020: 00 00 00 29 00 16 04 0b 53  ...)....S
+  --- bytecode pointer refs (property/function/object) ---
+    @  2  FField  ObjectProperty         MessageText
+  --- bytecode by-name calls (EX_[Local]VirtualFunction) ---
+    @  5  Virtual      FName=0x0000007b  icastDelegateProperty??LazyObjectProperty?SoftObjectPropertylInt64Property?VInt32Property?HInt16Property?*Int8Property?U
+    @ 22  Virtual      FName=0x0001cebf  SetText
+
+==== UFunction /Game/Menus/W_RPMAvatarCreator.W_RPMAvatarCreator_C.ExecuteUbergraph_W_RPMAvatarCreator  (0x7b2102a420) ====
+  raw[0..0xE0] @0x7b2102a420:
+  +000: 28 9d d4 0c 7c 00 00 00 01 00 28 00 d0 74 00 00  (...|.....(..t..
+  +010: 80 c6 81 f5 7b 00 00 00 42 19 1a 00 00 00 00 00  ....{...B.......
+  +020: 30 0e aa 22 7b 00 00 00 c0 9f 02 21 7b 00 00 00  0.."{......!{...
+  +030: 40 a2 2c 1a 7b 00 00 00 00 00 00 00 00 00 00 00  @.,.{...........
+  +040: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +050: 80 73 43 1a 7b 00 00 00 f9 00 00 00 08 00 00 00  .sC.{...........
+  +060: 00 18 9b 22 7b 00 00 00 f1 01 00 00 00 02 00 00  ..."{...........
+  +070: 80 73 43 1a 7b 00 00 00 80 71 43 1a 7b 00 00 00  .sC.{....qC.{...
+  +080: 00 00 00 00 00 00 00 00 80 73 43 1a 7b 00 00 00  .........sC.{...
+  +090: 00 0d 5d 1a 7b 00 00 00 0b 00 00 00 18 00 00 00  ..].{...........
+  +0a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0b0: 01 80 80 00 01 00 04 00 ff ff 00 00 00 00 00 00  ................
+  +0c0: 00 73 43 1a 7b 00 00 00 00 00 00 00 00 00 00 00  .sC.{...........
+  +0d0: 00 00 00 00 00 00 00 00 48 62 86 07 7c 00 00 00  ........Hb..|...
+  UStruct.Script @0x60: Data=0x7b229b1800 Num=497 Max=512
+  ChildProperties (params+locals):
+    +0x0000 IntProperty            EntryPoint                   elem=0x0
+    +0x0004 StructProperty         CallFunc_GetDataTableRowFromName_OutRow elem=0x0
+    +0x00e4 BoolProperty           CallFunc_GetDataTableRowFromName_ReturnValue elem=0x0
+    +0x00e5 BoolProperty           K2Node_Event_IsDesignTime    elem=0x0
+    +0x00e8 ObjectProperty         CallFunc_GetGameState_ReturnValue elem=0x0
+    +0x00f0 ObjectProperty         K2Node_DynamicCast_AsTribe_Game_State_BP elem=0x0
+    +0x00f8 BoolProperty           K2Node_DynamicCast_bSuccess  elem=0x0
+  FunctionFlags=0x00808001 NumParms=1 ParmsSize=0x4 native=no Func=0x7c07866248 Func_rva=0x1858248 (ghidra=0x1958248)
+  Script bytecode[0..cap] @0x7b229b1800:
+  +000: 4e 00 80 73 43 1a 7b 00 00 00 68 c0 fa c3 60 7b  N..sC.{...h...`{
+  +010: 00 00 00 1f 68 74 74 70 73 3a 2f 2f 74 72 69 62  ....https://trib
+  +020: 65 78 72 2e 72 65 61 64 79 70 6c 61 79 65 72 2e  exr.readyplayer.
+  +030: 6d 65 00 16 06 ee 01 00 00 14 00 80 72 43 1a 7b  me..........rC.{
+  +040: 00 00 00 19 20 10 ea 24 71 7b 00 00 00 29 00 00  .... ..$q{...)..
+  +050: 00 80 72 43 1a 7b 00 00 00 1c a0 3e 92 60 7b 00  ..rC.{.....>.`{.
+  +060: 00 00 20 40 0c c8 7a 7b 00 00 00 21 d2 02 00 00  .. @..z{...!....
+  +070: 00 00 00 00 00 00 00 00 00 00 73 43 1a 7b 00 00  ..........sC.{..
+  +080: 00 16 07 ee 01 00 00 00 80 72 43 1a 7b 00 00 00  .........rC.{...
+  +090: 19 20 20 44 2b 1a 7b 00 00 00 21 00 00 00 00 00  .  D+.{...!.....
+  +0a0: 00 00 00 00 00 00 45 1f 36 17 00 00 00 00 00 00  ......E.6.......
+  +0b0: 00 00 00 00 00 73 43 1a 7b 00 00 00 01 00 68 0a  .....sC.{.....h.
+  +0c0: 1b 7b 00 00 00 17 16 19 20 20 44 2b 1a 7b 00 00  .{......  D+.{..
+  +0d0: 00 21 00 00 00 00 00 00 00 00 00 00 00 45 1f 36  .!...........E.6
+  +0e0: 17 00 00 00 00 00 00 00 00 00 00 00 73 43 1a 7b  ............sC.{
+  +0f0: 00 00 00 01 80 67 0a 1b 7b 00 00 00 17 16 19 20  .....g..{...... 
+  +100: 20 44 2b 1a 7b 00 00 00 21 00 00 00 00 00 00 00   D+.{...!.......
+  +110: 00 00 00 00 45 85 29 17 00 00 00 00 00 00 00 00  ....E.).........
+  +120: 00 00 00 73 43 1a 7b 00 00 00 01 80 69 0a 1b 7b  ...sC.{.....i..{
+  +130: 00 00 00 17 16 06 ee 01 00 00 06 39 00 00 00 06  ...........9....
+  +140: 0a 00 00 00 45 94 19 1a 00 00 00 00 00 00 00 00  ....E...........
+  +150: 00 16 06 ee 01 00 00 63 e0 9e 02 21 7b 00 00 00  .......c...!{...
+  +160: 01 80 66 0a 1b 7b 00 00 00 16 06 ee 01 00 00 5f  ..f..{........._
+  +170: 00 80 71 43 1a 7b 00 00 00 68 c0 a6 95 60 7b 00  ..qC.{...h...`{.
+  +180: 00 00 17 16 0f 00 00 00 00 00 00 00 00 00 00 71  ...............q
+  +190: 43 1a 7b 00 00 00 2e d0 cc ff 1a 7b 00 00 00 00  C.{........{....
+  +1a0: 80 71 43 1a 7b 00 00 00 0f 00 00 00 00 00 00 00  .qC.{...........
+  +1b0: 00 00 80 70 43 1a 7b 00 00 00 38 01 00 00 71 43  ...pC.{...8...qC
+  +1c0: 1a 7b 00 00 00 5f 01 00 65 0a 1b 7b 00 00 00 19  .{..._..e..{....
+  +1d0: 00 00 71 43 1a 7b 00 00 00 09 00 00 00 00 87 2e  ..qC.{..........
+  +1e0: 1a 7b 00 00 00 01 00 87 2e 1a 7b 00 00 00 04 0b  .{........{.....
+  +1f0: 53  S
+  --- bytecode pointer refs (property/function/object) ---
+    @  2  FField  IntProperty            EntryPoint
+    @ 11  UObj    Function               LaunchBrowserURL
+    @ 59  FField  BoolProperty           CallFunc_GetDataTableRowFromName_ReturnValue
+    @ 69  UObj    DataTableFunctionLibrary Default__DataTableFunctionLibrary
+    @ 81  FField  BoolProperty           CallFunc_GetDataTableRowFromName_ReturnValue
+    @ 90  UObj    Function               GetDataTableRowFromName
+    @ 99  UObj    DataTable              DT_MenuThemes
+    @121  FField  StructProperty         CallFunc_GetDataTableRowFromName_OutRow
+    @136  FField  BoolProperty           CallFunc_GetDataTableRowFromName_ReturnValue
+    @146  UObj    BP_MenusFunctionLibrary_C Default__BP_MenusFunctionLibrary_C
+    @180  FField  StructProperty         CallFunc_GetDataTableRowFromName_OutRow
+    @189  FField  ObjectProperty         RPMLaunchWebButton
+    @201  UObj    BP_MenusFunctionLibrary_C Default__BP_MenusFunctionLibrary_C
+    @235  FField  StructProperty         CallFunc_GetDataTableRowFromName_OutRow
+    @244  FField  ObjectProperty         RPMPasteButton
+    @256  UObj    BP_MenusFunctionLibrary_C Default__BP_MenusFunctionLibrary_C
+    @290  FField  StructProperty         CallFunc_GetDataTableRowFromName_OutRow
+    @299  FField  ObjectProperty         RPMBackButton
+    @344  UObj    Function               OnGoBack__DelegateSignature
+    @353  FField  MulticastInlineDelegateProperty OnGoBack
+    @369  FField  ObjectProperty         CallFunc_GetGameState_ReturnValue
+    @378  UObj    Function               GetGameState
+    @398  FField  ObjectProperty         K2Node_DynamicCast_AsTribe_Game_State_BP
+    @407  UObj    BlueprintGeneratedClass TribeGameStateBP_C
+    @416  FField  ObjectProperty         CallFunc_GetGameState_ReturnValue
+    @434  FField  BoolProperty           K2Node_DynamicCast_bSuccess
+    @445  FField  ObjectProperty         K2Node_DynamicCast_AsTribe_Game_State_BP
+    @455  FField  ObjectProperty         VisualsManager
+    @465  FField  ObjectProperty         K2Node_DynamicCast_AsTribe_Game_State_BP
+    @477  FField  ObjectProperty         VisualsManager
+    @486  FField  ObjectProperty         VisualsManager
+  --- bytecode by-name calls (EX_[Local]VirtualFunction) ---
+    @166  LocalVirtual FName=0x0017361f  SetThemeButtonStyle2
+    @192  Virtual      FName=0x0000007b  icastDelegateProperty??LazyObjectProperty?SoftObjectPropertylInt64Property?VInt32Property?HInt16Property?*Int8Property?U
+    @221  LocalVirtual FName=0x0017361f  SetThemeButtonStyle2
+    @247  Virtual      FName=0x0000007b  icastDelegateProperty??LazyObjectProperty?SoftObjectPropertylInt64Property?VInt32Property?HInt16Property?*Int8Property?U
+    @276  LocalVirtual FName=0x00172985  SetThemeButtonStyle1
+    @302  Virtual      FName=0x0000007b  icastDelegateProperty??LazyObjectProperty?SoftObjectPropertylInt64Property?VInt32Property?HInt16Property?*Int8Property?U
+    @324  LocalVirtual FName=0x001a1994  PasteAvatarUrl
+    @356  Virtual      FName=0x0000007b  icastDelegateProperty??LazyObjectProperty?SoftObjectPropertylInt64Property?VInt32Property?HInt16Property?*Int8Property?U
+    @458  Virtual      FName=0x0000007b  icastDelegateProperty??LazyObjectProperty?SoftObjectPropertylInt64Property?VInt32Property?HInt16Property?*Int8Property?U
+
+==== UFunction /Script/TribeXR.TribeBlueprintLibrary.ReadConfigString  (0x7b60c3f4a0) ====
+  raw[0..0xE0] @0x7b60c3f4a0:
+  +000: 28 9d d4 0c 7c 00 00 00 41 00 00 00 e3 4a 00 00  (...|...A....J..
+  +010: 80 c6 81 f5 7b 00 00 00 67 69 05 00 00 00 00 00  ....{...gi......
+  +020: 80 a3 fc d9 7b 00 00 00 80 f5 c3 60 7b 00 00 00  ....{......`{...
+  +030: 30 4a b7 60 7b 00 00 00 00 00 00 00 00 00 00 00  0J.`{...........
+  +040: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +050: 80 5b c5 60 7b 00 00 00 38 00 00 00 01 00 00 00  .[.`{...8.......
+  +060: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +070: 80 5b c5 60 7b 00 00 00 00 00 00 00 00 00 00 00  .[.`{...........
+  +080: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +090: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0b0: 01 24 42 04 04 00 31 00 30 00 00 00 00 00 00 00  .$B...1.0.......
+  +0c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0d0: 00 00 00 00 00 00 00 00 b4 64 fb 0a 7c 00 00 00  .........d..|...
+  UStruct.Script @0x60: Data=0x0 Num=0 Max=0
+  ChildProperties (params+locals):
+    +0x0000 StrProperty            Section                      elem=0x0
+    +0x0010 StrProperty            Key                          elem=0x0
+    +0x0020 StrProperty            OutValue                     elem=0x0
+    +0x0030 BoolProperty           ReturnValue                  elem=0x0
+  FunctionFlags=0x04422401 NumParms=4 ParmsSize=0x31 native=YES Func=0x7c0afb64b4 Func_rva=0x4fa84b4 (ghidra=0x50a84b4)
+
+==== UFunction /Script/TribeXR.TribeBlueprintLibrary.WriteConfigString  (0x7b60c61ac0) ====
+  raw[0..0xE0] @0x7b60c61ac0:
+  +000: 28 9d d4 0c 7c 00 00 00 41 00 00 00 f5 4a 00 00  (...|...A....J..
+  +010: 80 c6 81 f5 7b 00 00 00 52 6a 05 00 00 00 00 00  ....{...Rj......
+  +020: 80 a3 fc d9 7b 00 00 00 a0 1b c6 60 7b 00 00 00  ....{......`{...
+  +030: 10 49 b7 60 7b 00 00 00 00 00 00 00 00 00 00 00  .I.`{...........
+  +040: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +050: 00 69 c5 60 7b 00 00 00 30 00 00 00 01 00 00 00  .i.`{...0.......
+  +060: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +070: 00 69 c5 60 7b 00 00 00 00 00 00 00 00 00 00 00  .i.`{...........
+  +080: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +090: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0b0: 01 24 02 04 03 00 30 00 ff ff 00 00 00 00 00 00  .$....0.........
+  +0c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0d0: 00 00 00 00 00 00 00 00 c8 7a fb 0a 7c 00 00 00  .........z..|...
+  UStruct.Script @0x60: Data=0x0 Num=0 Max=0
+  ChildProperties (params+locals):
+    +0x0000 StrProperty            Section                      elem=0x0
+    +0x0010 StrProperty            Key                          elem=0x0
+    +0x0020 StrProperty            Value                        elem=0x0
+  FunctionFlags=0x04022401 NumParms=3 ParmsSize=0x30 native=YES Func=0x7c0afb7ac8 Func_rva=0x4fa9ac8 (ghidra=0x50a9ac8)
+
+==== UFunction /Script/TribeXR.TribeBlueprintLibrary.ForceSaveConfig  (0x7b60c3dfa0) ====
+  raw[0..0xE0] @0x7b60c3dfa0:
+  +000: 28 9d d4 0c 7c 00 00 00 41 00 00 00 be 4a 00 00  (...|...A....J..
+  +010: 80 c6 81 f5 7b 00 00 00 f2 67 05 00 00 00 00 00  ....{....g......
+  +020: 80 a3 fc d9 7b 00 00 00 80 e0 c3 60 7b 00 00 00  ....{......`{...
+  +030: 40 44 b7 60 7b 00 00 00 00 00 00 00 00 00 00 00  @D.`{...........
+  +040: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +050: 00 00 00 00 00 00 00 00 00 00 00 00 01 00 00 00  ................
+  +060: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +070: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +080: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +090: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0b0: 01 24 02 04 00 00 00 00 ff ff 00 00 00 00 00 00  .$..............
+  +0c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0d0: 00 00 00 00 00 00 00 00 74 45 fb 0a 7c 00 00 00  ........tE..|...
+  UStruct.Script @0x60: Data=0x0 Num=0 Max=0
+  ChildProperties (params+locals):
+  FunctionFlags=0x04022401 NumParms=0 ParmsSize=0x0 native=YES Func=0x7c0afb4574 Func_rva=0x4fa6574 (ghidra=0x50a6574)
+
+==== UFunction /Script/TribeXR.TribeBlueprintLibrary.IsValidReadyPlayerMeAvatarUrl  (0x7b60c3fc80) ====
+  raw[0..0xE0] @0x7b60c3fc80:
+  +000: 28 9d d4 0c 7c 00 00 00 41 00 00 00 da 4a 00 00  (...|...A....J..
+  +010: 80 c6 81 f5 7b 00 00 00 15 69 05 00 00 00 00 00  ....{....i......
+  +020: 80 a3 fc d9 7b 00 00 00 60 fd c3 60 7b 00 00 00  ....{...`..`{...
+  +030: a0 46 b7 60 7b 00 00 00 00 00 00 00 00 00 00 00  .F.`{...........
+  +040: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +050: 00 45 c5 60 7b 00 00 00 18 00 00 00 01 00 00 00  .E.`{...........
+  +060: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +070: 00 45 c5 60 7b 00 00 00 00 00 00 00 00 00 00 00  .E.`{...........
+  +080: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +090: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0b0: 01 24 02 14 02 00 11 00 10 00 00 00 00 00 00 00  .$..............
+  +0c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0d0: 00 00 00 00 00 00 00 00 dc 59 fb 0a 7c 00 00 00  .........Y..|...
+  UStruct.Script @0x60: Data=0x0 Num=0 Max=0
+  ChildProperties (params+locals):
+    +0x0000 StrProperty            AvatarId                     elem=0x0
+    +0x0010 BoolProperty           ReturnValue                  elem=0x0
+  FunctionFlags=0x14022401 NumParms=2 ParmsSize=0x11 native=YES Func=0x7c0afb59dc Func_rva=0x4fa79dc (ghidra=0x50a79dc)
+
+==== UFunction /Game/Pawn/TribePawnBP.TribePawnBP_C.SetAvatarSceneCaptureHidden  (0x7b1afa3ce0) ====
+  raw[0..0xE0] @0x7b1afa3ce0:
+  +000: 28 9d d4 0c 7c 00 00 00 01 00 28 00 d1 af 00 00  (...|.....(.....
+  +010: 80 c6 81 f5 7b 00 00 00 c0 61 05 00 00 00 00 00  ....{....a......
+  +020: f0 c4 ff 1a 7b 00 00 00 c0 3d 68 1a 7b 00 00 00  ....{....=h.{...
+  +030: e0 17 2c 1a 7b 00 00 00 00 00 00 00 00 00 00 00  ..,.{...........
+  +040: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +050: 80 b0 30 1a 7b 00 00 00 01 00 00 00 01 00 00 00  ..0.{...........
+  +060: 10 24 2b 1a 7b 00 00 00 24 00 00 00 30 00 00 00  .$+.{...$...0...
+  +070: 80 b0 30 1a 7b 00 00 00 00 00 00 00 00 00 00 00  ..0.{...........
+  +080: 00 00 00 00 00 00 00 00 80 b0 30 1a 7b 00 00 00  ..........0.{...
+  +090: e0 48 40 1a 7b 00 00 00 01 00 00 00 04 00 00 00  .H@.{...........
+  +0a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0b0: 00 00 00 0c 01 00 01 00 ff ff 00 00 00 00 00 00  ................
+  +0c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0d0: 00 00 00 00 00 00 00 00 48 62 86 07 7c 00 00 00  ........Hb..|...
+  UStruct.Script @0x60: Data=0x7b1a2b2410 Num=36 Max=48
+  ChildProperties (params+locals):
+    +0x0000 BoolProperty           bHidden                      elem=0x0
+  FunctionFlags=0x0c000000 NumParms=1 ParmsSize=0x1 native=no Func=0x7c07866248 Func_rva=0x1858248 (ghidra=0x1958248)
+  Script bytecode[0..cap] @0x7b1a2b2410:
+  +000: 64 80 6a 4f 1a 7b 00 00 00 00 80 b0 30 1a 7b 00  d.jO.{......0.{.
+  +010: 00 00 46 c0 3d 68 1a 7b 00 00 00 1d 12 6c 00 00  ..F.=h.{.....l..
+  +020: 16 04 0b 53  ...S
+  --- bytecode pointer refs (property/function/object) ---
+    @  1  FField  BoolProperty           K2Node_CustomEvent_bHidden
+    @ 10  FField  BoolProperty           bHidden
+    @ 19  UObj    Function               ExecuteUbergraph_TribePawnBP
+  --- bytecode by-name calls (EX_[Local]VirtualFunction) ---
+
+==== UFunction /Game/Pawn/TribePawnBP.TribePawnBP_C.SetAvatarThirdPersonVisible  (0x7b1afa4f40) ====
+  raw[0..0xE0] @0x7b1afa4f40:
+  +000: 28 9d d4 0c 7c 00 00 00 01 00 28 00 d2 af 00 00  (...|.....(.....
+  +010: 80 c6 81 f5 7b 00 00 00 62 76 17 00 00 00 00 00  ....{...bv......
+  +020: f0 c4 ff 1a 7b 00 00 00 e0 51 02 21 7b 00 00 00  ....{....Q.!{...
+  +030: 80 17 2c 1a 7b 00 00 00 00 00 00 00 00 00 00 00  ..,.{...........
+  +040: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +050: 00 b0 30 1a 7b 00 00 00 01 00 00 00 01 00 00 00  ..0.{...........
+  +060: e0 23 2b 1a 7b 00 00 00 24 00 00 00 30 00 00 00  .#+.{...$...0...
+  +070: 00 b0 30 1a 7b 00 00 00 00 00 00 00 00 00 00 00  ..0.{...........
+  +080: 00 00 00 00 00 00 00 00 00 b0 30 1a 7b 00 00 00  ..........0.{...
+  +090: c0 48 40 1a 7b 00 00 00 01 00 00 00 04 00 00 00  .H@.{...........
+  +0a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0b0: 00 00 00 0c 01 00 01 00 ff ff 00 00 00 00 00 00  ................
+  +0c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0d0: 00 00 00 00 00 00 00 00 48 62 86 07 7c 00 00 00  ........Hb..|...
+  UStruct.Script @0x60: Data=0x7b1a2b23e0 Num=36 Max=48
+  ChildProperties (params+locals):
+    +0x0000 BoolProperty           bThirdPersonVisible          elem=0x0
+  FunctionFlags=0x0c000000 NumParms=1 ParmsSize=0x1 native=no Func=0x7c07866248 Func_rva=0x1858248 (ghidra=0x1958248)
+  Script bytecode[0..cap] @0x7b1a2b23e0:
+  +000: 64 80 45 4f 1a 7b 00 00 00 00 00 b0 30 1a 7b 00  d.EO.{......0.{.
+  +010: 00 00 46 c0 3d 68 1a 7b 00 00 00 1d 3e 66 00 00  ..F.=h.{....>f..
+  +020: 16 04 0b 53  ...S
+  --- bytecode pointer refs (property/function/object) ---
+    @  1  FField  BoolProperty           K2Node_CustomEvent_bThirdPersonVisible
+    @ 10  FField  BoolProperty           bThirdPersonVisible
+    @ 19  UObj    Function               ExecuteUbergraph_TribePawnBP
+  --- bytecode by-name calls (EX_[Local]VirtualFunction) ---
+
+==== UFunction /Game/Visuals/BP_TribeVisualsManager.BP_TribeVisualsManager_C.FinishSkinsSetup  (0x7b1a68e320) ====
+  raw[0..0xE0] @0x7b1a68e320:
+  +000: 28 9d d4 0c 7c 00 00 00 01 00 28 00 7c a6 00 00  (...|.....(.|...
+  +010: 80 c6 81 f5 7b 00 00 00 ac 3e 17 00 00 00 00 00  ....{....>......
+  +020: a0 99 ff 1a 7b 00 00 00 60 da 68 1a 7b 00 00 00  ....{...`.h.{...
+  +030: 30 6b 2c 1a 7b 00 00 00 00 00 00 00 00 00 00 00  0k,.{...........
+  +040: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +050: 00 00 00 00 00 00 00 00 00 00 00 00 01 00 00 00  ................
+  +060: c0 7b 40 1a 7b 00 00 00 12 00 00 00 20 00 00 00  .{@.{....... ...
+  +070: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +080: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +090: a0 7b 40 1a 7b 00 00 00 01 00 00 00 04 00 00 00  .{@.{...........
+  +0a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0b0: 00 00 00 0c 00 00 00 00 ff ff 00 00 00 00 00 00  ................
+  +0c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+  +0d0: 00 00 00 00 00 00 00 00 48 62 86 07 7c 00 00 00  ........Hb..|...
+  UStruct.Script @0x60: Data=0x7b1a407bc0 Num=18 Max=32
+  ChildProperties (params+locals):
+  FunctionFlags=0x0c000000 NumParms=0 ParmsSize=0x0 native=no Func=0x7c07866248 Func_rva=0x1858248 (ghidra=0x1958248)
+  Script bytecode[0..cap] @0x7b1a407bc0:
+  +000: 46 00 e4 68 1a 7b 00 00 00 1d 4f 06 00 00 16 04  F..h.{....O.....
+  +010: 0b 53  .S
+  --- bytecode pointer refs (property/function/object) ---
+    @  1  UObj    Function               ExecuteUbergraph_BP_TribeVisualsManager
+  --- bytecode by-name calls (EX_[Local]VirtualFunction) ---
+
+==== USkeleton instances (glTF finalizer output)  class=0x7bd9e0a380 BoneTree@0x38 ====
+  0x7bf589c940 BoneTree.Num=25  /Game/Pawn/Assets/TribeAvatarHands/TribeAvatarHand_Skeleton.TribeAvatarHand_Skeleton
+    RawRefBoneInfo@0x68 Num=25: r_hand_world(p-1) b_r_hand(p0) b_r_ring1(p1) b_r_ring2(p2) b_r_ring3(p3) b_r_ring_ignore(p4) b_r_middle1(p1) b_r_middle2(p6) b_r_middle3(p7) b_r_middle_ignore(p8) b_r_index1(p1) b_r_index2(p10) b_r_index3(p11) b_r_index_ignore(p12) b_r_pinky0(p1) b_r_pinky1(p14) b_r_pinky2(p15) b_r_pinky3(p16) b_r_pinky_ignore(p17) b_r_thumb1(p1)
+  0x7b21572e20 BoneTree.Num=8  /Game/Pawn/Assets/Controllers/SM_OlympusController_Left_Skeleton.SM_OlympusController_Left_Skeleton
+    RawRefBoneInfo@0x68 Num=8: right_oculus_controller_world(p-1) b_button_a(p0) b_button_b(p0) b_button_oculus(p0) b_trigger_front(p0) b_trigger_grip(p0) b_thumbstick(p0) laser_begin(p0)
+  0x7b22febb90 BoneTree.Num=9  /Game/Equipment/Assets/EquipmentMesh/TribeAcidSynth/SK_TribeAcidSynth_Skeleton.SK_TribeAcidSynth_Skeleton
+    RawRefBoneInfo@0x68 Num=9: Root_Jnt(p-1) FilterKnob_1_Jnt(p0) FilterKnob_2_Jnt(p0) FilterKnob_3_Jnt(p0) FilterKnob_4_Jnt(p0) FilterKnob_5_Jnt(p0) FilterKnob_6_Jnt(p0) TempoSlider_Jnt(p0) WaveformSwitch_Jnt(p0)
+  0x7b22d92e20 BoneTree.Num=8  /Game/Equipment/Assets/EquipmentMesh/TribeDrumMachine/SK_TribeDrumMachine_Skeleton.SK_TribeDrumMachine_Skeleton
+    RawRefBoneInfo@0x68 Num=8: Joint_Root(p-1) Joint_Slider(p0) Joint_Knob1(p0) Joint_Knob2(p0) Joint_Knob3(p0) Joint_Knob4(p0) Joint_Knob5(p0) Joint_Knob6(p0)
+  0x7bf58b9ba0 BoneTree.Num=94  /Game/Equipment/Assets/EquipmentMesh/DDJ-FLX4/SK_DDJ-FLX4_Skeleton.SK_DDJ-FLX4_Skeleton
+    RawRefBoneInfo@0x68 Num=94: JBase(p-1) JRotaryKnob(p0) JJogWheelLeft(p0) JJogWheelRight(p0) JTempoSliderRight(p0) JTempoSliderLeft(p0) JChannelFaderRight(p0) JChannelFaderLeft(p0) JCrossfader(p0) JMasterLevel(p0) JMicLevel(p0) JTrimLeft(p0) JTrimRight(p0) JEQHighRight(p0) JEQHighLeft(p0) JEQLowRight(p0) JEQMidRight(p0) JCFXRight(p0) JCFXLeft(p0) JEQLowLeft(p0)
+  0x7b7122b700 BoneTree.Num=24  /Engine/Transient.Skeleton
+    RawRefBoneInfo@0x68 Num=24: Wrist_Root(p-1) Forearm_Stub(p0) Thumb(p0) Thumb(p2) Thumb(p3) Thumb(p4) Index(p0) Index(p6) Index(p7) Middle(p0) Middle(p9) Middle(p10) Ring(p0) Ring(p12) Ring(p13) Pinky(p0) Pinky(p15) Pinky(p16) Pinky(p17) Thumb_Tip(p5)
+  0x7b71229ba0 BoneTree.Num=24  /Engine/Transient.Skeleton
+    RawRefBoneInfo@0x68 Num=24: Wrist_Root(p-1) Forearm_Stub(p0) Thumb(p0) Thumb(p2) Thumb(p3) Thumb(p4) Index(p0) Index(p6) Index(p7) Middle(p0) Middle(p9) Middle(p10) Ring(p0) Ring(p12) Ring(p13) Pinky(p0) Pinky(p15) Pinky(p16) Pinky(p17) Thumb_Tip(p5)
+
+==== USkeletalMesh census (Skeleton@0xf0; '*'=runtime/no RF_WasLoaded) ====
+    0x7b5fc49190 skel=TribeAvatarHand_Skeleton /Game/Pawn/Assets/TribeAvatarHands/SK_TribeAvatarRightHand.SK_TribeAvatarRightHand
+    0x7b5fbb1780 skel=TribeAvatarHand_Skeleton /Game/Pawn/Assets/TribeAvatarHands/SK_TribeAvatarLeftHand.SK_TribeAvatarLeftHand
+    0x7b21f0d750 skel=SM_OlympusController_Left_Skeleton /Game/Pawn/Assets/Controllers/SM_OlympusController_Right.SM_OlympusController_Right
+    0x7b213aa8d0 skel=SM_OlympusController_Left_Skeleton /Game/Pawn/Assets/Controllers/SM_OlympusController_Left.SM_OlympusController_Left
+    0x7b232e51a0 skel=SK_TribeAcidSynth_Skeleton /Game/Equipment/Models/SkeletalMeshes/SK_TribeAcidSynth.SK_TribeAcidSynth
+    0x7b232e8bc0 skel=SK_TribeDrumMachine_Skeleton /Game/Equipment/Models/SkeletalMeshes/SK_TribeDrumMachine.SK_TribeDrumMachine
+    0x7b1bb6c5e0 skel=SK_DDJ-FLX4_Skeleton     /Game/Equipment/Models/SkeletalMeshes/SK_DDJ-FLX4.SK_DDJ-FLX4
+  * 0x7aae2b3490 skel=Skeleton                 /Game/Maps/DJRoomMap.DJRoomMap.PersistentLevel.TribeControllers_C.None.OculusHandMesh
+  * 0x7b1db86eb0 skel=Skeleton                 /Game/Maps/DJRoomMap.DJRoomMap.PersistentLevel.TribeControllers_C.None.OculusHandMesh
+
+==== AvatarBodyMesh SkeletalMeshAsset  (SMC class=0x7bf5ef1a00 asset@0x550) ====
+  0x7b5fb250b0 SkeletalMeshAsset=0x0 '(null)'  /Script/TribeXR.Default__ReadyPlayerMeComponent.AvatarBodyMesh
+  0x7b5fd49070 SkeletalMeshAsset=0x0 '(null)'  /Script/TribeXR.Default__TribeAvatarComponent.ReadyPlayerMeComponent.AvatarBodyMesh
+  0x7b1b7720e0 SkeletalMeshAsset=0x0 '(null)'  /Game/Maps/DJRoomMap.DJRoomMap.PersistentLevel.TribePawnBP_C.TribeAvatar.ReadyPlayerMeComponent.AvatarBodyMesh
+  0x7bd9e450b0 SkeletalMeshAsset=0x0 '(null)'  /Game/Pawn/TribePawnBP.TribePawnBP_C.TribeAvatar_GEN_VARIABLE.ReadyPlayerMeComponent.AvatarBodyMesh

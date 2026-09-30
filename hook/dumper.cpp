@@ -293,9 +293,10 @@ static void dump_ufunction(FILE* fo,const char* fnPath){
         ff,nparm,psz,(ff&0x400)?"YES":"no",(unsigned long)func,
         (unsigned long)(func?func-g_base:0),(unsigned long)(func?func-g_base+0x100000:0));
     if(scriptData && scriptNum){ uint32_t cap=scriptNum<0x600?scriptNum:0x600; hexdump_to(fo,"  Script bytecode[0..cap]",scriptData,cap);
+        uint32_t annCap=scriptNum<0x6000?scriptNum:0x6000;   // annotate the WHOLE script (ubergraph logic is past 0x600)
         // annotate every embedded pointer that resolves to an FField (property) or UObject (fn/const)
         fprintf(fo,"  --- bytecode pointer refs (property/function/object) ---\n");
-        for(uint32_t k=0;k+8<=scriptNum && k<0x600;k++){ uintptr_t p; if(!sr(scriptData+k,&p,8)) continue;
+        for(uint32_t k=0;k+8<=scriptNum && k<annCap;k++){ uintptr_t p; if(!sr(scriptData+k,&p,8)) continue;
             if(p<0x10000||!in_range(p,0x30)) continue;
             uintptr_t fc=rdptr(p+FF_Class); char ty[64]={0};
             if(fc&&in_range(fc,8)){ fname_resolve(rd32(fc),ty,sizeof ty);
@@ -304,6 +305,25 @@ static void dump_ufunction(FILE* fo,const char* fnPath){
             uint32_t idx=rd32(p+OFF_Index); uintptr_t cls=rdptr(p+OFF_Class);
             if(idx<g_numElements && cls && in_range(cls,0x20)){ char cn[96],on[96]; obj_name(cls,cn,sizeof cn); obj_name(p,on,sizeof on);
                 if(cn[0]&&cn[0]!='?'&&on[0]&&on[0]!='?'){ fprintf(fo,"    @%3u  UObj    %-22s %s\n",k,cn,on); k+=7; } } }
+        // annotate by-name virtual calls: EX_LocalVirtualFunction(0x45)/EX_VirtualFunction(0x1b)+FScriptName{cmp,disp,num}
+        fprintf(fo,"  --- bytecode by-name calls (EX_[Local]VirtualFunction) ---\n");
+        for(uint32_t k=0;k+13<=scriptNum && k<annCap;k++){ uint8_t op; if(!sr(scriptData+k,&op,1)) continue;
+            if(op!=0x45 && op!=0x1b) continue; uint32_t cmp=rd32(scriptData+k+1); char nm[128]; fname_resolve(cmp,nm,sizeof nm);
+            if(nm[0]&&nm[0]!='?'&&strlen(nm)>=3) fprintf(fo,"    @%3u  %-12s FName=0x%08x  %s\n",k,op==0x45?"LocalVirtual":"Virtual",cmp,nm); }
+    }
+}
+// list a class's UFunctions (Children UField list, Next@0x28) with their FName ComparisonIndex, walking supers.
+// Directly resolves an EX_LocalVirtualFunction target id (e.g. 0x1a1485) to a function name -- name, not vtable slot.
+static void list_class_functions(FILE* fo,const char* clsPath){
+    uintptr_t cls=find_by_path(clsPath,1);
+    fprintf(fo,"\n==== functions of %s (class=0x%lx) [FName id -> name] ====\n",clsPath,(unsigned long)cls);
+    if(!cls){ fprintf(fo,"  (class not found)\n"); return; }
+    int depth=0;
+    for(uintptr_t c=cls; c && depth<4; c=rdptr(c+OFF_Super),depth++){
+        char cnm[128]; obj_name(c,cnm,sizeof cnm);
+        int n=0; for(uintptr_t f=rdptr(c+OFF_Children); f && n<128; f=rdptr(f+0x28),n++){
+            uint32_t id=rd32(f+OFF_Name); char nm[128]; fname_resolve(id,nm,sizeof nm);
+            fprintf(fo,"  [%-28s] FName=0x%08x  %s\n",cnm,id,nm); }
     }
 }
 
@@ -470,8 +490,15 @@ static void do_dump(){
         "/Game/Visuals/BP_TribeVisualsManager.BP_TribeVisualsManager_C.InitMyRPMAvatarSkin",
         "/Game/Visuals/BP_TribeVisualsManager.BP_TribeVisualsManager_C.AddOrUpdateCachedRPMAvatarSkin",
         "/Game/Visuals/BP_TribeVisualsManager.BP_TribeVisualsManager_C.ApplySkinToPlayer",
+        // the creator paste->load->handle chain (Blueprint bytecode; resolves post-download steps)
+        "/Game/Menus/W_RPMAvatarCreator.W_RPMAvatarCreator_C.PasteAvatarUrl",
         "/Game/Menus/W_RPMAvatarCreator.W_RPMAvatarCreator_C.LoadAvatarAtUrl",
+        "/Game/Menus/W_RPMAvatarCreator.W_RPMAvatarCreator_C.ReloadAvatarAtUrl",
         "/Game/Menus/W_RPMAvatarCreator.W_RPMAvatarCreator_C.HandleAvatarLoaded",
+        "/Game/Menus/W_RPMAvatarCreator.W_RPMAvatarCreator_C.HandleAvatarCached",
+        "/Game/Menus/W_RPMAvatarCreator.W_RPMAvatarCreator_C.GetRPMCustomSkin",
+        "/Game/Menus/W_RPMAvatarCreator.W_RPMAvatarCreator_C.ClearAvatarUrl",
+        "/Game/Menus/W_RPMAvatarCreator.W_RPMAvatarCreator_C.ExecuteUbergraph_W_RPMAvatarCreator",
         // native config API (Func_rva -> Ghidra to find which G*Ini backs it)
         "/Script/TribeXR.TribeBlueprintLibrary.ReadConfigString",
         "/Script/TribeXR.TribeBlueprintLibrary.WriteConfigString",
@@ -481,6 +508,8 @@ static void do_dump(){
         "/Game/Pawn/TribePawnBP.TribePawnBP_C.SetAvatarSceneCaptureHidden",
         "/Game/Pawn/TribePawnBP.TribePawnBP_C.SetAvatarThirdPersonVisible",
         "/Game/Visuals/BP_TribeVisualsManager.BP_TribeVisualsManager_C.FinishSkinsSetup" };
+      // resolve the EX_LocalVirtualFunction target (0x1a1485) by matching FName ids to function names
+      list_class_functions(fs,"/Game/Menus/W_RPMAvatarCreator.W_RPMAvatarCreator_C");
       for(auto fp:fns) dump_ufunction(fs,fp);
 
       // --- glTFRuntime finalizer output: transient USkeletons. BoneTree.Num discriminates the failure:
@@ -492,15 +521,26 @@ static void do_dump(){
           if(strcmp(cn,"Skeleton")!=0) continue; if(rd32(o+OFF_Flags)&RF_ClassDefaultObject) continue;
           char fp[512]; full_path(o,fp,sizeof fp); int bones = btOff>=0? (int)rd32(o+btOff+8):-1;   // TArray.Num @ +0x08
           fprintf(fs,"  0x%lx BoneTree.Num=%d  %s\n",(unsigned long)o,bones,fp);
-          // find FReferenceSkeleton.RawRefBoneInfo: a TArray{ptr,Num==bones,Max} with 12B elems {FName,int32 Parent}
-          if(bones>0) for(uint32_t off=0x28; off<=0x220; off+=8){ uintptr_t data=rdptr(o+off); uint32_t num=rd32(o+off+8);
-              if(num!=(uint32_t)bones||!data||!in_range(data,(size_t)num*12)) continue;
-              char b0[64]; fname_resolve(rd32(data),b0,sizeof b0); if(!b0[0]||b0[0]=='?') continue;
-              fprintf(fs,"    RawRefBoneInfo@0x%x bones:",off);
-              for(uint32_t k=0;k<num&&k<16;k++){ char bn[64]; fname_resolve(rd32(data+(uintptr_t)k*12),bn,sizeof bn); int par=(int)rd32(data+(uintptr_t)k*12+8); fprintf(fs," %s(p%d)",bn,par); }
-              fprintf(fs,"\n"); break; }
+          // FReferenceSkeleton@0x68 => RawRefBoneInfo {Data@0x68, Num@0x70}, 12B elems {FName@+0, int32 Parent@+8}
+          // (wrist/forearm/tip => Meta hand skeleton; Hips/LeftHandIndex1 => glTF avatar). Fallback: scan skipping BoneTree@0x38.
+          uintptr_t rri=rdptr(o+0x68); uint32_t rnum=rd32(o+0x70); uint32_t roff=0x68;
+          if(!(rri && rnum>0 && rnum<4096 && in_range(rri,(size_t)rnum*12))){
+              rri=0; for(uint32_t off=0x40; off<=0x220; off+=8){ if(off==btOff) continue; uintptr_t d=rdptr(o+off); uint32_t nm=rd32(o+off+8);
+                  if(nm<1||nm>4096||!d||!in_range(d,(size_t)nm*12)) continue; char b0[48]; fname_resolve(rd32(d),b0,sizeof b0);
+                  if(b0[0]&&b0[0]!='?'){ rri=d; rnum=nm; roff=off; break; } } }
+          if(rri){ fprintf(fs,"    RawRefBoneInfo@0x%x Num=%u:",roff,rnum);
+              for(uint32_t k=0;k<rnum&&k<20;k++){ char bn[64]; fname_resolve(rd32(rri+(uintptr_t)k*12),bn,sizeof bn); int par=(int)rd32(rri+(uintptr_t)k*12+8); fprintf(fs," %s(p%d)",bn,par); }
+              fprintf(fs,"\n"); }
           n++; }
         if(n==0) fprintf(fs,"  (no non-CDO Skeleton instances)\n"); }
+      // USkeletalMesh census: runtime (glTF) meshes lack RF_WasLoaded (0x80000); list each mesh's Skeleton.
+      uintptr_t smClass=find_by_path("/Script/Engine.SkeletalMesh",1);
+      int skOff = smClass? prop_offset(smClass,"Skeleton",0):-1;
+      fprintf(fs,"\n==== USkeletalMesh census (Skeleton@0x%x; '*'=runtime/no RF_WasLoaded) ====\n",skOff);
+      { int n=0; for(uint32_t i=0;i<g_numElements && n<40;i++){ uintptr_t o=obj_at(i); if(!o) continue; char cn[96]; class_name(o,cn,sizeof cn);
+          if(strcmp(cn,"SkeletalMesh")!=0) continue; uint32_t fl=rd32(o+OFF_Flags); if(fl&RF_ClassDefaultObject) continue;
+          uintptr_t sk=skOff>=0?rdptr(o+skOff):0; char skn[96]; obj_name(sk,skn,sizeof skn); char fp[512]; full_path(o,fp,sizeof fp);
+          fprintf(fs,"  %c 0x%lx skel=%-24s %s\n",(fl&0x80000)?' ':'*',(unsigned long)o,skn,fp); n++; } }
       // also: is the RPM avatar's AvatarBodyMesh SkeletalMeshComponent actually holding a mesh?
       uintptr_t smcCls=find_by_path("/Script/Engine.SkeletalMeshComponent",1);
       int smaOff = smcCls? prop_offset(smcCls,"SkeletalMeshAsset",0):-1;

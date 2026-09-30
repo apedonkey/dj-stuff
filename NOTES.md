@@ -3669,3 +3669,46 @@ Option A build (ProcessEvent executor), per advisor's guardrails:
 Standalone (once proven): on-device HTTP server thread inside libhook serving the .glb+.json on 127.0.0.1,
 + (if the validator rejects loopback) force IsValidReadyPlayerMeAvatarUrl true. Needs the game-thread executor
 either way. This is the next BUILD (first real game hook); best at the desk with iterative launches.
+
+## Session 3c — ROOT CAUSE: SetAvatarID is never called; the native load was never triggered
+
+Decoded the full creator chain from live Blueprint bytecode (read-only dump, sdk_creator.txt). FName ids
+are per-launch, so resolved on THIS run (list_class_functions + by-name EX_LocalVirtualFunction annotator):
+
+- LoadAvatarAtUrl(url):  this->AvatarUrl=url ; this->ReloadAvatarAtUrl()   [0x45 -> FName 0x1a199c]
+- ReloadAvatarAtUrl():   (726B) GetGameState/cast ; GetLocalPawn ;
+    IsValidReadyPlayerMeAvatarID(AvatarUrl) ; MessageText.SetText("Loading avatar...") ;
+    CreateDelegate -> bind TribeAvatar.OnAvatarLoaded = this.HandleAvatarLoaded ;
+    CreateDelegate -> bind TribeAvatar.OnAvatarCached = this.HandleAvatarCached ;
+    WriteConfigString(AvatarUrl) ;
+    EX_Context TribePawnBP.TribeAvatar -> SetAvatarID(AvatarUrl)   [native trigger; FName 0x177642]
+- HandleAvatarLoaded (fires on TribeAvatar.OnAvatarLoaded): MessageText.SetText ;
+    InitMyRPMAvatarSkin [0x173f90] ; ApplySkinToPlayer [0x1737d5] ; OnAvatarSkinLoaded broadcast
+- HandleAvatarCached (fires on TribeAvatar.OnAvatarCached): IsValidReadyPlayerMeAvatarUrl ;
+    AddOrUpdateCachedRPMAvatarSkin [0x1737a7]
+
+Objects (this run): live TribeAvatarComponent = DJRoomMap.PersistentLevel.TribePawnBP_C.TribeAvatar
+(@0x7b23036a00, child ReadyPlayerMeComponent @0x7b1a8b3730). NO live W_RPMAvatarCreator_C (menu closed).
+
+ROOT CAUSE (clean): the native fetch+build is triggered ONLY by TribeAvatar.SetAvatarID(url), and the ONLY
+caller of SetAvatarID is ReloadAvatarAtUrl (creator "paste URL" flow). The config-selection path
+(InitMyRPMAvatarSkin = ReadConfigString + SpawnObject) NEVER calls SetAvatarID. The creator flow was never
+driven (no EditableText, adb clipboard unimplemented, no live widget). => SetAvatarID has never run =>
+the native load never fired => AvatarBodyMesh.SkeletalMeshAsset stays NULL. Prior "download proven" GETs
+were all my PC-side curl (byi7n4jkl log line at 19:52:13 aligns with my curl, not Tribe). Tribe never fetched.
+
+Completion already wires visibility+persistence: don't re-implement ApplySkinToPlayer/AddOrUpdateCachedRPMAvatarSkin;
+the delegates run them, but ONLY if a widget bound them. So driving the widget's LoadAvatarAtUrl (which binds the
+delegates then calls SetAvatarID) is the faithful path; calling SetAvatarID bare would fetch+build but leave the
+completion delegates unsubscribed (no InitMyRPMAvatarSkin/ApplySkinToPlayer).
+
+Validator: IsValidReadyPlayerMeAvatarID is checked inside ReloadAvatarAtUrl (on AvatarUrl) BEFORE SetAvatarID;
+IsValidReadyPlayerMeAvatarUrl is in HandleAvatarCached. If driving LoadAvatarAtUrl, the ID check runs -> may need
+a URL/ID that passes it (or hook it). To confirm, the diagnostic run logs its return.
+
+NEXT BUILD (first real game hooks; reviewer-approved): (1) in-libhook loopback HTTP server (127.0.0.1, non-8000
+port, query-strip, Content-Length/Type/ETag, HEAD + If-None-Match->304, .json only if requested); (2) diagnostic
+log-only hooks: glTF entry 0x4ac2de0, AddError, finalize, ProcessEvent filter on {SetAvatarID, OnAvatarLoaded
+target, HandleAvatarLoaded}; (3) game-thread executor: create a W_RPMAvatarCreator_C (UWidgetBlueprintLibrary
+::Create, AddToRoot) and ProcessEvent LoadAvatarAtUrl(url) — OR call SetAvatarID direct + bind completion. First
+run is DIAGNOSTIC: does driving SetAvatarID make Tribe fetch, and does the native build yield a USkeletalMesh?

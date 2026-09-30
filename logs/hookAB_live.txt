@@ -1,0 +1,74 @@
+﻿--------- beginning of main
+09-29 13:58:24.354 28784 28784 I TRIBEMOD: hooks installing... (libhook.so constructor)
+09-29 13:58:24.357 28784 28784 I TRIBEMOD: libUnreal.so base=0x7c02630000  dispatcher=0x7c0762c2d4  choke=0x7c07624548
+09-29 13:58:24.357 28784 28784 I A64_HOOK: inline hook 0x7c0762c2d4->0x7c0fc23100 successfully! 20 bytes overwritten
+09-29 13:58:24.358 28784 28784 I A64_HOOK: inline hook 0x7c07624548->0x7c0fc23224 successfully! 20 bytes overwritten
+09-29 13:58:24.358 28784 28784 I TRIBEMOD: hooks installed: OK  (Hook A dispatcher @0x7c0762c2d4 orig=0x7c0fc28000 ; Hook B choke @0x7c07624548 orig=0x7c0fc280c8)  target='/sdcard/Android/obb/com.TribeXR.TribeXR/rpmavatar-custom.glb'
+09-29 13:58:24.358 28784 28784 I A64_HOOK: insns pool initialized.
+09-29 13:59:40.922 28784 28822 I TRIBEMOD: choke FIRED: path='(empty num=0)'
+09-29 13:59:40.922 28784 28822 I TRIBEMOD: choke: forcing path='/sdcard/Android/obb/com.TribeXR.TribeXR/rpmavatar-custom.glb' -> calling original
+09-29 14:00:21.399 29658 29658 I TRIBEMOD: hooks installing... (libhook.so constructor)
+09-29 14:00:21.401 29658 29658 I TRIBEMOD: libUnreal.so base=0x7bf6e0e000  dispatcher=0x7bfbe0a2d4  choke=0x7bfbe02548
+09-29 14:00:21.401 29658 29658 I A64_HOOK: inline hook 0x7bfbe0a2d4->0x7c0ea54100 successfully! 20 bytes overwritten
+09-29 14:00:21.401 29658 29658 I A64_HOOK: inline hook 0x7bfbe02548->0x7c0ea54224 successfully! 20 bytes overwritten
+09-29 14:00:21.401 29658 29658 I TRIBEMOD: hooks installed: OK  (Hook A dispatcher @0x7bfbe0a2d4 orig=0x7c0ea59000 ; Hook B choke @0x7bfbe02548 orig=0x7c0ea590c8)  target='/sdcard/Android/obb/com.TribeXR.TribeXR/rpmavatar-custom.glb'
+09-29 14:00:21.401 29658 29658 I A64_HOOK: insns pool initialized.
+09-29 14:00:22.949 29658 29705 I TRIBEMOD: choke FIRED: path='(empty num=0)'
+09-29 14:00:22.949 29658 29705 I TRIBEMOD: choke: forcing path='/sdcard/Android/obb/com.TribeXR.TribeXR/rpmavatar-custom.glb' -> calling original
+09-29 14:00:43.001 29966 29966 I TRIBEMOD: hooks installing... (libhook.so constructor)
+09-29 14:00:43.003 29966 29966 I TRIBEMOD: libUnreal.so base=0x7bff00a000  dispatcher=0x7c040062d4  choke=0x7c03ffe548
+09-29 14:00:43.004 29966 29966 I A64_HOOK: inline hook 0x7c040062d4->0x7c0aad1100 successfully! 4 bytes overwritten
+09-29 14:00:43.004 29966 29966 I A64_HOOK: inline hook 0x7c03ffe548->0x7c0aad1224 successfully! 4 bytes overwritten
+09-29 14:00:43.004 29966 29966 I TRIBEMOD: hooks installed: OK  (Hook A dispatcher @0x7c040062d4 orig=0x7c0aad6000 ; Hook B choke @0x7c03ffe548 orig=0x7c0aad60c8)  target='/sdcard/Android/obb/com.TribeXR.TribeXR/rpmavatar-custom.glb'
+09-29 14:00:43.004 29966 29966 I A64_HOOK: insns pool initialized.
+09-29 14:00:44.477 29966 30000 I TRIBEMOD: choke FIRED: path='(empty num=0)'
+09-29 14:00:44.477 29966 30000 I TRIBEMOD: choke: forcing path='/sdcard/Android/obb/com.TribeXR.TribeXR/rpmavatar-custom.glb' -> calling original
+09-29 14:00:52.888 30202 30202 I TRIBEMOD: hooks installing... (libhook.so constructor)
+09-29 14:00:52.891 30202 30202 I TRIBEMOD: libUnreal.so base=0x7bf440c000  dispatcher=0x7bf94082d4  choke=0x7bf9400548
+09-29 14:00:52.891 30202 30202 I A64_HOOK: inline hook 0x7bf94082d4->0x7c0e91b100 successfully! 20 bytes overwritten
+09-29 14:00:52.891 30202 30202 I A64_HOOK: inline hook 0x7bf9400548->0x7c0e91b224 successfully! 20 bytes overwritten
+09-29 14:00:52.891 30202 30202 I TRIBEMOD: hooks installed: OK  (Hook A dispatcher @0x7bf94082d4 orig=0x7c0e920000 ; Hook B choke @0x7bf9400548 orig=0x7c0e9200c8)  target='/sdcard/Android/obb/com.TribeXR.TribeXR/rpmavatar-custom.glb'
+09-29 14:00:52.891 30202 30202 I A64_HOOK: insns pool initialized.
+09-29 14:00:54.128 30202 30243 I TRIBEMOD: choke FIRED: path='(empty num=0)'
+09-29 14:00:54.128 30202 30243 I TRIBEMOD: choke: forcing path='/sdcard/Android/obb/com.TribeXR.TribeXR/rpmavatar-custom.glb' -> calling original
+09-29 14:01:03.613 30466 30466 I TRIBEMOD: hooks installing... (libhook.so constructor)
+09-29 14:01:03.615 30466 30466 I TRIBEMOD: libUnreal.so base=0x7bffc14000  dispatcher=0x7c04c102d4  choke=0x7c04c08548
+09-29 14:01:03.615 30466 30466 I A64_HOOK: inline hook 0x7c04c102d4->0x7c0eb57100 successfully! 20 bytes overwritten
+09-29 14:01:03.615 30466 30466 I A64_HOOK: inline hook 0x7c04c08548->0x7c0eb57224 successfully! 20 bytes overwritten
+09-29 14:01:03.615 30466 30466 I TRIBEMOD: hooks installed: OK  (Hook A dispatcher @0x7c04c102d4 orig=0x7c0eb5c000 ; Hook B choke @0x7c04c08548 orig=0x7c0eb5c0c8)  target='/sdcard/Android/obb/com.TribeXR.TribeXR/rpmavatar-custom.glb'
+09-29 14:01:03.615 30466 30466 I A64_HOOK: insns pool initialized.
+09-29 14:01:04.933 30466 30506 I TRIBEMOD: choke FIRED: path='(empty num=0)'
+09-29 14:01:04.933 30466 30506 I TRIBEMOD: choke: forcing path='/sdcard/Android/obb/com.TribeXR.TribeXR/rpmavatar-custom.glb' -> calling original
+09-29 14:01:37.773 30827 30827 I TRIBEMOD: hooks installing... (libhook.so constructor)
+09-29 14:01:37.776 30827 30827 I TRIBEMOD: libUnreal.so base=0x7bede21000  dispatcher=0x7bf2e1d2d4  choke=0x7bf2e15548
+09-29 14:01:37.776 30827 30827 I A64_HOOK: inline hook 0x7bf2e1d2d4->0x7c0ea63100 successfully! 20 bytes overwritten
+09-29 14:01:37.776 30827 30827 I A64_HOOK: inline hook 0x7bf2e15548->0x7c0ea63224 successfully! 20 bytes overwritten
+09-29 14:01:37.776 30827 30827 I TRIBEMOD: hooks installed: OK  (Hook A dispatcher @0x7bf2e1d2d4 orig=0x7c0ea68000 ; Hook B choke @0x7bf2e15548 orig=0x7c0ea680c8)  target='/sdcard/Android/obb/com.TribeXR.TribeXR/rpmavatar-custom.glb'
+09-29 14:01:37.776 30827 30827 I A64_HOOK: insns pool initialized.
+09-29 14:01:38.920 30827 30870 I TRIBEMOD: choke FIRED: path='(empty num=0)'
+09-29 14:01:38.920 30827 30870 I TRIBEMOD: choke: forcing path='/sdcard/Android/obb/com.TribeXR.TribeXR/rpmavatar-custom.glb' -> calling original
+09-29 14:19:47.096  5528  5528 I TRIBEMOD: hooks installing... (libhook.so constructor)
+09-29 14:19:47.099  5528  5528 I TRIBEMOD: libUnreal.so base=0x7bf442e000  dispatcher=0x7bf942a2d4  choke=0x7bf9422548
+09-29 14:19:47.099  5528  5528 I A64_HOOK: inline hook 0x7bf942a2d4->0x7c10b5e150 successfully! 20 bytes overwritten
+09-29 14:19:47.099  5528  5528 I A64_HOOK: inline hook 0x7bf9422548->0x7c10b5e274 successfully! 20 bytes overwritten
+09-29 14:19:47.099  5528  5528 I TRIBEMOD: hooks installed: OK  (Hook A dispatcher @0x7bf942a2d4 orig=0x7c10b63000 ; Hook B choke @0x7bf9422548 orig=0x7c10b630c8)  target='/sdcard/Android/obb/com.TribeXR.TribeXR/rpmavatar-custom.glb'
+09-29 14:19:47.099  5528  5528 I A64_HOOK: insns pool initialized.
+09-29 14:19:49.787  5528  5583 I TRIBEMOD: choke FIRED: empty path (num=0) -> pass-through, NOT forcing
+09-29 16:17:20.946 20553 20553 I TRIBEMOD: dumper libhook constructor
+09-29 16:17:20.948 20553 20553 I TRIBEMOD: dumper thread spawned (base=0x7bf8e03000)
+09-29 16:17:20.948 20553 20589 I TRIBEMOD: dumper thread up; base=0x7bf8e03000; poll /sdcard/Android/data/com.TribeXR.TribeXR/files/tribemod/dump_now
+09-29 16:19:49.516 20553 20589 I TRIBEMOD: dump_now seen; dumping...
+09-29 16:19:49.534 20553 20589 I TRIBEMOD: [FAIL] R1.NamePool.Resolve(0)==None : blocks_off=0x48 resolved='e'
+09-29 16:19:49.534 20553 20589 I TRIBEMOD: [FAIL] ABORT : R1 failed
+09-29 16:23:55.423 26306 26306 I TRIBEMOD: dumper libhook constructor
+09-29 16:23:55.426 26306 26306 I TRIBEMOD: dumper thread spawned (base=0x7bebc41000)
+09-29 16:23:55.426 26306 26337 I TRIBEMOD: dumper thread up; base=0x7bebc41000; poll /sdcard/Android/data/com.TribeXR.TribeXR/files/tribemod/dump_now
+09-29 16:24:17.939 26306 26337 I TRIBEMOD: dump_now seen; dumping...
+09-29 16:24:18.001 26306 26337 I TRIBEMOD: [FAIL] R1.NamePool.Resolve(0)==None : blocks_off=0x80 resolved='' (see namepool_diag.txt)
+09-29 16:24:18.001 26306 26337 I TRIBEMOD: [FAIL] ABORT : R1 failed
+09-29 16:29:40.635 29105 29105 I TRIBEMOD: dumper libhook constructor
+09-29 16:29:40.640 29105 29105 I TRIBEMOD: dumper thread spawned (base=0x7bfec08000)
+09-29 16:29:40.640 29105 29138 I TRIBEMOD: dumper thread up; base=0x7bfec08000; poll /sdcard/Android/data/com.TribeXR.TribeXR/files/tribemod/dump_now
+09-29 16:30:15.655 29105 29138 I TRIBEMOD: dump_now seen; dumping...
+09-29 16:30:15.706 29105 29138 I TRIBEMOD: [FAIL] R1.NamePool.Resolve(0)==None : blocks_off=0x80 resolved='' (see namepool_diag.txt)
+09-29 16:30:15.706 29105 29138 I TRIBEMOD: [FAIL] ABORT : R1 failed

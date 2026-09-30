@@ -1,0 +1,766 @@
+--------- beginning of system
+09-29 10:13:53.307 I/ActivityManager( 1500): Force stopping com.TribeXR.TribeXR appid=10107 user=0: from pid 4092
+09-29 10:13:53.308 D/DisplayManagerService( 1500): Drop pending events for gone uid 10107
+09-29 10:13:53.309 I/ActivityManager( 1500): Killing 30459:com.TribeXR.TribeXR/u0a107 (adj 0): stop com.TribeXR.TribeXR due to from pid 4092
+--------- beginning of main
+09-29 10:13:53.311 I/orchestrator( 1245): orchestrator_common::policy_manager: Unenrolling observer: PolicyId { id: PerProcess { uid: 10107, pid: 30459 }, factory_name: "CgroupV2TelemetryFactory" }
+09-29 10:13:53.312 W/orchestrator( 1245): orchestrator_common::policy_manager: Attempted to unenroll unknown observer: PolicyId { id: PerProcess { uid: 10107, pid: 30459 }, factory_name: "HeapTelemetryFactory" }
+09-29 10:13:53.313 W/ActivityTaskManager( 1500): Force removing ActivityRecord{57bfa84 u0 com.TribeXR.TribeXR/com.epicgames.unreal.GameActivity t2836 f}}: app died, no saved state
+09-29 10:13:53.313 W/InputManager-JNI( 1500): Input channel object '2467b40 com.TribeXR.TribeXR/com.epicgames.unreal.GameActivity (client)' was disposed without first being removed with the input manager!
+09-29 10:13:53.316 I/VolumetricTaskOrganizer( 1500): onTaskActivitiesDisappeared: taskId = 2835, userId = 0
+09-29 10:13:53.316 I/VolumetricWindowManagerServiceImpl( 1500): removeVolumetricWindow done: userId = 0, rootTaskId = 2835, VW = VolumetricWindowInfo { volumetricWindowToken = VolumetricWindowToken { scope = 1, token = horizonos.view.VolumetricWindowToken$InternalVolumetricToken@c7cc49f, persistableToken = 05ce04fc-03b0-4b47-87db-a589bc6ed662 }, type = 2, bounds = Extent3f { width = Infinity, height = Infinity, depth = Infinity }, pose = Pose { orientation = Vector4f { x = 0.0, y = 0.0, z = 0.0, w = 1.0 }, position = Vector3f { x = 0.0, y = 0.0, z = 0.0 } }, windowSize2d = Extent2i { width = 4128, height = 2208 }, densityDpi = 200, visible = true, active = true, drawn = true, persistable = false, singlePassCompositionEnabled = false, depthTestEnabled = false, inView = false, windowFlags = 0, priorityHintInfo = PriorityHintInfo { windowPpd = 0.0, viewAngleSine = -1.0, visiblePercent = 1.0, distanceFromUser = 0.0, attentionZone = 0, eyeGazeDirectionDotProduct = -2.0, perceptibleVisibility = 0 }, taskInfo = null, presentation = VolumetricWindowPresentationInfo { controlBar = null }, layoutParams = null, children = [], shape = 1, cylinderInfo = null, alwaysOnTop = false, compositionType = 0, hzSpaceUuid = 05ce04fc-03b0-4b47-87db-a589bc6ed662, topImmersive = true, name = null, parentToken = null }
+09-29 10:13:53.316 I/ActivityManager( 1500):   Force stopping service ServiceRecord{c18140d u0 com.TribeXR.TribeXR/.OBBDownloaderService}
+09-29 10:13:53.316 I/VolumetricWindow( 1500): Releasing volumetric window, WindowContainerToken: d42f04a, persistable token: 05ce04fc-03b0-4b47-87db-a589bc6ed662
+09-29 10:13:53.317 W/ActivityTaskManager( 1500): No component for base intent of task: Task{70259ec #2835 type=standard}
+09-29 10:13:53.320 V/VolumetricContentMonitor( 1500): Removed VW VolumetricWindowToken { scope = 1, token = horizonos.view.VolumetricWindowToken$InternalVolumetricToken@c7cc49f, persistableToken = 05ce04fc-03b0-4b47-87db-a589bc6ed662 }
+09-29 10:13:53.320 D/TrackingAccessCache( 1500): Tracking access changed: [ProcessTrackingAccess { uid = 10107, pid = 30459, trackingAccessPose = 0, trackingAccessInput = 0 }]
+09-29 10:13:53.322 D/[SEO] ShellApplication( 3375): onTopImmersiveWindowChanged: vwToken=VolumetricWindowToken { scope = 1, token = android.os.BinderProxy@c8e02e1, persistableToken = b48af31c-5906-4234-9ca0-3316f0130a52 } isHomeWindow=true isNewImmersiveWindow=false hadTopImmersiveWindow=true
+09-29 10:13:53.322 D/[SEO] ShellApplication( 3375): processImmersiveTransitionEvent, startEvent: true isResume: true transitionPackage: com.oculus.vrshell sourceComponent: null/null launchId: 
+09-29 10:13:53.323 W/MetaActivityManagerImpl( 1500): isImmersiveProcessAppFlavor: processRecord is null
+09-29 10:13:53.324 W/MetaActivityManagerImpl( 1500): isImmersiveProcessAppFlavor: processRecord is null
+09-29 10:13:53.325 I/UiModeController( 1500): onActivitiesGone: synthetic NO_LONGER_IMMERSIVE for com.TribeXR.TribeXR
+09-29 10:13:53.325 W/UsageStatsService( 1500): Unexpected activity event reported! (com.TribeXR.TribeXR/com.epicgames.unreal.GameActivity event : 23 instanceId : 133250722)
+09-29 10:13:53.328 I/[SEO] ShellApplicationJNI( 3375): nativeImmersiveTransitionEvent
+09-29 10:13:53.328 I/[SEO] ShellVrThread( 3375): WakeVrThread - notifying vr thread (reason: immersiveTransitionEvent)
+09-29 10:13:53.328 I/[SEO] ShellVrThread( 3375): WaitForWake: VrThread woke up
+09-29 10:13:53.328 I/[SEO] ShellApp( 3375): FrameFunction: sleeping for message done
+09-29 10:13:53.328 I/[SEO] ShellFrameAnalytics( 3375): ShellFrame frameFunction: 216364250us/1623264010us, trace: 0us/894us, process commands: 0us/7215us, system update: 0us/1074us, render 0us/31738us, input processing 0us/12450us, input dispatch 0us/1065us, stale frames: 2, refresh rate: 90
+09-29 10:13:53.328 I/[SEO] TravelController( 3375): ProcessImmersiveTransitionEvent: Start Transition for package: com.oculus.vrshell and launchId: , isPassthroughTransition: false, shouldSkipVisualTransition: true, shouldUnloadHome: true, shouldCancelTransition: true
+09-29 10:13:53.330 I/[SEO] ShellApplicationJNI( 3375): nativeOnImmersiveWindowRemoved
+09-29 10:13:53.330 V/[SEO] 03j( 3375): Closing panel app VolumetricWindowToken { scope = 1, token = android.os.BinderProxy@1087eaa, persistableToken = 05ce04fc-03b0-4b47-87db-a589bc6ed662 }
+09-29 10:13:53.332 I/[SEO] EnvironmentManager( 3375): EnvironmentManager::IsDefaultFootprintInstalled: Footprint 'apk://com.meta.shell.env.footprint.haven2025/assets/scene.zip' installed
+09-29 10:13:53.334 I/[SEO] EnvironmentManager( 3375): EnvironmentManager::IsDefaultVistaInstalled: Vista 'apk://com.meta.shell.env.vista.calming/assets/scene.zip' installed
+09-29 10:13:53.334 I/[SEO] WorldManager( 3375): LaunchHomeWorld Launch Home World: VR from World: 
+09-29 10:13:53.334 I/[SEO] EnvironmentManager( 3375): EnvironmentManager: Activating Vista and Footprint
+09-29 10:13:53.335 I/[SEO] EnvironmentManagerUtilities( 3375): EnvironmentManager: SetSystemEnvironment resolved: env='apk://com.meta.shell.env.footprint.haven2025/assets/scene.zip', vista='apk://com.meta.shell.env.vista.calming/assets/scene.zip', envIsFootprint=1
+09-29 10:13:53.336 I/[SEO] WorldManager( 3375): Requesting world change to World: 23962112766754633
+09-29 10:13:53.336 I/[SEO] TravelController( 3375): ForceStopOngoingTransition: for reason: Transitioning to Shell Home
+09-29 10:13:53.336 I/[SEO] TravelController( 3375): LogTravelStateChange: from current state: Inactive to state: Inactive  currentWorldId: []
+09-29 10:13:53.336 I/SpaceManagerClient( 3375): Released window space for vwToken '05ce04fc-03b0-4b47-87db-a589bc6ed662'
+09-29 10:13:53.336 W/[SEO] VolumetricWindowHostRegistry( 3375): Could not close panel app 05ce04fc-03b0-4b47-87db-a589bc6ed662
+09-29 10:13:53.369 I/[SEO] ShellApp( 3375): FrameFunction: sleeping until next message
+09-29 10:13:53.369 I/[SEO] ShellVrThread( 3375): WaitForWake: VrThread entering waiting state
+09-29 10:13:53.369 I/[SEO] ShellVrThread( 3375): WaitForWake: VrThread woke up
+09-29 10:13:53.369 I/[SEO] ShellApp( 3375): FrameFunction: sleeping for message done
+09-29 10:13:53.390 W/ActivityTaskManager( 1500): callingPackage for (uid=2000, pid=4098) has no WPC
+09-29 10:13:53.391 D/HzOS.BinderClient( 1500): Connected to PreferencesService
+09-29 10:13:53.392 D/HzOS.BinderClient( 1500): Connected to PreferencesService
+09-29 10:13:53.392 D/HzOS.BinderClient( 1500): Connected to PreferencesService
+09-29 10:13:53.394 W/ActivityTaskManager( 1500): getReusableTask: findActivity returned null component=ComponentInfo{com.TribeXR.TribeXR/com.epicgames.unreal.GameActivity} launchMode=2
+09-29 10:13:53.394 W/ActivityTaskManager( 1500): startActivityInner: singleInstance/Task with null targetTask component=ComponentInfo{com.TribeXR.TribeXR/com.epicgames.unreal.GameActivity} launchMode=2 reusedTask=null flags=0x10800000 resultTo=null sourceRecord=null callingPkg=com.android.shell
+09-29 10:13:53.394 I/VolumetricWindowManagerServiceImpl( 1500): requestWindowPlacement: singleInstance/Task entry component=ComponentInfo{com.TribeXR.TribeXR/com.epicgames.unreal.GameActivity} targetTask=null opts.launchTaskId=-1 opts.launchRootTask=null
+09-29 10:13:53.394 I/ActivityTaskManager( 1500): START u0 {flg=0x10000000 cmp=com.TribeXR.TribeXR/com.epicgames.unreal.GameActivity} with LAUNCH_SINGLE_TASK from uid 2000 (BAL_ALLOW_PERMISSION) result code=0
+09-29 10:13:53.394 I/VrKeyguardViewMediator( 2422): handleSetOccluded, occluded: false, prevValue: false, mHiding: false
+09-29 10:13:53.395 D/VrLockscreenHost( 2422): setOccluded: false, was: false, force: false, window: null
+09-29 10:13:53.396 D/[SEO] ShellSpatialWindowManagerService( 3375): Requesting placement of new volumetric window for ComponentInfo{com.TribeXR.TribeXR/com.epicgames.unreal.GameActivity} VolumetricWindowToken { scope = 1, token = android.os.BinderProxy@5e38868, persistableToken = ff1dd6c1-b9a5-453b-b168-87e65083027e } from null null
+09-29 10:13:53.397 D/[SEO] ShellSpatialWindowManagerService( 3375): Setup Activity Launch Environment for com.TribeXR.TribeXR/com.epicgames.unreal.GameActivity
+09-29 10:13:53.399 D/[SEO] ShellSpatialWindowManagerService( 3375): Routing activity intent through Shell's launch checks
+09-29 10:13:53.400 W/[SEO] 04Q( 3375): Got intent with null or empty value for key(s): requestingCrashRecovery target queryParametersUri 
+09-29 10:13:53.403 I/[SEO] ShellApp( 3375): FrameFunction: sleeping until next message
+09-29 10:13:53.403 I/[SEO] ShellVrThread( 3375): WaitForWake: VrThread entering waiting state
+09-29 10:13:53.403 I/[SEO] ShellVrThread( 3375): WaitForWake: VrThread woke up
+09-29 10:13:53.403 I/[SEO] ShellApp( 3375): FrameFunction: sleeping for message done
+09-29 10:13:53.403 I/[SEO] ShellAppMessageQueue( 3375): Handling Pending Launch from Intent - target=com.TribeXR.TribeXR/com.epicgames.unreal.GameActivity, launch source=(unknown)
+09-29 10:13:53.403 I/[SEO] HostPlatform( 3375): LaunchExternalApplication
+09-29 10:13:53.403 D/[SEO] ShellApplication( 3375): sendLaunchIntent: 'com.TribeXR.TribeXR/com.epicgames.unreal.GameActivity' launchId: '3eb94236-4ceb-40ca-852b-ab7eb604f019'
+09-29 10:13:53.404 D/[SEO] ShellSpatialWindowManagerService( 3375): updatePackageCurrencyInLibrary aliasId is empty
+09-29 10:13:53.404 D/[SEO] ShellSpatialWindowManagerService( 3375): Placing immersive activity into new volumetric window
+09-29 10:13:53.404 D/[SEO] ShellSpatialWindowManagerService( 3375): placeImmersiveActivityIntoNewVolumetricWindow: shouldQuitCurrentApp=false
+09-29 10:13:53.404 I/VolumetricWindowManagerServiceImpl( 1500): Handling SWMS response: launch into NEW_VOLUMETRIC_WINDOW VolumetricWindowPlacementResponse { volumetricToken = VolumetricWindowToken { scope = 1, token = horizonos.view.VolumetricWindowToken$InternalVolumetricToken@8d402bd, persistableToken = ff1dd6c1-b9a5-453b-b168-87e65083027e }, pose = Pose { orientation = Vector4f { x = 0.0, y = 0.0, z = 0.0, w = 1.0 }, position = Vector3f { x = 0.0, y = 0.0, z = 0.0 } }, bounds = Extent3f { width = Infinity, height = Infinity, depth = Infinity }, surfaceSize = 4128x2208, densityDpi = 0, visible = true } for launch request [ActivityInfo{7353a14 com.epicgames.unreal.GameActivity}]
+09-29 10:13:53.408 I/VolumetricWindowManagerServiceImpl( 1500): addVolumetricWindow done: userId = 0, wct = 210e803, vw type = 2, vw persistable token = ff1dd6c1-b9a5-453b-b168-87e65083027e, rootTaskId = 2843
+09-29 10:13:53.408 I/VolumetricWindowManagerServiceImpl( 1500): addTaskVolumetricWindowLocked: taskId = 2843, VW = VolumetricWindowInfo { volumetricWindowToken = VolumetricWindowToken { scope = 1, token = horizonos.view.VolumetricWindowToken$InternalVolumetricToken@8d402bd, persistableToken = ff1dd6c1-b9a5-453b-b168-87e65083027e }, type = 2, bounds = Extent3f { width = Infinity, height = Infinity, depth = Infinity }, pose = Pose { orientation = Vector4f { x = 0.0, y = 0.0, z = 0.0, w = 1.0 }, position = Vector3f { x = 0.0, y = 0.0, z = 0.0 } }, windowSize2d = Extent2i { width = 4128, height = 2208 }, densityDpi = 200, visible = true, active = true, drawn = false, persistable = false, singlePassCompositionEnabled = false, depthTestEnabled = false, inView = false, windowFlags = 0, priorityHintInfo = PriorityHintInfo { windowPpd = 0.0, viewAngleSine = -1.0, visiblePercent = 1.0, distanceFromUser = 0.0, attentionZone = 0, eyeGazeDirectionDotProduct = -2.0, perceptibleVisibility = 0 }, taskInfo = null, presentation = VolumetricWindowPresentationInfo { controlBar = null }, layoutParams = null, children = [], shape = 1, cylinderInfo = null, alwaysOnTop = false, compositionType = 0, hzSpaceUuid = ff1dd6c1-b9a5-453b-b168-87e65083027e, topImmersive = false, name = null, parentToken = null }, isSinglePassCompositionEnabled = false
+09-29 10:13:53.408 I/[SEO] ShellSpatialWindowManagerService( 3375): onVolumetricWindowCreated has invoked on VolumetricWindowToken { scope = 1, token = android.os.BinderProxy@5e38868, persistableToken = ff1dd6c1-b9a5-453b-b168-87e65083027e }
+09-29 10:13:53.408 D/[SEO] ShellApplication( 3375): processImmersiveTransitionEvent, startEvent: true isResume: false transitionPackage: com.TribeXR.TribeXR sourceComponent: none launchId: 
+09-29 10:13:53.409 W/ActivityTaskManager( 1500): callingPackage for (uid=1000, pid=1500) is ambiguous: [android, com.android.providers.settings, com.android.server.telecom, com.android.location.fused]
+09-29 10:13:53.410 I/[SEO] ShellApplicationJNI( 3375): nativeImmersiveTransitionEvent
+09-29 10:13:53.410 W/ActivityTaskManager( 1500): getReusableTask: findActivity returned null component=ComponentInfo{com.TribeXR.TribeXR/com.epicgames.unreal.GameActivity} launchMode=2
+09-29 10:13:53.410 W/ActivityTaskManager( 1500): startActivityInner: singleInstance/Task with null targetTask component=ComponentInfo{com.TribeXR.TribeXR/com.epicgames.unreal.GameActivity} launchMode=2 reusedTask=null flags=0x10810100 resultTo=null sourceRecord=null callingPkg=com.android.shell
+09-29 10:13:53.410 E/CellBroadcastUtils( 1500): getDefaultCellBroadcastReceiverPackageName: no package found
+--------- beginning of tracking
+09-29 10:13:53.411 W/MemoryBroker( 1500): attachClient: found client in attached list (uid: 10038, pid: 4326)
+09-29 10:13:53.414 E/perfservice(  960): End applying 'START_HINT' from hint 'LAUNCH' - Failed after 5 retries - Latency: 0.595ms
+09-29 10:13:53.414 E/perfservice(  960):   >> Failed final validation: /sys/block/dm-1/queue/read_ahead_kb=512
+09-29 10:13:53.414 E/perfservice(  960):   >> Failed final validation: /sys/block/dm-0/queue/read_ahead_kb=512
+09-29 10:13:53.414 E/perfservice(  960): End applying 'END_HINT' from hint 'LAUNCH' - Failed after 5 retries - Latency: 0.257ms
+09-29 10:13:53.414 E/perfservice(  960):   >> Failed final validation: /sys/block/dm-1/queue/read_ahead_kb=512
+09-29 10:13:53.414 E/perfservice(  960):   >> Failed final validation: /sys/block/dm-0/queue/read_ahead_kb=512
+09-29 10:13:53.414 I/ActivityTaskManager( 1500): START u0 {flg=0x10810100 cmp=com.TribeXR.TribeXR/com.epicgames.unreal.GameActivity} with LAUNCH_SINGLE_TASK from uid 2000 (realCallingUid=1000) (BAL_ALLOW_PENDING_INTENT) result code=0
+09-29 10:13:53.414 W/MetaActivityManagerImpl( 1500): isImmersiveProcessAppFlavor: processRecord is null
+09-29 10:13:53.414 W/ActivityManager( 1500): ProcessRecord{5a6138f 0:com.TribeXR.TribeXR/u0a107} is attached to a previous process 30459
+09-29 10:13:53.415 I/VolumetricContentMonitor( 1500): Switching to immersive app. taskId: 2843, ActivityInfo{3492cb0 com.epicgames.unreal.GameActivity}
+09-29 10:13:53.416 W/MetaActivityManagerImpl( 1500): isImmersiveProcessAppFlavor: processRecord is null
+09-29 10:13:53.416 I/InterstitialController( 1500): onImmersiveActivityAppearing: uid: 10107, pid: 0, state: 1, com.TribeXR.TribeXR, on task: WCT{RemoteToken{210e803 Task{648f0b2 #2843 type=standard}}}, launchId: null
+09-29 10:13:53.417 I/[SEO] ShellApplicationJNI( 3375): nativeOnNewImmersiveWindow
+09-29 10:13:53.417 D/[SEO] ShellApplication( 3375): onTopImmersiveWindowChanged: vwToken=VolumetricWindowToken { scope = 1, token = android.os.BinderProxy@5e38868, persistableToken = ff1dd6c1-b9a5-453b-b168-87e65083027e } isHomeWindow=false isNewImmersiveWindow=true hadTopImmersiveWindow=true
+09-29 10:13:53.419 D/SpatialAudioService( 1500): Skipping processing for app: com.TribeXR.TribeXR (isNewApp: false, epsService: true)
+09-29 10:13:53.419 V/WorldManagerService( 1500): VW Content Listener: com.TribeXR.TribeXR -1
+09-29 10:13:53.420 W/MetaActivityManagerImpl( 1500): isImmersiveProcessAppFlavor: processRecord is null
+09-29 10:13:53.429 I/BpBinder(  996): onLastStrongRef automatically unlinking death recipients: 
+09-29 10:13:53.436 I/[SEO] ShellApp( 3375): FrameFunction: sleeping until next message
+09-29 10:13:53.436 I/[SEO] ShellVrThread( 3375): WaitForWake: VrThread entering waiting state
+09-29 10:13:53.436 I/[SEO] ShellVrThread( 3375): WaitForWake: VrThread woke up
+09-29 10:13:53.436 I/[SEO] ShellApp( 3375): FrameFunction: sleeping for message done
+09-29 10:13:53.437 I/[SEO] TravelController( 3375): ProcessImmersiveTransitionEvent: Start Transition for package: com.TribeXR.TribeXR and launchId: , isPassthroughTransition: false, shouldSkipVisualTransition: false, shouldUnloadHome: true, shouldCancelTransition: true
+09-29 10:13:53.437 I/[SEO] TravelController( 3375): LogTravelStateChange: from current state: Inactive to state: App Loading  currentWorldId: []
+09-29 10:13:53.437 I/[SEO] WorldManager( 3375): Requesting world change to World: 
+09-29 10:13:53.437 W/TrackingAccessCache( 1500): PID is not attached yet to ActivityInfo{3492cb0 com.epicgames.unreal.GameActivity}
+09-29 10:13:53.437 I/[SEO] TransitionsController( 3375): StartImmersiveTransition: [com.TribeXR.TribeXR]
+09-29 10:13:53.438 W/MetaActivityManagerImpl( 1500): isImmersiveProcessAppFlavor: processRecord is null
+09-29 10:13:53.438 I/SpaceManagerClient( 3375): Acquired window space for vwToken 'ff1dd6c1-b9a5-453b-b168-87e65083027e'
+09-29 10:13:53.438 I/[SEO] ImmersiveVolumetricWindow( 3375): ImmersiveVolumetricWindow created for vwToken 'ff1dd6c1-b9a5-453b-b168-87e65083027e'
+09-29 10:13:53.464 W/IPCDataChannelPipe [RUNTIMEIPC]( 4720): WaitForRequest: WaitForReadable failed (This is expected if the client or server is shutting down the connection.)
+09-29 10:13:53.464 W/IPCDataChannelPipe [RUNTIMEIPC]( 4326): WaitForRequest: WaitForReadable failed (This is expected if the client or server is shutting down the connection.)
+09-29 10:13:53.464 W/IPCDataChannelPipe [RUNTIMEIPC]( 2807): WaitForRequest: WaitForReadable failed (This is expected if the client or server is shutting down the connection.)
+09-29 10:13:53.464 I/RipcServerClientHandler [RUNTIMEIPC]( 4720): [RIPC_CONNECT_LOG] RipcServerClientHandler::Shutdown: friendlyName=Client: com.TribeXR.TribeXR:com.TribeXR.TribeXR:30459:, Server: com.facebook.spatial_persistence_service:com.facebook.spatial_persistence_service (anchor_persistence_server)
+09-29 10:13:53.465 W/IPCDataChannelPipe [RUNTIMEIPC]( 2807): WaitForRequest: WaitForReadable failed (This is expected if the client or server is shutting down the connection.)
+09-29 10:13:53.465 W/IPCDataChannelPipe [RUNTIMEIPC]( 2807): WaitForRequest: WaitForReadable failed (This is expected if the client or server is shutting down the connection.)
+09-29 10:13:53.465 I/RipcServerClientHandler [RUNTIMEIPC]( 2807): [RIPC_CONNECT_LOG] RipcServerClientHandler::Shutdown: friendlyName=Client: com.TribeXR.TribeXR:com.TribeXR.TribeXR:30459:, Server: com.oculus.systemdriver:com.oculus.vrruntimeservice (DynamicObjectTrackingServer)
+09-29 10:13:53.465 W/IPCDataChannelPipe [RUNTIMEIPC]( 2807): WaitForRequest: WaitForReadable failed (This is expected if the client or server is shutting down the connection.)
+09-29 10:13:53.465 W/IPCDataChannelPipe [RUNTIMEIPC]( 2807): WaitForRequest: WaitForReadable failed (This is expected if the client or server is shutting down the connection.)
+09-29 10:13:53.465 I/RipcServerClientHandler [RUNTIMEIPC]( 2807): [RIPC_CONNECT_LOG] RipcServerClientHandler::Shutdown: friendlyName=Client: com.TribeXR.TribeXR:com.TribeXR.TribeXR:30459:VrRuntimeClient-1, Server: com.oculus.systemdriver:com.oculus.vrruntimeservice (RuntimeServiceServer)
+09-29 10:13:53.465 I/RipcServerClientHandler [RUNTIMEIPC]( 2807): [RIPC_CONNECT_LOG] RipcServerClientHandler::Shutdown: friendlyName=Client: com.TribeXR.TribeXR:com.TribeXR.TribeXR:30459:, Server: com.oculus.systemdriver:com.oculus.vrruntimeservice (gkcache)
+09-29 10:13:53.465 W/IPCDataChannelPipe [RUNTIMEIPC]( 2807): WaitForRequest: WaitForReadable failed (This is expected if the client or server is shutting down the connection.)
+09-29 10:13:53.465 I/RipcServerClientHandler [RUNTIMEIPC]( 2807): [RIPC_CONNECT_LOG] RipcServerClientHandler::Shutdown: friendlyName=Client: com.TribeXR.TribeXR:com.TribeXR.TribeXR:30459:, Server: com.oculus.systemdriver:com.oculus.vrruntimeservice (PassthroughVrRuntimeServer)
+09-29 10:13:53.465 I/RipcServerClientHandler [RUNTIMEIPC]( 4326): [RIPC_CONNECT_LOG] RipcServerClientHandler::Shutdown: friendlyName=Client: com.TribeXR.TribeXR:com.TribeXR.TribeXR:30459:VrGuardianClient-1, Server: com.oculus.guardian:com.oculus.vrguardianservice (guardianserver)
+09-29 10:13:53.465 I/GuardianSDKServer [RUNTIMEIPC]( 4326): GuardianSDKServer Client Disconnected 280824675, com.TribeXR.TribeXR, com.TribeXR.TribeXR, VrGuardianClient-1
+09-29 10:13:53.465 I/VrGuardianService( 4326): GuardianSDKServer::HandleClientDisconnect: clientId=280824675
+09-29 10:13:53.465 I/VrGuardianService( 4326): GuardianSDKServer::HandleClientDisconnect done: clientId=280824675
+09-29 10:13:53.465 I/RipcServerClientHandler [RUNTIMEIPC]( 2807): [RIPC_CONNECT_LOG] RipcServerClientHandler::Shutdown: friendlyName=Client: com.TribeXR.TribeXR:com.TribeXR.TribeXR:30459:, Server: com.oculus.systemdriver:com.oculus.vrruntimeservice (HapticsServer)
+09-29 10:13:53.466 I/RipcServerClientHandler [RUNTIMEIPC]( 2807): [RIPC_CONNECT_LOG] RipcServerClientHandler::Shutdown: friendlyName=Client: com.TribeXR.TribeXR:com.TribeXR.TribeXR:30459:, Server: com.oculus.systemdriver:com.oculus.vrruntimeservice (HandInputDataServer)
+09-29 10:13:53.466 W/[CT]    ( 4720): SP:AP:DiscoveryRecommendedEventEmitter: disableDiscoveryRecommendedEventForClient: App com.TribeXR.TribeXR is not registered for discovery recommended event
+09-29 10:13:53.466 I/TrexHandInputDataServerPlugin( 2807): HandInputDataServerRIPC onClientDisconnected. 1911644186 name: com.TribeXR.TribeXR  process: com.TribeXR.TribeXR:30459
+09-29 10:13:53.466 I/TrexHandInputDataServerPlugin( 2807): setDISCOServerIds: pclinkId=0, highwindId=0 (prev pclinkId=0, prev highwindId=0), focusedId=0
+09-29 10:13:53.466 I/TrexHandInputDataServerPlugin( 2807): EnableServerStateGroups: clientId=0, enabled=0 (groups: FOCUS=1, SYSTEM_INPUT=2, LEFT=3, RIGHT=4, LEFT_BUTTON=5, RIGHT_BUTTON=6)
+09-29 10:13:53.466 W/RipcServerStateMgr [RUNTIMEIPC]( 2807): enableServerStateGroup: GetConnectedClient FAILED: clientId=0
+09-29 10:13:53.466 W/RipcServerStateMgr [RUNTIMEIPC]( 2807): enableServerStateGroup: GetConnectedClient FAILED: clientId=0
+09-29 10:13:53.466 W/RipcServerStateMgr [RUNTIMEIPC]( 2807): enableServerStateGroup: GetConnectedClient FAILED: clientId=0
+09-29 10:13:53.466 W/RipcServerStateMgr [RUNTIMEIPC]( 2807): enableServerStateGroup: GetConnectedClient FAILED: clientId=0
+09-29 10:13:53.466 W/RipcServerStateMgr [RUNTIMEIPC]( 2807): enableServerStateGroup: GetConnectedClient FAILED: clientId=0
+09-29 10:13:53.466 W/RipcServerStateMgr [RUNTIMEIPC]( 2807): enableServerStateGroup: GetConnectedClient FAILED: clientId=0
+09-29 10:13:53.468 I/VrRuntimeService( 2807): RuntimeServiceSDKServer::HandleSystemEvent: IPC_SYSTEM_EVENT_CLIENT_DISCONNECTED_EXT: com.TribeXR.TribeXR VrRuntimeClient-1 RIPC clientId 3069751736
+09-29 10:13:53.468 I/[CT]    ( 2807): MIXEDREALITY: MrServiceIPCServer: MrServiceIPCServer::onClientDisconnected
+09-29 10:13:53.468 I/ClientMgrClients( 2807): ClientMgr::DestroyClient: 30459:com.TribeXR.TribeXR:VrRuntimeClient-1
+09-29 10:13:53.468 I/ClientMgrClients( 2807): ClientMgr::DestroyClient Destroying 3 swapchain(s) for 30459:com.TribeXR.TribeXR:VrRuntimeClient-1
+09-29 10:13:53.468 I/[CT]    ( 2807): MIXEDREALITY: MrServiceController: clientDisconnected: 2831580320/com.TribeXR.TribeXR/com.TribeXR.TribeXR:30459
+09-29 10:13:53.468 I/[CT]    ( 2807): MIXEDREALITY: ClientsStatus: ====== Connected clients ======
+09-29 10:13:53.468 I/ResourceCreationThread( 2807): Destroying texture swap chain id=137 ptr=0x7bfa672400
+09-29 10:13:53.468 I/[CT]    ( 2807): MIXEDREALITY: ClientsStatus: Client: 2831580320/com.TribeXR.TribeXR/com.TribeXR.TribeXR:30459
+09-29 10:13:53.468 I/[CT]    ( 2807): MIXEDREALITY: ClientsStatus:    [Passthrough] -> Created
+09-29 10:13:53.468 I/[CT]    ( 2807): MIXEDREALITY: ClientsStatus: Client: 1156373775/com.oculus.vrshell/com.oculus.vrshell:3375
+09-29 10:13:53.468 I/[CT]    ( 2807): MIXEDREALITY: ClientsStatus:    [Passthrough] -> Paused
+09-29 10:13:53.468 I/[CT]    ( 2807): MIXEDREALITY: ClientsStatus: ===============================
+09-29 10:13:53.468 I/[CT]    ( 2807): MIXEDREALITY: MrFeatureStatus: Passthrough: Client 2831580320 status changed from Created to Destroyed.
+09-29 10:13:53.468 I/[CT]    ( 2807): MIXEDREALITY: MrFeatureStatus: Passthrough for client 2831580320: Target status Paused, CurrentStatus: Paused
+09-29 10:13:53.468 I/[CT]    ( 2807): MIXEDREALITY: MrClientModelStates: unregisterClient: For client 2831580320.
+09-29 10:13:53.468 I/[CT]    ( 2807): MIXEDREALITY: ClientsStatus: Unregistration from 2831580320/com.TribeXR.TribeXR/com.TribeXR.TribeXR:30459 accepted.
+09-29 10:13:53.468 V/SwapChain_Vulkan_Foveated( 2807): DestroyTextureResourcesFoveationVulkan: Destroyed foveation resources
+09-29 10:13:53.468 I/@@@     ( 2807): destroyswapchain: SUCCESS posting result to queue
+09-29 10:13:53.468 I/CompositorServer( 2807): DestroyTextureSwapChain: id=137, ptr=0x7bfa672400, deferred=1, result=destroyswapchain 1
+09-29 10:13:53.468 I/ResourceCreationThread( 2807): Destroying texture swap chain id=141 ptr=0x7bfa672900
+09-29 10:13:53.469 D/telemetry-tokenbucket( 1248): Quota event rate (volume per 60 second) exceeds max, rejecting, process: com.oculus.vrdriver, rate: 604828 , max: 283000
+09-29 10:13:53.469 V/SwapChain_Vulkan_Foveated( 2807): DestroyTextureResourcesFoveationVulkan: Destroyed foveation resources
+09-29 10:13:53.469 I/@@@     ( 2807): destroyswapchain: SUCCESS posting result to queue
+09-29 10:13:53.470 I/CompositorServer( 2807): DestroyTextureSwapChain: id=141, ptr=0x7bfa672900, deferred=1, result=destroyswapchain 1
+09-29 10:13:53.470 I/ResourceCreationThread( 2807): Destroying texture swap chain id=142 ptr=0x7c735c7500
+09-29 10:13:53.470 V/SwapChain_Vulkan_Foveated( 2807): DestroyTextureResourcesFoveationVulkan: Destroyed foveation resources
+09-29 10:13:53.470 I/@@@     ( 2807): destroyswapchain: SUCCESS posting result to queue
+09-29 10:13:53.470 I/CompositorServer( 2807): DestroyTextureSwapChain: id=142, ptr=0x7c735c7500, deferred=1, result=destroyswapchain 1
+09-29 10:13:53.470 I/ClientMgrClients( 2807): ClientMgr::DestroyClient: Remove 30459:com.TribeXR.TribeXR:VrRuntimeClient-1 as focused client
+09-29 10:13:53.470 I/ClientMgrFocus( 2807): FocusedClient changed from com.TribeXR.TribeXR:30459 to 
+09-29 10:13:53.470 W/ClientMgrFocus( 2807): ClientMgr::SetFocusedClient: No focused client
+09-29 10:13:53.470 I/ClientMgrFocus( 2807): Releasing clocks.
+09-29 10:13:53.470 D/TrafficStats( 3686): tagSocket(113) with statsTag=0x32, statsUid=-1
+09-29 10:13:53.470 I/ClientMgrFocus( 2807): ClientMgr::SetFocusedClient: Updating Focus State: 0 for Client: com.TribeXR.TribeXR:30459, Client DisplayId: 0
+09-29 10:13:53.470 I/ClientMgrFocus( 2807): ClientMgr::SetFocusedClient: Updating Focus State: 0 for Client: com.oculus.vrshell:3375, Client DisplayId: -1
+09-29 10:13:53.470 I/ClientMgrFocus( 2807): ClientMgr::SetFocusedClient: Updating Focus State: 0 for Client: /system_ext/bin/mrsystemservice:1282, Client DisplayId: 0
+09-29 10:13:53.470 I/ClientMgrFocus( 2807): ClientMgr::SetFocusedClient: Updating Focus State: 0 for Client: /system/bin/surfaceflinger:996, Client DisplayId: 0
+09-29 10:13:53.470 I/ClientMgrFocus( 2807): ClientMgr::SetFocusedClient: Updating Focus State: 0 for Client: com.oculus.vrguardianservice:4326, Client DisplayId: -1
+09-29 10:13:53.470 W/RipcFramework_ServerState [RUNTIMEIPC]( 2807): SetClientStateData: ipc_SetClientStateData FAILED: ClientFocusInfo
+09-29 10:13:53.470 W/ClientMgrFocus( 2807): Unable to set ClientFocusInfo from RuntimeIPC
+09-29 10:13:53.470 I/ClientMgrFocus( 2807): Clearing focused package name.
+09-29 10:13:53.470 I/ClientMgrFocus( 2807): SetFocusedPackageName - packageName  processName  clientId 0 clientPid 0
+09-29 10:13:53.470 I/TrexHandInputDataServerPlugin( 2807): setFocusedClient: , prev=com.TribeXR.TribeXR:30459 (prevPrimaryId=0), pclinkId=0, highwindId=0
+09-29 10:13:53.470 I/ClientMgrClients( 2807): ClientMgr::DestroyClient: non-deferred ShutdownResources: 8404 == 8404 
+09-29 10:13:53.471 I/CompositorClientManager( 2807): CompositorClientManager::UnRegisterClient 6
+09-29 10:13:53.471 I/CompositorServer( 2807): UnRegisterCompositorClient client(6)
+09-29 10:13:53.471 I/ClientList( 2807): RemoveClient: com.TribeXR.TribeXR:com.TribeXR.TribeXR:30459
+09-29 10:13:53.472 I/[SEO] ShellApp( 3375): FrameFunction: sleeping until next message
+09-29 10:13:53.472 I/[SEO] ShellVrThread( 3375): WaitForWake: VrThread entering waiting state
+--------- beginning of kernel
+09-29 10:13:53.486 I/binder  (    0): undelivered transaction 4016649, process died.
+09-29 10:13:53.472 V/IPCDataChannelAndroidBinder [RUNTIMEIPC](  919): destroyed binder info: 11
+09-29 10:13:53.472 I/IPCBrokerConnectionMgr [RUNTIMEIPC](  919): DestroyBrokerConnection: com.TribeXR.TribeXR:com.TribeXR.TribeXR:30459, server list: []
+09-29 10:13:53.472 D/IPCDataChannelAndroidBinder [RUNTIMEIPC](  919): RuntimeIPC: ConnectionDiedInfo: onBinderDied: 1, com.TribeXR.TribeXR:com.TribeXR.TribeXR:30459
+09-29 10:13:53.472 V/ThreadHelpers [RUNTIMEIPC](  919): RuntimeIPC: IpcDCReqHandler: ThreadBase: Shutdown, context: 
+09-29 10:13:53.472 D/IPCDataChannelServer [RUNTIMEIPC](  919): Disconnected: 1889375668, com.TribeXR.TribeXR:com.TribeXR.TribeXR:30459
+09-29 10:13:53.472 E/IPCThreadState(  919): attemptIncStrongHandle(27): Not supported
+09-29 10:13:53.472 I/IPCBrokerConnectionMgr [RUNTIMEIPC](  919): SendConnectivityNotifications: Server list didn't change, skipping notification
+09-29 10:13:53.472 E/IPCThreadState(  919): attemptIncStrongHandle(26): Not supported
+09-29 10:13:53.472 D/MidiService.Client( 1500): Client died: Client: UID: 10107 PID: 30459 listener count: 1 Device Connections:
+09-29 10:13:53.473 W/HzPlatformManagerServiceImpl( 1500): binderDied sessionId=1240088632
+09-29 10:13:53.473 I/HzPlatformManagerServiceImpl( 1500): All sessions are closed, unbinding
+09-29 10:13:53.473 E/HzPlatformService(30704): App binder died uid = : 10156
+09-29 10:13:53.473 I/ImeTracker( 1500): com.TribeXR.TribeXR:e7c26a1: onRequestHide at ORIGIN_SERVER_HIDE_INPUT reason HIDE_REMOVE_CLIENT
+09-29 10:13:53.473 W/ActivityManager( 1500): setHasOverlayUi called on unknown pid: 30459
+09-29 10:13:53.473 I/ImeTracker( 1500): com.TribeXR.TribeXR:e7c26a1: onCancelled at PHASE_SERVER_SHOULD_HIDE
+09-29 10:13:53.473 V/ActivityManager( 1500): Got obituary of 30459:com.TribeXR.TribeXR
+09-29 10:13:53.473 W/libosutils(  998): Process 30459 no longer exists, skipping read of '/proc/30459/status'
+09-29 10:13:53.473 W/ActivityManager( 1500): Slow operation: 58ms so far, now at startProcess: asking zygote to start proc
+09-29 10:13:53.473 E/IPCThreadState( 2807): attemptIncStrongHandle(71): Not supported
+09-29 10:13:53.474 E/IPCThreadState( 4720): attemptIncStrongHandle(45): Not supported
+09-29 10:13:53.474 I/Zygote  (  906): Process 30459 exited due to signal 9 (Killed)
+09-29 10:13:53.474 I/stub_zygote(  901): forwarding request 18
+09-29 10:13:53.474 I/stub_zygote(  901): --runtime-args
+09-29 10:13:53.474 I/stub_zygote(  901): --setu[..] to partition, index=0, pid=906, socket=zygote
+09-29 10:13:53.474 D/Zygote  (  906): zygote client update, added fd=8
+09-29 10:13:53.474 W/ActivityManager( 1500): Package for pid 30459: no process record found
+09-29 10:13:53.474 E/IPCThreadState( 1500): attemptIncStrongHandle(706): Not supported
+09-29 10:13:53.475 W/libosutils(  998): Process 30459 no longer exists, skipping read of '/proc/30459/cmdline'
+09-29 10:13:53.476 E/IPCThreadState(  959): attemptIncStrongHandle(20): Not supported
+09-29 10:13:53.476 E/IPCThreadState( 4326): attemptIncStrongHandle(36): Not supported
+09-29 10:13:53.476 W/APM_AudioPolicyManager(  998): stopInput no input for client 101
+09-29 10:13:53.476 W/APM_AudioPolicyManager(  998): releaseInput no input for client 101
+09-29 10:13:53.477 I/AF::RecordTrack(  998): ~RecordTrack() for 93 (fastTrack: N)
+09-29 10:13:53.477 D/audioserver(  998): FGS Logger Transaction failed
+09-29 10:13:53.477 D/audioserver(  998): -129
+09-29 10:13:53.477 D/KeyboardInputMethodService( 3375): onUnbindInput
+09-29 10:13:53.478 D/audioserver(  998): FGS Logger Transaction failed
+09-29 10:13:53.478 D/audioserver(  998): -129
+09-29 10:13:53.480 I/AHAL: AudioDevice(  916): InGetStream: 1330: Found existing stream associated with iohandle 286
+09-29 10:13:53.480 I/AHAL: AudioStream(  916): RouteStream: 4416: Enter: InPrimary usecase(21: audio-record)
+09-29 10:13:53.481 W/HzPlatformRemotePluginService( 1500): Service connection lost, notifying listener
+09-29 10:13:53.481 W/HzPlatformManagerServiceImpl( 1500): Remote service disconnected. Active sessions=0 userId=0
+09-29 10:13:53.481 W/ServiceConnector.Impl( 1500): mayInterruptIfRunning not supported - ignoring
+09-29 10:13:53.485 I/AF::RecordTrack(  998): ~RecordTrack() for 94 (fastTrack: N)
+09-29 10:13:53.486 D/audioserver(  998): FGS Logger Transaction failed
+09-29 10:13:53.486 D/audioserver(  998): -129
+09-29 10:13:53.486 W/APM_AudioPolicyManager(  998): releaseInput no input for client 35
+09-29 10:13:53.486 I/AF::RecordTrack(  998): ~RecordTrack() for 73 (fastTrack: N)
+09-29 10:13:53.486 D/audioserver(  998): FGS Logger Transaction failed
+09-29 10:13:53.486 D/audioserver(  998): -129
+09-29 10:13:53.486 I/EpsMixer(  998): [13] unregisterSessionTrack session(305) track(76)
+09-29 10:13:53.494 D/Zygote  (  906): Forked child process 4137
+09-29 10:13:53.495 D/Zygote  (  906): zygote client update, removed fd=8
+09-29 10:13:53.495 I/stub_zygote(  901): zygote partition wrote back 5 bytes, index=0, pid=906
+09-29 10:13:53.495 W/ActivityManager( 1500): Slow operation: 80ms so far, now at startProcess: returned from zygote!
+09-29 10:13:53.495 W/ActivityManager( 1500): Slow operation: 80ms so far, now at startProcess: done updating battery stats
+09-29 10:13:53.495 W/ActivityManager( 1500): Slow operation: 80ms so far, now at startProcess: building log message
+09-29 10:13:53.495 I/ActivityManager( 1500): Start proc 4137:com.TribeXR.TribeXR/u0a107 for top-activity {com.TribeXR.TribeXR/com.epicgames.unreal.GameActivity}
+09-29 10:13:53.495 W/ActivityManager( 1500): Slow operation: 80ms so far, now at startProcess: starting to update pids map
+09-29 10:13:53.495 W/ActivityManager( 1500): Slow operation: 80ms so far, now at startProcess: done updating pids map
+09-29 10:13:53.495 I/Cgroup  ( 1500): Cgroup /uid_0/pid_901 created
+09-29 10:13:53.495 E/Cgroup  ( 1500): Failed to read processes from /uid_0/pid_901/cgroup.procs : java.nio.file.NoSuchFileException: /uid_0/pid_901/cgroup.procs
+09-29 10:13:53.496 D/parfait:service( 1284): Received TRACE_START top_app_changed:backgrounded:com.TribeXR.TribeXR request
+09-29 10:13:53.496 D/parfait:tracing( 1284): Trigger scenario name: top_app_changed:backgrounded:com.TribeXR.TribeXR
+09-29 10:13:53.496 I/parfait:tracing( 1284): Trigger scenario top_app_changed:backgrounded:com.TribeXR.TribeXR not found in config, ignoring.
+09-29 10:13:53.496 D/parfait:logger( 1284): Dropping event /data/oculus/parfait/telemetry_logs/edeec42b-23d8-90fb-026c-0615221cfe28.log
+09-29 10:13:53.499 I/ParfaitServiceHelper( 1500): Fetched allowlist from parfait:
+09-29 10:13:53.499 I/ParfaitServiceHelper( 1500):    allowlist entry: com.oculus.igvr
+09-29 10:13:53.499 I/ParfaitServiceHelper( 1500):    allowlist entry: com.oculus.vrshell
+09-29 10:13:53.499 I/ParfaitServiceHelper( 1500):    allowlist entry: com.oculus.panelapp.settings
+09-29 10:13:53.500 I/ParfaitServiceHelper( 1500):    allowlist entry: com.oculus.panelapp.settings:QuickControls
+09-29 10:13:53.500 I/ParfaitServiceHelper( 1500):    allowlist entry: com.oculus.panelapp.library:SystemBar
+09-29 10:13:53.500 I/ParfaitServiceHelper( 1500):    allowlist entry: com.oculus.panelapp.library:GlobalSearch
+09-29 10:13:53.500 I/ParfaitServiceHelper( 1500):    allowlist entry: com.oculus.panelapp.library:Library
+09-29 10:13:53.500 I/ParfaitServiceHelper( 1500):    allowlist entry: com.oculus.panelapp.library:Worlds
+09-29 10:13:53.500 I/ParfaitServiceHelper( 1500):    allowlist entry: com.oculus.panelapp.library:MeTab
+09-29 10:13:53.500 I/ParfaitServiceHelper( 1500):    allowlist entry: com.oculus.socialplatform:PeopleTab
+09-29 10:13:53.500 I/ParfaitServiceHelper( 1500):    allowlist entry: com.oculus.systemux
+09-29 10:13:53.500 I/ParfaitServiceHelper( 1500):    allowlist entry: com.oculus.systemux:Library
+09-29 10:13:53.500 I/ParfaitServiceHelper( 1500):    allowlist entry: com.oculus.systemux:SystemUX
+09-29 10:13:53.501 W/tform.providers(30424): Reducing the number of considered missed Gc histogram windows from 186 to 100
+09-29 10:13:53.515 I/logd    (    0): logdr: UID=2000 GID=2000 PID=4135 b tail=0 logMask=10099 pid=0 start=0ns deadline=0ns
+09-29 10:13:53.503 W/JavaBinder(30704): BinderProxy is being destroyed but the application did not call unlinkToDeath to unlink all of its death recipients beforehand.  Releasing leaked death recipient: horizon.platform.service.HzPlatformService$bindToServiceOnDemand$serviceConnection$1$onServiceConnected$1
+09-29 10:13:53.503 I/BpBinder(30704): onLastStrongRef automatically unlinking death recipients: 
+09-29 10:13:53.503 W/JavaBinder(30704): BinderProxy is being destroyed but the application did not call unlinkToDeath to unlink all of its death recipients beforehand.  Releasing leaked death recipient: horizon.platform.service.HzPlatformService$bindToServiceOnDemand$serviceConnection$1$onServiceConnected$1
+09-29 10:13:53.503 I/BpBinder(30704): onLastStrongRef automatically unlinking death recipients: 
+09-29 10:13:53.503 W/JavaBinder(30704): BinderProxy is being destroyed but the application did not call unlinkToDeath to unlink all of its death recipients beforehand.  Releasing leaked death recipient: horizon.platform.service.HzPlatformService$bindToServiceOnDemand$serviceConnection$1$onServiceConnected$1
+09-29 10:13:53.503 W/JavaBinder(30704): BinderProxy is being destroyed but the application did not call unlinkToDeath to unlink all of its death recipients beforehand.  Releasing leaked death recipient: horizon.platform.service.HzPlatformService$bindToServiceOnDemand$serviceConnection$1$onServiceConnected$1
+09-29 10:13:53.503 I/BpBinder(30704): onLastStrongRef automatically unlinking death recipients: 
+09-29 10:13:53.503 W/JavaBinder(30704): BinderProxy is being destroyed but the application did not call unlinkToDeath to unlink all of its death recipients beforehand.  Releasing leaked death recipient: horizon.platform.service.HzPlatformService$bindToServiceOnDemand$serviceConnection$1$onServiceConnected$1
+09-29 10:13:53.503 I/BpBinder(30704): onLastStrongRef automatically unlinking death recipients: 
+09-29 10:13:53.503 W/latform.service(30704): ApkAssets: Deleting an ApkAssets object '<empty> and /product/priv-app/HorizonPlatformProviders/HorizonPlatformProviders.apk' with 1 weak references
+09-29 10:13:53.503 W/latform.service(30704): ApkAssets: Deleting an ApkAssets object '<empty> and /data/app/~~zQBpCx2agscLX0SjyvbSFw==/com.meta.rl.trust.service-6MlqL5LESLHK8sguifW10w==/base.apk' with 1 weak references
+09-29 10:13:53.503 W/latform.service(30704): ApkAssets: Deleting an ApkAssets object '<empty> and /system_ext/app/horizonos.rdk/horizonos.rdk.apk' with 1 weak references
+09-29 10:13:53.506 I/TribeXR.TribeXR( 4137): Using CollectorTypeCC GC.
+09-29 10:13:53.515 V/WindowManager( 1500): Sent Transition #92 createdAt=09-29 10:13:53.410 via request=TransitionRequestInfo { type = OPEN, triggerTask = TaskInfo{userId=0 taskId=2844 displayId=0 isRunning=true baseIntent=Intent { flg=0x10810100 cmp=com.TribeXR.TribeXR/com.epicgames.unreal.GameActivity } baseActivity=ComponentInfo{com.TribeXR.TribeXR/com.epicgames.unreal.GameActivity} topActivity=ComponentInfo{com.TribeXR.TribeXR/com.epicgames.unreal.GameActivity} origActivity=null realActivity=ComponentInfo{com.TribeXR.TribeXR/com.epicgames.unreal.GameActivity} numActivities=1 numActivitiesPerUser={0=1} lastActiveTime=39558467 supportsMultiWindow=true resizeMode=0 isResizeable=false minWidth=-1 minHeight=-1 defaultMinSize=1 token=WCT{RemoteToken{d45dc99 Task{e6bbaf1 #2844 type=standard A=10107:com.TribeXR.TribeXR}}} topActivityType=1 pictureInPictureParams=null shouldDockBigOverlays=false launchIntoPipHostTaskId=-1 lastParentTaskIdBeforePip=-1 displayCutoutSafeInsets=null topActivityInfo=ActivityInfo{3492cb0 com.epicgames.unreal.GameActivity} launchCookies=[] telemetryLaunchIds=[] positionInParent=Point(0, 0) parentTaskId=2843 isFocused=false isVisible=false isVisibleRequested=false isSleeping=true topActivityInSizeCompat=false topActivityEligibleForLetterboxEducation= false topActivityLetterboxed= false isFromDoubleTap= false topActivityLetterboxVerticalPosition= -1 topActivityLetterboxHorizontalPosition= -1 topActivityLetterboxWidth=-1 topActivityLetterboxHeight=-1 locusId=null displayAreaFeatureId=1 cameraCompatControlState=hidden finishingActivityExitReason=0}, remoteTransition = null, displayChange = null }
+09-29 10:13:53.515 V/WindowManager( 1500):     startWCT=WindowContainerTransaction { changes = {} hops = [] errorCallbackToken=null taskFragmentOrganizer=null }
+09-29 10:13:53.515 V/WindowManager( 1500):     info={id=92 t=OPEN f=0x0 trk=0 r=[] c=[]}
+09-29 10:13:53.516 D/VrFocus ( 1300): onForegroundActivitiesChanged: uid: 10107, pid: 4137, fg: 1, display main: 0, secondary: 0
+09-29 10:13:53.517 D/TrackingAccessCache( 1500): Tracking access changed: [ProcessTrackingAccess { uid = 10107, pid = 4137, trackingAccessPose = 2046, trackingAccessInput = 2046 }]
+09-29 10:13:53.517 V/WindowManager( 1500): Finish Transition #92: created at 09-29 10:13:53.410 collect-started=0.016ms request-sent=3.693ms started=4.827ms ready=103.826ms sent=104.994ms finished=107.315ms
+09-29 10:13:53.517 D/parfait:service( 1284): Received TRACE_START top_app_changed:backgrounded:com.TribeXR.TribeXR request
+09-29 10:13:53.517 D/parfait:tracing( 1284): Trigger scenario name: top_app_changed:backgrounded:com.TribeXR.TribeXR
+09-29 10:13:53.518 I/parfait:tracing( 1284): Trigger scenario top_app_changed:backgrounded:com.TribeXR.TribeXR not found in config, ignoring.
+09-29 10:13:53.518 D/parfait:logger( 1284): Dropping event /data/oculus/parfait/telemetry_logs/4e8c605e-5a5e-b128-2b90-91725afb379a.log
+09-29 10:13:53.518 I/InterstitialController( 1500): onImmersiveActivityGone: immersive activity gone
+09-29 10:13:53.518 D/SpatialAudioService( 1500): Skipping processing for app: com.TribeXR.TribeXR (isNewApp: false, epsService: true)
+09-29 10:13:53.518 V/WorldManagerService( 1500): VW Content Listener: com.TribeXR.TribeXR -1
+09-29 10:13:53.522 W/MessageExecutionMonitor( 5546): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:13:53.522 W/MessageExecutionMonitor( 4326): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:13:53.523 D/nativeloader( 4137): Configuring clns-6 for other apk /data/app/~~ZNkLC8_VVDaeDUO3H9Jb6w==/com.TribeXR.TribeXR-Q80fuW3lhelbzNLNEd8D8Q==/base.apk. target_sdk_version=32, uses_libraries=libossdk.oculus.so, library_path=/data/app/~~ZNkLC8_VVDaeDUO3H9Jb6w==/com.TribeXR.TribeXR-Q80fuW3lhelbzNLNEd8D8Q==/lib/arm64:/data/app/~~ZNkLC8_VVDaeDUO3H9Jb6w==/com.TribeXR.TribeXR-Q80fuW3lhelbzNLNEd8D8Q==/base.apk!/lib/arm64-v8a:/apex/com.meta.xr/priv-app/VrDriver/VrDriver.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.TribeXR.TribeXR
+09-29 10:13:53.523 D/nativeloader( 4137): Extending system_exposed_libraries: libossdk.oculus.so
+09-29 10:13:53.528 V/GraphicsEnvironment( 4137): Currently set values for:
+09-29 10:13:53.528 V/GraphicsEnvironment( 4137):   angle_gl_driver_selection_pkgs=[]
+09-29 10:13:53.528 V/GraphicsEnvironment( 4137):   angle_gl_driver_selection_values=[]
+09-29 10:13:53.528 V/GraphicsEnvironment( 4137): ANGLE GameManagerService for com.TribeXR.TribeXR: false
+09-29 10:13:53.528 V/GraphicsEnvironment( 4137): com.TribeXR.TribeXR is not listed in per-application setting
+09-29 10:13:53.528 V/GraphicsEnvironment( 4137): Neither updatable production driver nor prerelease driver is supported.
+09-29 10:13:53.531 D/UE      ( 4137): [GooglePlayGamesWrapper] Initializing
+09-29 10:13:53.532 I/ActivityManager( 1500): Flag disabled. Ignoring finishAttachApplication from uid: 10107. pid: 4137
+09-29 10:13:53.532 D/ConnectivityService( 1500): NetReassign [no changes] [c 0] [a 0] [i 0]
+09-29 10:13:53.533 V/UE      ( 4137): [NetworkChangedManager] Network Available: 100
+09-29 10:13:53.533 V/UE      ( 4137): [NetworkChangedManager] No network state set yet, setting naive network state checking connection fully.
+09-29 10:13:53.534 V/UE      ( 4137): [NetworkChangedManager] Network connectivity changed. New connectivity state: CONNECTION_AVAILABLE
+09-29 10:13:53.534 V/UE      ( 4137): [NetworkChangedManager] Network Capabilities changed, has Internet: true
+09-29 10:13:53.534 V/UE      ( 4137): [NetworkChangedManager] Verifying internet connection with host: https://example.com/
+09-29 10:13:53.534 W/libc    ( 4137): Access denied finding property "vendor.debug.egl.profiler"
+09-29 10:13:53.530 W/RenderThread( 4137): type=1400 audit(0.0:285): avc:  denied  { read } for  name="u:object_r:gpuprofiler_prop:s0" dev="tmpfs" ino=282 scontext=u:r:untrusted_app_32:s0:c107,c256,c512,c768 tcontext=u:object_r:gpuprofiler_prop:s0 tclass=file permissive=0 app=com.TribeXR.TribeXR
+09-29 10:13:53.535 I/orchestrator( 1245): memflow::utils: PSI on-demand trigger enabled for pid 4137: Some threshold=2s window=10s
+09-29 10:13:53.535 I/orchestrator( 1245): orchestrator_common::policy_manager: Enrolling observer: PolicyId { id: PerProcess { uid: 10107, pid: 4137 }, factory_name: "CgroupV2TelemetryFactory" }
+09-29 10:13:53.539 D/parfait:service( 1284): Received TRACE_START memory_heartbeat:com.TribeXR.TribeXR request
+09-29 10:13:53.539 D/parfait:tracing( 1284): Trigger scenario name: memory_heartbeat:com.TribeXR.TribeXR
+09-29 10:13:53.539 I/parfait:tracing( 1284): Trigger scenario memory_heartbeat:com.TribeXR.TribeXR not found in config, ignoring.
+09-29 10:13:53.539 D/parfait:logger( 1284): Dropping event /data/oculus/parfait/telemetry_logs/b0633656-986d-a706-6637-082fe39eaf41.log
+09-29 10:13:53.612 I/GuardianShellAndProcessUtil( 4326): [GuardianShellAndProcessUtil::initialize] ActiveClientDestroyedEventData: package=[com.TribeXR.TribeXR], process=[com.TribeXR.TribeXR]
+09-29 10:13:53.612 I/GuardianShellAndProcessUtil( 4326): [GuardianShellAndProcessUtil::onActiveClientDestroyed] com.TribeXR.TribeXR
+09-29 10:13:53.612 I/GuardianShellAndProcessUtil( 4326): [GuardianShellAndProcessUtil::onActiveClientDestroyed] Clearing return package because owning client was destroyed: com.TribeXR.TribeXR
+09-29 10:13:53.619 I/orchestrator( 1245): memflow::policy::cgroup_v2_telemetry: PSI trigger fired for pid 4137 (com.TribeXR.TribeXR), collecting HighPsi snapshot
+09-29 10:13:53.641 D/TrafficStats( 4137): tagSocket(66) with statsTag=0xffffffff, statsUid=-1
+09-29 10:13:53.672 E/QuickPerformanceLoggerImpl( 4137): [ERROR] QPL unimplemented, call QplMrProvider::init() first
+09-29 10:13:53.673 D/OVRPlugin( 4137): JNI_OnLoad
+09-29 10:13:53.673 D/OVRPlugin( 4137): OVRPlugin FindClass(UnityPlayer) failed, expected for non-Unity engine
+09-29 10:13:53.717 D/VrosSpatialAudio( 4137): Immersive activity detected, skip VrosSpatialAudio init
+09-29 10:13:53.719 D/UE      ( 4137): [GameActivity] LIFECYCLE: GameActivity.onCreate() called!, this=com.epicgames.unreal.GameActivity@deaab62
+09-29 10:13:53.728 W/GooglePlayServicesUtil( 4137): com.TribeXR.TribeXR requires the Google Play Store, but it is missing.
+09-29 10:13:53.728 W/GoogleApiManager( 4137): The service for com.google.android.gms.internal.games_v2.zzx is not available: ConnectionResult{statusCode=SERVICE_INVALID, resolution=null, message=null}
+09-29 10:13:53.728 W/GooglePlayServicesUtil( 4137): com.TribeXR.TribeXR requires the Google Play Store, but it is missing.
+09-29 10:13:53.728 W/GoogleApiManager( 4137): The service for com.google.android.gms.internal.games_v2.zzx is not available: ConnectionResult{statusCode=SERVICE_INVALID, resolution=null, message=null}
+09-29 10:13:53.728 E/PermissionHelper( 4137): GVRTransition2DActivity.getActivity() failed. Trying to get GameActivity.
+09-29 10:13:53.728 D/PermissionHelper( 4137): checkPermission: android.permission.CHANGE_WIFI_MULTICAST_STATE has not granted
+09-29 10:13:53.728 D/UE      ( 4137): [GameActivity] LIFECYCLE: GameActivity.onCreateBody(), activityContext = com.epicgames.unreal.GameActivity@deaab62
+09-29 10:13:53.729 D/UE      ( 4137): [GameActivity] Target SDK is 32.  This may cause issues if permissions are denied by the user.
+09-29 10:13:53.732 I/AdrenoGLES-0( 4137): QUALCOMM build                   : 810c66ceb7, Idb4ff819d7
+09-29 10:13:53.732 I/AdrenoGLES-0( 4137): Build Date                       : 06/24/26
+09-29 10:13:53.732 I/AdrenoGLES-0( 4137): OpenGL ES Shader Compiler Version: E031.50.14.00
+09-29 10:13:53.732 I/AdrenoGLES-0( 4137): Local Branch                     : 
+09-29 10:13:53.732 I/AdrenoGLES-0( 4137): Remote Branch                    : refs/tags/AU_LINUX_ANDROID_LA.VENDOR.12.3.11.00.00.934.442
+09-29 10:13:53.732 I/AdrenoGLES-0( 4137): Remote Branch                    : NONE
+09-29 10:13:53.732 I/AdrenoGLES-0( 4137): Reconstruct Branch               : NOTHING
+09-29 10:13:53.732 I/AdrenoGLES-0( 4137): Build Config                     : S P 12.1.6 AArch64
+09-29 10:13:53.732 I/AdrenoGLES-0( 4137): Driver Path                      : /vendor/lib64/egl/libGLESv2_adreno.so
+09-29 10:13:53.732 I/AdrenoGLES-0( 4137): Driver Version                   : 0837.0.9
+09-29 10:13:53.732 I/AdrenoGLES-0( 4137): Process Name                     : com.TribeXR.TribeXR
+09-29 10:13:53.737 I/AdrenoGLES-0( 4137): PFP: 0x01511181, ME: 0x00000000
+09-29 10:13:53.740 W/Adreno-AppProfiles( 4137): Could not find QSPM HAL service. Skipping adreno profile processing.
+09-29 10:13:53.742 I/AdrenoUtils( 4137): <ReadGpuID:1293>: Reading chip ID through GSL
+09-29 10:13:53.743 I/hwservicemanager(  477): getTransport: Cannot find entry android.hardware.configstore@1.0::ISurfaceFlingerConfigs/default in either framework or device VINTF manifest.
+09-29 10:13:53.756 E/ThemeUtils( 4137): View class com.epicgames.unreal.GameActivity$r0 is an AppCompat widget that can only be used with a Theme.AppCompat theme (or descendant).
+09-29 10:13:53.772 I/VrosSpatialAudio( 4137): init with android.view.ViewRootImpl$W@1237554
+09-29 10:13:53.774 W/OpenGLRenderer( 4137): Unknown dataspace 0
+09-29 10:13:53.776 W/WindowManager( 1500): Failed looking up window session=Session{8e5d22f 4137:u0a10107} callers=com.android.server.wm.WindowManagerService.windowForClientLocked:6161 com.android.server.wm.Session.updateRequestedVisibleTypes:696 android.view.IWindowSession$Stub.onTransact:1040 
+09-29 10:13:53.781 W/PlayGamesServices[GamesApiManager]( 4137): PlayStore is too old or not available and the version of GmsCore would attempt PGA installation on automatic sign-in. Skipping it.
+09-29 10:13:53.782 I/cr_ChromeConnection(32617): New Custom Tab session created by package: com.TribeXR.TribeXR (UID: 10107)
+09-29 10:13:53.785 I/ActivityTaskManager( 1500): START u0 {flg=0x10000 cmp=com.TribeXR.TribeXR/.DownloaderActivity} with LAUNCH_MULTIPLE from uid 10107 (BAL_ALLOW_GRACE_PERIOD) result code=0
+09-29 10:13:53.785 I/VrKeyguardViewMediator( 2422): handleSetOccluded, occluded: false, prevValue: false, mHiding: false
+09-29 10:13:53.785 D/VrLockscreenHost( 2422): setOccluded: false, was: false, force: false, window: null
+09-29 10:13:53.786 I/[SEO] ShellSpatialWindowManagerService( 3375): onLaunchInVolumetricWindow has invoked on VolumetricWindowToken { scope = 1, token = android.os.BinderProxy@5e38868, persistableToken = ff1dd6c1-b9a5-453b-b168-87e65083027e }!ActivityOptions(891174), mPackageName=null, mAnimationType=-1, mStartX=0, mStartY=0, mWidth=0, mHeight=0, mLaunchDisplayId=0
+09-29 10:13:53.786 I/[SEO] ShellVrThread( 3375): WaitForWake: VrThread woke up
+09-29 10:13:53.786 I/[SEO] ShellApp( 3375): FrameFunction: sleeping for message done
+09-29 10:13:53.786 I/[SEO] VisibilityRequestController( 3375): [VisibilityRequestController] SubmitRequest: HideShellUI (priority=50, kind=DirectChange, targetVisible=NotVisible)
+09-29 10:13:53.786 W/[SEO] SystemTaskBar( 3375): Cancelling HideTaskBarLayers: taskBarLayers not initialized
+09-29 10:13:53.786 I/[SEO] ShellVrThread( 3375): WakeVrThread - notifying vr thread (reason: backgroundDesktop)
+09-29 10:13:53.786 I/[SEO] KeyboardSystem( 3375): DeferCloseKeyboard: isKeyboardActive false, VWHost false.
+09-29 10:13:53.786 I/[SEO] FlowController( 3375): Reset resetReason : Dismissed
+09-29 10:13:53.786 I/[SEO] DialogController( 3375): Reset resetReason:1
+09-29 10:13:53.786 D/[SEO] ShellSpatialWindowManagerService( 3375): onLaunchInVolumetricWindow: shouldQuitCurrentApp=false
+09-29 10:13:53.787 W/ActivityTaskManager( 1500): callingPackage for (uid=1000, pid=1500) is ambiguous: [android, com.android.providers.settings, com.android.server.telecom, com.android.location.fused]
+09-29 10:13:53.787 E/ActivityTaskManager( 1500): With BAL hardening this activity start would be blocked! [callingPackage: com.TribeXR.TribeXR; callingUid: 10107; appSwitchState: 2; callingUidHasAnyVisibleWindow: false; callingUidProcState: TOP_SLEEPING; isCallingUidPersistentSystemProcess: false; balAllowedByPiSender: BackgroundStartPrivileges[allowsBackgroundActivityStarts=true, allowsBackgroundForegroundServiceStarts=true, originatingToken=null]; realCallingPackage: android.uid.system:1000[debugOnly]; realCallingUid: 1000; realCallingUidHasAnyVisibleWindow: false; realCallingUidProcState: PERSISTENT; isRealCallingUidPersistentSystemProcess: true; originatingPendingIntent: PendingIntentRecord{867d827 com.TribeXR.TribeXR startActivity}; backgroundStartPrivileges: BackgroundStartPrivileges[allowsBackgroundActivityStarts=true, allowsBackgroundForegroundServiceStarts=true, originatingToken=android.os.Binder@6c3a9f4]; intent: Intent { flg=0x10000 cmp=com.TribeXR.TribeXR/.DownloaderActivity }; callerApp: null; inVisibleTask: false]
+09-29 10:13:53.794 W/ActivityManager( 1500): Dropping Event: wtf since tag: system_server_wtf is disabled or DropboxManager is null
+09-29 10:13:53.794 E/CellBroadcastUtils( 1500): getDefaultCellBroadcastReceiverPackageName: no package found
+09-29 10:13:53.796 E/perfservice(  960): End applying 'START_HINT' from hint 'LAUNCH' - Failed after 5 retries - Latency: 0.369ms
+09-29 10:13:53.796 E/perfservice(  960):   >> Failed final validation: /sys/block/dm-1/queue/read_ahead_kb=512
+09-29 10:13:53.796 E/perfservice(  960):   >> Failed final validation: /sys/block/dm-0/queue/read_ahead_kb=512
+09-29 10:13:53.798 I/ActivityTaskManager( 1500): START u0 {flg=0x10000 cmp=com.TribeXR.TribeXR/.DownloaderActivity} with LAUNCH_MULTIPLE from uid 10107 (realCallingUid=1000) (BAL_ALLOW_PENDING_INTENT) result code=0
+09-29 10:13:53.798 D/CoreBackPreview( 1500): Window{7624b u0 com.TribeXR.TribeXR/com.epicgames.unreal.GameActivity}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@bb1040, mPriority=0, mIsAnimationCallback=false}
+09-29 10:13:53.799 W/VolumetricContentMonitor( 1500): handleActivityResumed: no wct for android.os.Binder@199b79
+09-29 10:13:53.800 I/AdrenoGLES-0( 4137): QUALCOMM build                   : 810c66ceb7, Idb4ff819d7
+09-29 10:13:53.800 I/AdrenoGLES-0( 4137): Build Date                       : 06/24/26
+09-29 10:13:53.800 I/AdrenoGLES-0( 4137): OpenGL ES Shader Compiler Version: E031.50.14.00
+09-29 10:13:53.800 I/AdrenoGLES-0( 4137): Local Branch                     : 
+09-29 10:13:53.800 I/AdrenoGLES-0( 4137): Remote Branch                    : refs/tags/AU_LINUX_ANDROID_LA.VENDOR.12.3.11.00.00.934.442
+09-29 10:13:53.800 I/AdrenoGLES-0( 4137): Remote Branch                    : NONE
+09-29 10:13:53.800 I/AdrenoGLES-0( 4137): Reconstruct Branch               : NOTHING
+09-29 10:13:53.800 I/AdrenoGLES-0( 4137): Build Config                     : S P 12.1.6 AArch64
+09-29 10:13:53.800 I/AdrenoGLES-0( 4137): Driver Path                      : /vendor/lib64/egl/libGLESv2_adreno.so
+09-29 10:13:53.800 I/AdrenoGLES-0( 4137): Driver Version                   : 0837.0.9
+09-29 10:13:53.800 I/AdrenoGLES-0( 4137): Process Name                     : com.TribeXR.TribeXR
+09-29 10:13:53.800 V/WindowManager( 1500): Sent Transition #94 createdAt=09-29 10:13:53.794 via request=TransitionRequestInfo { type = OPEN, triggerTask = TaskInfo{userId=0 taskId=2844 displayId=0 isRunning=true baseIntent=Intent { flg=0x10810100 cmp=com.TribeXR.TribeXR/com.epicgames.unreal.GameActivity } baseActivity=ComponentInfo{com.TribeXR.TribeXR/com.epicgames.unreal.GameActivity} topActivity=ComponentInfo{com.TribeXR.TribeXR/com.TribeXR.TribeXR.DownloaderActivity} origActivity=null realActivity=ComponentInfo{com.TribeXR.TribeXR/com.epicgames.unreal.GameActivity} numActivities=2 numActivitiesPerUser={0=2} lastActiveTime=39558850 supportsMultiWindow=true resizeMode=0 isResizeable=false minWidth=-1 minHeight=-1 defaultMinSize=1 token=WCT{RemoteToken{d45dc99 Task{e6bbaf1 #2844 type=standard A=10107:com.TribeXR.TribeXR}}} topActivityType=1 pictureInPictureParams=null shouldDockBigOverlays=false launchIntoPipHostTaskId=-1 lastParentTaskIdBeforePip=-1 displayCutoutSafeInsets=null topActivityInfo=ActivityInfo{160f06c com.TribeXR.TribeXR.DownloaderActivity} launchCookies=[] telemetryLaunchIds=[] positionInParent=Point(0, 0) parentTaskId=2843 isFocused=true isVisible=false isVisibleRequested=false isSleeping=true topActivityInSizeCompat=false topActivityEligibleForLetterboxEducation= false topActivityLetterboxed= false isFromDoubleTap= false topActivityLetterboxVerticalPosition= -1 topActivityLetterboxHorizontalPosition= -1 topActivityLetterboxWidth=-1 topActivityLetterboxHeight=-1 locusId=null displayAreaFeatureId=1 cameraCompatControlState=hidden finishingActivityExitReason=0}, remoteTransition = null, displayChange = null }
+09-29 10:13:53.800 V/WindowManager( 1500):     startWCT=WindowContainerTransaction { changes = {} hops = [] errorCallbackToken=null taskFragmentOrganizer=null }
+09-29 10:13:53.800 V/WindowManager( 1500):     info={id=94 t=OPEN f=0x0 trk=0 r=[] c=[]}
+09-29 10:13:53.801 V/WindowManager( 1500): Finish Transition #94: created at 09-29 10:13:53.794 collect-started=0.02ms request-sent=2.938ms started=5.575ms ready=5.563ms sent=6.005ms finished=7.342ms
+09-29 10:13:53.802 D/SpatialAudioService( 1500): Skipping processing for app: com.TribeXR.TribeXR (isNewApp: false, epsService: true)
+09-29 10:13:53.802 V/WorldManagerService( 1500): VW Content Listener: com.TribeXR.TribeXR -1
+09-29 10:13:53.802 E/perfservice(  960): End applying 'END_HINT' from hint 'LAUNCH' - Failed after 5 retries - Latency: 0.317ms
+09-29 10:13:53.802 E/perfservice(  960):   >> Failed final validation: /sys/block/dm-1/queue/read_ahead_kb=512
+09-29 10:13:53.802 E/perfservice(  960):   >> Failed final validation: /sys/block/dm-0/queue/read_ahead_kb=512
+09-29 10:13:53.804 I/OpenGLRenderer( 4137): setStopped(0)
+09-29 10:13:53.806 I/AdrenoGLES-0( 4137): PFP: 0x01511181, ME: 0x00000000
+09-29 10:13:53.808 W/Adreno-AppProfiles( 4137): Could not find QSPM HAL service. Skipping adreno profile processing.
+09-29 10:13:53.815 E/OpenGLRenderer( 4137): Unable to match the desired swap behavior.
+09-29 10:13:53.816 I/OpenGLRenderer( 4137): setStopped(0): complete
+09-29 10:13:53.816 I/OpenGLRenderer( 4137): setStopped(0)
+09-29 10:13:53.816 I/OpenGLRenderer( 4137): setStopped(0): complete
+09-29 10:13:53.816 I/OpenGLRenderer( 4137): setStopped(1)
+09-29 10:13:53.816 I/OpenGLRenderer( 4137): setStopped(1): complete
+09-29 10:13:53.818 W/MetaActivityManagerImpl( 1500): isImmersiveProcessAppFlavor: processRecord is null
+09-29 10:13:53.819 I/[SEO] VisibilityRequestController( 3375): [VisibilityRequestController] Outcome: HideShellUI -> HONORED (clearing queue of 0, setting baseVisibility=NotVisible)
+09-29 10:13:53.819 I/[SEO] ShellApp( 3375): FrameFunction: sleeping until next message
+09-29 10:13:53.819 I/[SEO] ShellVrThread( 3375): WaitForWake: VrThread entering waiting state
+09-29 10:13:53.820 D/VrosSpatialAudio( 4137): Immersive activity detected, skip VrosSpatialAudio init
+09-29 10:13:53.843 I/OpenGLRenderer( 4137): setStopped(0)
+09-29 10:13:53.843 I/OpenGLRenderer( 4137): setStopped(0): complete
+09-29 10:13:53.843 I/ActivityTaskManager( 1500): Activity reported stop, but no longer stopping: ActivityRecord{2fd547b u0 com.TribeXR.TribeXR/com.epicgames.unreal.GameActivity t2844} PAUSING
+09-29 10:13:53.844 W/VolumetricContentMonitor( 1500): handleActivityResumed: no wct for android.os.Binder@1e5d729
+09-29 10:13:53.844 D/SpatialAudioService( 1500): Skipping processing for app: com.TribeXR.TribeXR (isNewApp: false, epsService: true)
+09-29 10:13:53.845 V/WorldManagerService( 1500): VW Content Listener: com.TribeXR.TribeXR -1
+09-29 10:13:53.861 I/OpenGLRenderer( 4137): setStopped(1)
+09-29 10:13:53.861 I/OpenGLRenderer( 4137): setStopped(1): complete
+09-29 10:13:53.900 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 2 UID 1000 Initiator: periodic Report size: 29498
+09-29 10:13:53.900 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 12 UID 1000 Initiator: periodic Report size: 14010
+09-29 10:13:53.900 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 3 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:13:53.900 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 5 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:13:53.900 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 6 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:13:53.900 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 7 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:13:53.900 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 10 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:13:53.900 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 11 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:13:53.900 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 1 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:13:53.900 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 22 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:13:53.917 D/TrafficStats( 4137): tagSocket(66) with statsTag=0xffffffff, statsUid=-1
+09-29 10:13:54.237 D/TrafficStats( 4137): tagSocket(109) with statsTag=0xffffffff, statsUid=-1
+09-29 10:13:54.700 D/OnDemandManager( 1248): Fetching on demand statsd reports for config id: 24 and campaign id -20
+09-29 10:13:57.057 I/MRSS    ( 1282): BOLT:HexagonTelemetry: Global DSP utilization: 0.02% (1 / 5001 ms), Scalar Util: 36.04%, HVX Util: 0.00%, HMX Util: 0.00%, DMA Active: 0.00%, Freq: 1171.1999999999998 MHz, GetPmu: 0.21 ms
+09-29 10:13:58.503 W/MessageExecutionMonitor( 3686): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:13:58.517 W/MessageExecutionMonitor( 2807): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:13:58.519 W/MessageExecutionMonitor( 3162): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:13:58.522 W/MessageExecutionMonitor( 5660): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:13:58.522 W/MessageExecutionMonitor( 4326): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:13:58.522 W/MessageExecutionMonitor( 5546): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:13:58.745 W/GooglePlayServicesUtil( 4137): com.TribeXR.TribeXR requires the Google Play Store, but it is missing.
+09-29 10:13:58.745 W/GoogleApiManager( 4137): The service for com.google.android.gms.common.internal.service.zap is not available: ConnectionResult{statusCode=SERVICE_INVALID, resolution=null, message=null}
+09-29 10:13:58.746 W/GooglePlayServicesUtil( 4137): com.TribeXR.TribeXR requires the Google Play Store, but it is missing.
+09-29 10:13:58.746 W/GoogleApiManager( 4137): The service for com.google.android.gms.common.internal.service.zap is not available: ConnectionResult{statusCode=SERVICE_INVALID, resolution=null, message=null}
+09-29 10:13:58.797 E/perfservice(  960): End applying 'END_HINT' from hint 'LAUNCH' - Failed after 5 retries - Latency: 0.415ms
+09-29 10:13:58.797 E/perfservice(  960):   >> Failed final validation: /sys/block/dm-1/queue/read_ahead_kb=512
+09-29 10:13:58.797 E/perfservice(  960):   >> Failed final validation: /sys/block/dm-0/queue/read_ahead_kb=512
+09-29 10:13:58.818 W/MessageExecutionMonitor( 3375): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 0 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:13:58.819 W/MessageExecutionMonitor( 5213): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:00.061 D/libsensortelemetry(  972): FrameSet 'wt_raw10' valid dispatches: count=0, allInvalidDrops=0, maxConsecutive=0
+09-29 10:14:00.061 D/libsensortelemetry(  972): FrameSet 'col_fulps' valid dispatches: count=0, allInvalidDrops=0, maxConsecutive=0
+09-29 10:14:00.062 D/libsensortelemetry(  972): FrameSet 'wt_0_1_raw10' full framesets: fullCount=0, partialDrops=0, maxConsecutive=0
+09-29 10:14:00.062 D/libsensortelemetry(  972): FrameSet 'wt_raw10' full framesets: fullCount=0, partialDrops=0, maxConsecutive=0
+09-29 10:14:00.062 D/libsensortelemetry(  972): FrameSet 'col_fulps' full framesets: fullCount=0, partialDrops=0, maxConsecutive=0
+09-29 10:14:00.064 E/SensorService(  972): Error sensor_service_cgroup_memory_current: value: 49606656,  
+09-29 10:14:00.503 W/MessageExecutionMonitor( 5286): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 0 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:02.058 I/MRSS    ( 1282): BOLT:HexagonTelemetry: Global DSP utilization: 0.02% (1 / 5001 ms), Scalar Util: 39.96%, HVX Util: 0.00%, HMX Util: 0.00%, DMA Active: 0.00%, Freq: 1171.1999999999998 MHz, GetPmu: 0.22 ms
+09-29 10:14:02.581 V/ClientSharedTelemetryStats( 4326): App memory usage: PSS=49 MiB, PrivateDirty=31 MiB, PrivateClean=7 MiB, GPU=4.7/4.7 MiB (100% allocated)
+09-29 10:14:02.998 I/MRSS    ( 1282): MIXEDREALITY: MrService: renderIteration: (every 10 seconds), screen is: OFF, PT is: OFF, Depth is: OFF
+09-29 10:14:03.051 W/healthd (    0): battery l=97 v=4360 t=29.0 h=2 st=5 c=0 fc=5033000 cc=31 chg=u
+09-29 10:14:03.503 W/MessageExecutionMonitor( 3686): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:03.517 W/MessageExecutionMonitor( 2807): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:03.517 W/MessageExecutionMonitor( 5660): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 0 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:03.519 W/MessageExecutionMonitor( 3162): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:03.521 W/MessageExecutionMonitor( 5546): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 0 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:03.522 W/MessageExecutionMonitor( 4326): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:03.541 D/MetaCam (BatteryStatusBroadcastReceiver)( 5546): Battery level: 97, battery scale: 100, battery status: 5, battery pct: 97.0
+09-29 10:14:03.819 W/MessageExecutionMonitor( 3375): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:03.819 W/MessageExecutionMonitor( 5213): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:03.915 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 2 UID 1000 Initiator: periodic Report size: 25118
+09-29 10:14:03.915 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 12 UID 1000 Initiator: periodic Report size: 21041
+09-29 10:14:03.915 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 3 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:03.915 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 5 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:03.915 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 6 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:03.915 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 7 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:03.915 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 10 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:03.916 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 11 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:03.916 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 1 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:03.916 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 22 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:05.101 D/TelemetryService( 1248): Upload complete after 393 ms with result: success
+09-29 10:14:05.504 W/MessageExecutionMonitor( 5286): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:05.932 D/TrafficStats( 5660): tagSocket(102) with statsTag=0xffffffff, statsUid=-1
+09-29 10:14:07.060 I/MRSS    ( 1282): BOLT:HexagonTelemetry: Global DSP utilization: 0.02% (1 / 5001 ms), Scalar Util: 39.78%, HVX Util: 0.00%, HMX Util: 0.00%, DMA Active: 0.00%, Freq: 1171.2000000000003 MHz, GetPmu: 0.28 ms
+09-29 10:14:08.517 W/MessageExecutionMonitor( 2807): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:08.519 W/MessageExecutionMonitor( 3162): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:08.541 W/MessageExecutionMonitor( 5660): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 0 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:08.541 W/MessageExecutionMonitor( 4326): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 0 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:08.542 W/MessageExecutionMonitor( 3686): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:08.542 W/MessageExecutionMonitor( 5546): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 0 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:08.818 W/MessageExecutionMonitor( 5213): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 0 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:08.818 W/MessageExecutionMonitor( 3375): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 0 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:09.800 D/parfait:service( 1284): Received TRACE_START memory_heartbeat:com.oculus.browser request
+09-29 10:14:09.800 D/parfait:tracing( 1284): Trigger scenario name: memory_heartbeat:com.oculus.browser
+09-29 10:14:09.800 D/parfait:config( 1284): Loaded ParfaitConfig: memory_heartbeat:com.oculus.browser /data/oculus/parfait/config/perfetto_config.pb  1
+09-29 10:14:09.800 I/parfait:tracing( 1284): Loaded parfait config: name=memory_heartbeat:com.oculus.browser configpath=/data/oculus/parfait/config/perfetto_config.pb sampling=1
+09-29 10:14:09.800 D/parfait:tracing( 1284): Not sampling trace for scenario memory_heartbeat:com.oculus.browser, sampling rate is 1 per million
+09-29 10:14:09.801 D/parfait:logger( 1284): Dropping event /data/oculus/parfait/telemetry_logs/8703e147-0ae2-389c-149b-c22ad5e1175b.log
+09-29 10:14:10.504 W/MessageExecutionMonitor( 5286): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:10.553 D/parfait:service( 1284): Received TRACE_START memory_heartbeat:com.oculus.browser:privileged_process0 request
+09-29 10:14:10.553 D/parfait:tracing( 1284): Trigger scenario name: memory_heartbeat:com.oculus.browser:privileged_process0
+09-29 10:14:10.553 D/parfait:config( 1284): Loaded ParfaitConfig: memory_heartbeat:com.oculus.browser:privileged_process0 /data/oculus/parfait/config/perfetto_config.pb  1
+09-29 10:14:10.553 I/parfait:tracing( 1284): Loaded parfait config: name=memory_heartbeat:com.oculus.browser:privileged_process0 configpath=/data/oculus/parfait/config/perfetto_config.pb sampling=1
+09-29 10:14:10.553 D/parfait:tracing( 1284): Not sampling trace for scenario memory_heartbeat:com.oculus.browser:privileged_process0, sampling rate is 1 per million
+09-29 10:14:10.554 D/parfait:logger( 1284): Dropping event /data/oculus/parfait/telemetry_logs/c3d5eb35-bb63-9125-d627-7c9630cd542e.log
+09-29 10:14:11.127 D/ConnectivityService( 1500): requestNetwork for uid/pid:10069/5546 activeRequest: null callbackRequest: 605 [NetworkRequest [ REQUEST id=606, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED Uid: 10069 RequestorUid: 10069 RequestorPkg: com.oculus.metacam UnderlyingNetworks: Null] ]] callback flags: 0 order: 2147483647
+09-29 10:14:11.130 D/WifiNetworkFactory( 1500): got request NetworkRequest [ REQUEST id=606, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED Uid: 10069 RequestorUid: 10069 RequestorPkg: com.oculus.metacam UnderlyingNetworks: Null] ]
+09-29 10:14:11.131 D/UntrustedWifiNetworkFactory( 1500): got request NetworkRequest [ REQUEST id=606, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED Uid: 10069 RequestorUid: 10069 RequestorPkg: com.oculus.metacam UnderlyingNetworks: Null] ]
+09-29 10:14:11.131 D/OemPaidWifiNetworkFactory( 1500): got request NetworkRequest [ REQUEST id=606, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED Uid: 10069 RequestorUid: 10069 RequestorPkg: com.oculus.metacam UnderlyingNetworks: Null] ]
+09-29 10:14:11.132 D/ConnectivityService( 1500): NetReassign [606 : null → 100] [c 1] [a 1] [i 3]
+09-29 10:14:11.132 D/MultiInternetWifiNetworkFactory( 1500): got request NetworkRequest [ REQUEST id=606, [ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&NOT_VCN_MANAGED Uid: 10069 RequestorUid: 10069 RequestorPkg: com.oculus.metacam UnderlyingNetworks: Null] ]
+09-29 10:14:11.135 I/SimpleQueueMediaUploadsWorker( 5546): Start queueing media for upload in SimpleMediaUploader. [Sync Condition: CRONJOB_V2] from pkg:com.oculus.metacam
+09-29 10:14:11.135 I/SimpleMediaSyncUtils( 5546): media sync preference is enabled: true
+09-29 10:14:11.136 D/MediaSyncLogger( 5546): Event log: PersistableBundle[{sync_condition=CRONJOB_V2, sync_job_id=, captured_camera_source=VR, utl_uptime_ms=39576189, step=media_sync_start_simple_queue, event=media_sync_input, sync_type=UNDEFINED, utl_realtime_ms=39576189, media_source_application=, media_name=, media_size=0, media_type=, media_key=}]
+09-29 10:14:11.147 I/SimpleQueueMediaUploadsWorker( 5546): Quit here because of the sync expired
+09-29 10:14:11.147 I/SimpleQueueMediaUploadsWorker( 5546): Quit here because of the sync expired
+09-29 10:14:11.147 I/SimpleQueueMediaUploadsWorker( 5546): Quit here because of the sync expired
+09-29 10:14:11.147 I/SimpleQueueMediaUploadsWorker( 5546): Quit here because of the sync expired
+09-29 10:14:11.147 I/SimpleQueueMediaUploadsWorker( 5546): Quit here because of the sync expired
+09-29 10:14:11.147 I/SimpleQueueMediaUploadsWorker( 5546): Quit here because of the sync expired
+09-29 10:14:11.147 I/SimpleQueueMediaUploadsWorker( 5546): Quit here because of the sync expired
+09-29 10:14:11.147 I/SimpleQueueMediaUploadsWorker( 5546): Quit here because of the sync expired
+09-29 10:14:11.147 I/SimpleQueueMediaUploadsWorker( 5546): Quit here because of the sync expired
+09-29 10:14:11.147 I/SimpleQueueMediaUploadsWorker( 5546): Quit here because of the sync expired
+09-29 10:14:11.147 I/SimpleQueueMediaUploadsWorker( 5546): Quit here because of the sync expired
+09-29 10:14:11.147 I/SimpleQueueMediaUploadsWorker( 5546): Quit here because of the sync expired
+09-29 10:14:11.147 I/SimpleQueueMediaUploadsWorker( 5546): Quit here because of the sync expired
+09-29 10:14:11.147 I/SimpleQueueMediaUploadsWorker( 5546): Quit here because of the sync expired
+09-29 10:14:11.148 I/SimpleQueueMediaUploadsWorker( 5546): Quit here because of the sync expired
+09-29 10:14:11.148 I/SimpleQueueMediaUploadsWorker( 5546): Quit here because of the sync expired
+09-29 10:14:11.148 I/SimpleQueueMediaUploadsWorker( 5546): Quit here because of the sync expired
+09-29 10:14:11.149 D/MediaSyncLogger( 5546): Event log scheduled files: PersistableBundle[{sync_condition=CRONJOB_V2, extras={"num_scheduled":0,"scheduled_files":"{}"}, utl_uptime_ms=39576202, event=media_sync_input_extras, sync_type=AUTO, utl_realtime_ms=39576202}]
+09-29 10:14:11.149 I/SimpleQueueMediaUploadsWorker( 5546): Finish queueing media for upload in SimpleMediaUploader
+09-29 10:14:11.151 I/WM-WorkerWrapper( 5546): Worker result SUCCESS for Work [ id=42ead7ef-468c-4b3b-90d1-816c82a664cb, tags={ com.oculus.systemutilities.simplemediauploader.SimpleQueueMediaUploadsWorker, system_utilities_media_sync_simple } ]
+09-29 10:14:11.164 E/libprocessgroup( 1500): couldn't write HzosExt flag ALLOW_RT to /proc/3162/hzos_ext_flags
+09-29 10:14:11.167 I/MeManager( 3162): Refreshing user data now
+09-29 10:14:11.190 D/parfait:service( 1284): Received TRACE_START memory_heartbeat:com.meta.rl.trust.service request
+09-29 10:14:11.190 D/parfait:tracing( 1284): Trigger scenario name: memory_heartbeat:com.meta.rl.trust.service
+09-29 10:14:11.190 I/parfait:tracing( 1284): Trigger scenario memory_heartbeat:com.meta.rl.trust.service not found in config, ignoring.
+09-29 10:14:11.190 D/parfait:logger( 1284): Dropping event /data/oculus/parfait/telemetry_logs/784095c7-9d14-d4b3-cd86-04e184331480.log
+09-29 10:14:11.259 D/TrafficStats( 3162): tagSocket(89) with statsTag=0xffffffff, statsUid=-1
+09-29 10:14:11.888 I/MeManager( 3162): Successfully refreshed user data
+09-29 10:14:11.901 E/libprocessgroup( 1500): couldn't write HzosExt flag ALLOW_RT to /proc/3162/hzos_ext_flags
+09-29 10:14:11.905 I/HorizonDsatHelper( 3162): fetchTokenValueAsync - callingPackage: com.oculus.userserver2, actionName: com.oculus.auth.ACTION_FETCH_HORIZON_DEVICE_SCOPED_CREDENTIALS
+09-29 10:14:11.905 I/HorizonDsatHelper( 3162): fetchTokenAsync - forceRefresh: false, actionName: com.oculus.auth.ACTION_FETCH_HORIZON_DEVICE_SCOPED_CREDENTIALS
+09-29 10:14:11.905 I/HorizonDsatHelper( 3162): Returning stored token
+09-29 10:14:11.905 I/AuthLogger( 3162): Action succeeded: OBTAIN_TOKEN, callingPackage: com.oculus.userserver2, accountType: com.oculus, tokenType: dsat, extras: {logging_source=HorizonDsatHelper, options={"forceRefresh":false,"method":"fetchTokenValueAsync","isCachedToken":true}, token_scope=ROOT, outcome=token, status=success}, duration: 0ms
+09-29 10:14:11.905 I/HorizonDsatHelper( 3162): fetchTokenAsync:: OnResult - callingPackage: com.oculus.userserver2, actionName: com.oculus.auth.ACTION_FETCH_HORIZON_DEVICE_SCOPED_CREDENTIALS, forceRefresh: false, isResultPresent: true
+09-29 10:14:11.907 E/libprocessgroup( 1500): couldn't write HzosExt flag ALLOW_RT to /proc/2677/hzos_ext_flags
+09-29 10:14:11.909 D/TrafficStats( 2677): tagSocket(65) with statsTag=0xffffffff, statsUid=-1
+09-29 10:14:11.926 W/healthd (    0): battery l=97 v=4360 t=29.0 h=2 st=5 c=0 fc=5033000 cc=31 chg=u
+09-29 10:14:12.062 I/MRSS    ( 1282): BOLT:HexagonTelemetry: Global DSP utilization: 0.02% (1 / 5002 ms), Scalar Util: 34.90%, HVX Util: 0.00%, HMX Util: 0.00%, DMA Active: 0.00%, Freq: 1171.2 MHz, GetPmu: 0.21 ms
+09-29 10:14:12.302 E/libprocessgroup( 1500): couldn't write HzosExt flag ALLOW_RT to /proc/2677/hzos_ext_flags
+09-29 10:14:12.395 D/TrafficStats( 2677): tagSocket(72) with statsTag=0xffffffff, statsUid=-1
+09-29 10:14:12.447 W/lus.userserver2( 2677): Reducing the number of considered missed Gc histogram windows from 181 to 100
+09-29 10:14:13.004 I/MRSS    ( 1282): MIXEDREALITY: MrService: renderIteration: (every 10 seconds), screen is: OFF, PT is: OFF, Depth is: OFF
+09-29 10:14:13.061 W/healthd (    0): battery l=97 v=4360 t=29.0 h=2 st=5 c=0 fc=5033000 cc=31 chg=u
+09-29 10:14:13.517 W/MessageExecutionMonitor( 2807): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:13.542 W/MessageExecutionMonitor( 4326): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:13.542 W/MessageExecutionMonitor( 3686): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:13.542 W/MessageExecutionMonitor( 5660): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:13.818 W/MessageExecutionMonitor( 5213): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 0 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:13.818 W/MessageExecutionMonitor( 3375): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 0 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:13.919 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 2 UID 1000 Initiator: periodic Report size: 27244
+09-29 10:14:13.919 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 12 UID 1000 Initiator: periodic Report size: 14619
+09-29 10:14:13.919 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 3 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:13.919 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 5 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:13.919 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 6 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:13.919 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 7 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:13.919 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 10 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:13.919 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 11 UID 1000 Initiator: periodic Report size: 11815
+09-29 10:14:13.919 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 1 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:13.919 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 22 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:15.504 W/MessageExecutionMonitor( 5286): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:16.236 D/BluetoothVolumeControl( 2509): getConnectionState(XX:XX:XX:XX:29:06)
+09-29 10:14:16.242 D/BluetoothVolumeControl( 2509): getConnectionState(XX:XX:XX:XX:77:95)
+09-29 10:14:16.248 D/BluetoothVolumeControl( 2509): getConnectionState(XX:XX:XX:XX:64:04)
+09-29 10:14:16.907 W/MessageExecutionMonitor( 3162): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:17.064 I/MRSS    ( 1282): BOLT:HexagonTelemetry: Global DSP utilization: 0.03% (1 / 5001 ms), Scalar Util: 33.94%, HVX Util: 0.00%, HMX Util: 0.00%, DMA Active: 0.00%, Freq: 1171.2 MHz, GetPmu: 0.25 ms
+09-29 10:14:17.093 I/healthcounters( 1248): healthcounters::hcstore: Starting upload.
+09-29 10:14:17.151 W/MessageExecutionMonitor( 5546): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:17.606 I/[CT]    ( 4720): TELEMETRY_COLLECTOR: [EVENT] Collected periodic telemetry from 0 aggregators.
+09-29 10:14:17.758 W/MessageExecutionMonitor( 2677): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 0 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:17.906 I/healthcounters( 1248): healthcounters::hcstore: Health counters successfully uploaded.
+09-29 10:14:18.517 W/MessageExecutionMonitor( 2807): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:18.541 W/MessageExecutionMonitor( 4326): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 0 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:18.541 W/MessageExecutionMonitor( 5660): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 0 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:18.542 W/MessageExecutionMonitor( 3686): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:18.818 W/MessageExecutionMonitor( 3375): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 0 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:18.818 W/MessageExecutionMonitor( 5213): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 0 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:20.439 D/[SEO] 0HE( 3375): Creating GraphQL request to fetch notifications feed with params: {"sentSecondsAgo":30,"includedInFeed":"true","supportedByCaller":"true"}
+09-29 10:14:20.504 W/MessageExecutionMonitor( 5286): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:20.932 D/TrafficStats( 5660): tagSocket(102) with statsTag=0xffffffff, statsUid=-1
+09-29 10:14:21.908 W/MessageExecutionMonitor( 3162): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 2 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:22.066 I/MRSS    ( 1282): BOLT:HexagonTelemetry: Global DSP utilization: 0.02% (1 / 5001 ms), Scalar Util: 40.35%, HVX Util: 0.00%, HMX Util: 0.00%, DMA Active: 0.00%, Freq: 1171.2 MHz, GetPmu: 0.20 ms
+09-29 10:14:22.151 W/MessageExecutionMonitor( 5546): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:22.584 V/ClientSharedTelemetryStats( 4326): App memory usage: PSS=49 MiB, PrivateDirty=31 MiB, PrivateClean=7 MiB, GPU=4.7/4.7 MiB (100% allocated)
+09-29 10:14:22.758 W/MessageExecutionMonitor( 2677): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:23.009 I/MRSS    ( 1282): MIXEDREALITY: MrService: renderIteration: (every 10 seconds), screen is: OFF, PT is: OFF, Depth is: OFF
+09-29 10:14:23.071 W/healthd (    0): battery l=97 v=4360 t=29.0 h=2 st=5 c=0 fc=5033000 cc=31 chg=u
+09-29 10:14:23.541 W/MessageExecutionMonitor( 4326): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 0 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:23.542 W/MessageExecutionMonitor( 3686): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:23.543 W/MessageExecutionMonitor( 5660): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 2 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:23.916 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 2 UID 1000 Initiator: periodic Report size: 24693
+09-29 10:14:23.916 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 12 UID 1000 Initiator: periodic Report size: 11809
+09-29 10:14:23.916 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 3 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:23.916 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 5 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:23.917 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 6 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:23.917 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 7 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:23.917 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 10 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:23.917 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 11 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:23.917 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 1 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:23.917 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 22 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:26.907 W/MessageExecutionMonitor( 3162): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:27.068 I/MRSS    ( 1282): BOLT:HexagonTelemetry: Global DSP utilization: 0.02% (1 / 5001 ms), Scalar Util: 39.05%, HVX Util: 0.00%, HMX Util: 0.00%, DMA Active: 0.00%, Freq: 1171.2000000000003 MHz, GetPmu: 0.22 ms
+09-29 10:14:27.151 W/MessageExecutionMonitor( 5546): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:27.757 W/MessageExecutionMonitor( 2677): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 0 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:28.281 E/libprocessgroup( 1500): couldn't write HzosExt flag ALLOW_RT to /proc/3162/hzos_ext_flags
+09-29 10:14:28.286 W/cr_BkgrdTaskJS(32617): Starting background task (jobId=116)
+09-29 10:14:28.542 W/MessageExecutionMonitor( 5660): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:28.542 W/MessageExecutionMonitor( 3686): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:28.542 W/MessageExecutionMonitor( 4326): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:31.907 W/MessageExecutionMonitor( 3162): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:32.069 I/MRSS    ( 1282): BOLT:HexagonTelemetry: Global DSP utilization: 0.02% (1 / 5001 ms), Scalar Util: 38.94%, HVX Util: 0.00%, HMX Util: 0.00%, DMA Active: 0.00%, Freq: 1171.2 MHz, GetPmu: 0.22 ms
+09-29 10:14:32.150 W/MessageExecutionMonitor( 5546): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 0 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:32.758 W/MessageExecutionMonitor( 2677): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:33.014 I/MRSS    ( 1282): MIXEDREALITY: MrService: renderIteration: (every 10 seconds), screen is: OFF, PT is: OFF, Depth is: OFF
+09-29 10:14:33.082 W/healthd (    0): battery l=97 v=4360 t=29.0 h=2 st=5 c=0 fc=5033000 cc=31 chg=u
+09-29 10:14:33.919 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 2 UID 1000 Initiator: periodic Report size: 25222
+09-29 10:14:33.919 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 12 UID 1000 Initiator: periodic Report size: 11809
+09-29 10:14:33.919 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 3 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:33.919 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 5 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:33.919 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 6 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:33.919 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 7 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:33.919 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 10 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:33.919 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 11 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:33.919 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 1 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:33.919 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 22 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:35.209 W/BatteryExternalStatsWorker( 1500): error reading modem stats:ERROR_PHONE_NOT_AVAILABLE
+09-29 10:14:35.210 D/vendor.qti.bluetooth@1.1-wake_lock(  922): Acquire wakelock is acquired 
+09-29 10:14:35.210 I/vendor.qti.bluetooth@1.1-ibs_handler(  922): DeviceWakeUp: Writing IBS_WAKE_IND
+09-29 10:14:35.210 I/vendor.qti.bluetooth@1.1-ibs_handler(  922): ProcessIbsCmd: Received IBS_WAKE_ACK: 0xFC
+09-29 10:14:35.210 I/vendor.qti.bluetooth@1.1-ibs_handler(  922): ProcessIbsCmd: Signal wack_cond_
+09-29 10:14:35.210 D/vendor.qti.bluetooth@1.1-ibs_handler(  922): DeviceWakeUp: Unblocked from waiting for FC, pthread_cond_timedwait ret = 0
+09-29 10:14:35.219 E/system_server( 1500): Cannot obtain CPU frequency count
+09-29 10:14:35.220 E/system_server( 1500): Cannot obtain CPU frequency count
+09-29 10:14:35.220 E/system_server( 1500): Cannot obtain CPU frequency count
+09-29 10:14:35.220 E/system_server( 1500): Cannot read thread CPU times for PID 1500
+09-29 10:14:35.932 D/TrafficStats( 5660): tagSocket(102) with statsTag=0xffffffff, statsUid=-1
+09-29 10:14:36.210 I/vendor.qti.bluetooth@1.1-ibs_handler(  922): DeviceSleep: TX Awake, Sending SLEEP_IND
+09-29 10:14:36.361 D/vendor.qti.bluetooth@1.1-wake_lock(  922): Release wakelock is released 
+09-29 10:14:36.906 W/MessageExecutionMonitor( 3162): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 0 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:37.071 I/MRSS    ( 1282): BOLT:HexagonTelemetry: Global DSP utilization: 0.02% (1 / 5001 ms), Scalar Util: 39.69%, HVX Util: 0.00%, HMX Util: 0.00%, DMA Active: 0.00%, Freq: 1171.2 MHz, GetPmu: 0.21 ms
+09-29 10:14:37.151 W/MessageExecutionMonitor( 5546): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:37.758 W/MessageExecutionMonitor( 2677): Skipping getStackTrace: target thread state RUNNABLE, MQD callback delayed by 1 ms; risk of ART nterp stack-walk SIGSEGV / suspension timeout
+09-29 10:14:39.820 E/libosutils( 1078): Failed to get real path of file '/sys/class/power_supply/bq27z561-0/fct', err: No such file or directory
+09-29 10:14:39.820 E/libosutils( 1078): Failed to get real path of file '/sys/class/power_supply/bq27z561-0/fct_state', err: No such file or directory
+09-29 10:14:41.845 I/orchestrator( 1245): enforcement::budget: Checking for enforcement budgets (poll rate 900s)
+09-29 10:14:41.846 E/orchestrator( 1245): enforcement::budget: Failed to query budget: Empty budget
+09-29 10:14:41.948 I/orchestrator( 1245): memflow::policy::system_telemetry: System memory stats logged to statsd with collection_reason=Snapshot
+09-29 10:14:41.956 D/parfait:service( 1284): Received TRACE_START memory_heartbeat:/system/bin/surfaceflinger request
+09-29 10:14:41.957 D/parfait:tracing( 1284): Trigger scenario name: memory_heartbeat:/system/bin/surfaceflinger
+09-29 10:14:41.957 D/parfait:config( 1284): Loaded ParfaitConfig: memory_heartbeat:/system/bin/surfaceflinger /data/oculus/parfait/config/perfetto_config.pb  1
+09-29 10:14:41.957 I/parfait:tracing( 1284): Loaded parfait config: name=memory_heartbeat:/system/bin/surfaceflinger configpath=/data/oculus/parfait/config/perfetto_config.pb sampling=1
+09-29 10:14:41.957 D/parfait:tracing( 1284): Not sampling trace for scenario memory_heartbeat:/system/bin/surfaceflinger, sampling rate is 1 per million
+09-29 10:14:41.957 D/parfait:logger( 1284): Dropping event /data/oculus/parfait/telemetry_logs/4a629bd4-e8b0-9950-4fc9-dd1c1c84d9b1.log
+09-29 10:14:42.073 I/MRSS    ( 1282): BOLT:HexagonTelemetry: Global DSP utilization: 0.02% (1 / 5001 ms), Scalar Util: 39.50%, HVX Util: 0.00%, HMX Util: 0.00%, DMA Active: 0.00%, Freq: 1171.1999999999998 MHz, GetPmu: 0.27 ms
+09-29 10:14:42.570 E/PAL: API(  916): pal_get_param: 1337: Failed to get global parameter 36, status -2
+09-29 10:14:42.590 I/init    (    0): starting service 'wifitelemetry'...
+09-29 10:14:42.580 I/orchestrator( 1245): orchestrator_common::policy_manager: Enrolling observer: PolicyId { id: PerProcess { uid: 1000, pid: 4261 }, factory_name: "HeapTelemetryFactory" }
+09-29 10:14:42.580 I/orchestrator( 1245): memflow::utils: PSI on-demand trigger enabled for pid 4261: Some threshold=2s window=10s
+09-29 10:14:42.580 I/orchestrator( 1245): orchestrator_common::policy_manager: Enrolling observer: PolicyId { id: PerProcess { uid: 1000, pid: 4261 }, factory_name: "CgroupV2TelemetryFactory" }
+09-29 10:14:42.593 I/init    (    0): ... started service 'wifitelemetry' has pid 4261
+09-29 10:14:42.585 V/ClientSharedTelemetryStats( 4326): App memory usage: PSS=49 MiB, PrivateDirty=31 MiB, PrivateClean=7 MiB, GPU=4.7/4.7 MiB (100% allocated)
+09-29 10:14:42.591 I/wifitelemetry( 4261): Report rate is set to 30
+09-29 10:14:42.592 I/wifitelemetry( 4261): report() is invoked
+09-29 10:14:42.592 I/wifitelemetry( 4261): Entering: getStation
+09-29 10:14:42.598 I/wifitelemetry( 4261): Entering: getPowerManagement
+09-29 10:14:42.598 I/wifitelemetry( 4261): Entering: getChannelSurvey
+09-29 10:14:42.599 D/wifitelemetry( 4261): powerSaveEnabled = 1, gotPowerSaveSettings = 1
+09-29 10:14:42.599 I/wifitelemetry( 4261): Entering: triggerScan
+09-29 10:14:42.599 E/wifitelemetry( 4261): error_handler -1
+09-29 10:14:42.599 E/wifitelemetry( 4261): Failed: triggerScan
+09-29 10:14:42.599 E/wifitelemetry( 4261): Failed to trigger a scan, the scan results will not be recorded
+09-29 10:14:42.599 I/wifitelemetry( 4261): Entering: getCurrentScan
+09-29 10:14:42.599 E/wifitelemetry( 4261): netlink connection failed
+09-29 10:14:42.599 I/hwservicemanager(  477): getTransport: Cannot find entry android.hardware.wifi@1.0::IWifi/default in either framework or device VINTF manifest.
+09-29 10:14:42.599 E/wifitelemetry( 4261): Failed to get the WiFi HAL service
+09-29 10:14:42.599 E/wifitelemetry( 4261): Failed to connect to the WiFi HAL
+09-29 10:14:42.599 D/OsSdkLoader( 4261): OSSDK loading module 'libossdk.oculus.so'
+09-29 10:14:42.611 W/BpBinder( 4261): Linking to death on oculus.internal.telemetry.ITelemetryService but there are no threads (yet?) listening to incoming transactions. See ProcessState::startThreadPool and ProcessState::setThreadPoolMaxThreadCount. Generally you should setup the binder threadpool before other initialization steps.
+09-29 10:14:42.611 I/wifitelemetry( 4261): TelemetryConnector has been initialized
+09-29 10:14:42.611 D/wifitelemetry( 4261): Recorded the telemetry event
+09-29 10:14:42.611 W/OsSdk   ( 4261): Events discarded = 0
+09-29 10:14:42.616 I/orchestrator( 1245): orchestrator_common::policy_manager: Unenrolling observer: PolicyId { id: PerProcess { uid: 1000, pid: 4261 }, factory_name: "CgroupV2TelemetryFactory" }
+09-29 10:14:42.629 I/binder  (    0): undelivered death notification, b400007e99a24940
+09-29 10:14:42.629 I/init    (    0): Service 'wifitelemetry' (pid 4261) exited with status 0
+09-29 10:14:42.629 I/init    (    0): Sending signal 9 to service 'wifitelemetry' (pid 4261) process group...
+09-29 10:14:42.616 I/orchestrator( 1245): orchestrator_common::policy_manager: Unenrolling observer: PolicyId { id: PerProcess { uid: 1000, pid: 4261 }, factory_name: "HeapTelemetryFactory" }
+09-29 10:14:42.630 I/libprocessgroup(    0): Successfully killed process cgroup uid 1000 pid 4261 in 0ms
+09-29 10:14:42.631 I/init    (    0): waitpid(4261) returned 4261
+09-29 10:14:43.019 I/MRSS    ( 1282): MIXEDREALITY: MrService: renderIteration: (every 10 seconds), screen is: OFF, PT is: OFF, Depth is: OFF
+09-29 10:14:43.092 W/healthd (    0): battery l=97 v=4360 t=29.0 h=2 st=5 c=0 fc=5033000 cc=31 chg=u
+09-29 10:14:43.299 D/parfait:tracing( 1284): Battery check updated: eligible=1
+09-29 10:14:43.925 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 2 UID 1000 Initiator: periodic Report size: 35121
+09-29 10:14:43.925 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 12 UID 1000 Initiator: periodic Report size: 11809
+09-29 10:14:43.925 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 3 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:43.926 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 5 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:43.926 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 6 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:43.926 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 7 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:43.926 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 10 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:43.926 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 11 UID 1000 Initiator: periodic Report size: 11815
+09-29 10:14:43.926 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 1 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:43.926 V/telemetry-statsd( 1248): Fetched statsd reports. Config: 22 UID 1000 Initiator: periodic Report size: 11762
+09-29 10:14:43.926 I/telemetry-statsd( 1248): Created merged QuestOsPerformance with boot id of 52592e90-19be-49e1-a83c-896ea6acbf14 at uptime 39600000
+09-29 10:14:45.065 W/healthd (    0): battery l=97 v=4360 t=29.0 h=2 st=5 c=0 fc=5033000 cc=31 chg=u
+09-29 10:14:46.150 D/parfait:config( 1284): [periodic_trigger] Triggering scenario: gcpu
+09-29 10:14:46.150 D/parfait:config( 1284): Requesting to start trace due to internal trigger
+09-29 10:14:46.150 D/parfait:internal_trigger( 1284): Requesting trace start for scenario gcpu
+09-29 10:14:46.150 D/parfait:tracing( 1284): Trigger scenario name: gcpu
+09-29 10:14:46.150 D/parfait:config( 1284): Loaded ParfaitConfig: gcpu /data/oculus/parfait/config/perfetto_config.pb  187
+09-29 10:14:46.150 I/parfait:tracing( 1284): Loaded parfait config: name=gcpu configpath=/data/oculus/parfait/config/perfetto_config.pb sampling=187
+09-29 10:14:46.150 I/parfait:tracing( 1284): Failed eligibility check is_donned, not collecting trace for scenario gcpu
+09-29 10:14:46.150 D/parfait:logger( 1284): Dropping event /data/oculus/parfait/telemetry_logs/56729199-7ccb-34ca-4a4c-43c8deaa8d10.log
+09-29 10:14:46.150 D/parfait:config( 1284): [periodic_trigger] Triggering scenario: reliability:blackbox_memory_pressure
+09-29 10:14:46.150 D/parfait:config( 1284): Requesting to start trace due to internal trigger
+09-29 10:14:46.150 D/parfait:internal_trigger( 1284): Requesting trace start for scenario reliability:blackbox_memory_pressure
+09-29 10:14:46.150 D/parfait:tracing( 1284): Trigger scenario name: reliability:blackbox_memory_pressure
+09-29 10:14:46.150 D/parfait:config( 1284): Loaded ParfaitConfig: reliability:blackbox_memory_pressure /data/oculus/parfait/config/perfetto_config.pb  39
+09-29 10:14:46.151 I/parfait:tracing( 1284): Loaded parfait config: name=reliability:blackbox_memory_pressure configpath=/data/oculus/parfait/config/perfetto_config.pb sampling=39
+09-29 10:14:46.151 I/parfait:tracing( 1284): Failed eligibility check is_donned, not collecting trace for scenario reliability:blackbox_memory_pressure
+09-29 10:14:46.151 D/parfait:logger( 1284): Dropping event /data/oculus/parfait/telemetry_logs/c9b0c0df-4f83-0e1f-94a6-b688fc4452df.log
+09-29 10:14:46.235 D/BluetoothVolumeControl( 2509): getConnectionState(XX:XX:XX:XX:29:06)
+09-29 10:14:46.241 D/BluetoothVolumeControl( 2509): getConnectionState(XX:XX:XX:XX:77:95)
+09-29 10:14:46.245 D/BluetoothVolumeControl( 2509): getConnectionState(XX:XX:XX:XX:64:04)
+09-29 10:14:47.074 I/MRSS    ( 1282): BOLT:HexagonTelemetry: Global DSP utilization: 0.02% (1 / 5001 ms), Scalar Util: 38.43%, HVX Util: 0.00%, HMX Util: 0.00%, DMA Active: 0.00%, Freq: 1171.2 MHz, GetPmu: 0.21 ms
+09-29 10:14:47.958 D/parfait:service( 1284): Received TRACE_START memory_heartbeat:/odm/bin/hw/vendor.oculus.hardware.sensors@1.0-service request
+09-29 10:14:47.959 D/parfait:tracing( 1284): Trigger scenario name: memory_heartbeat:/odm/bin/hw/vendor.oculus.hardware.sensors@1.0-service
+09-29 10:14:47.959 D/parfait:config( 1284): Loaded ParfaitConfig: memory_heartbeat:/odm/bin/hw/vendor.oculus.hardware.sensors@1.0-service /data/oculus/parfait/config/perfetto_config.pb /odm/bin/hw/vendor.oculus.hardware.sensors@1.0-service 7
+09-29 10:14:47.959 D/parfait:config( 1284): Loaded ParfaitConfig: memory_heartbeat:/odm/bin/hw/vendor.oculus.hardware.sensors@1.0-service /data/oculus/parfait/config/perfetto_config.pb  1
+09-29 10:14:47.959 I/parfait:tracing( 1284): Loaded parfait config: name=memory_heartbeat:/odm/bin/hw/vendor.oculus.hardware.sensors@1.0-service configpath=/data/oculus/parfait/config/perfetto_config.pb sampling=7
+09-29 10:14:47.959 D/parfait:tracing( 1284): Not sampling trace for scenario memory_heartbeat:/odm/bin/hw/vendor.oculus.hardware.sensors@1.0-service, sampling rate is 7 per million
+09-29 10:14:47.959 I/parfait:tracing( 1284): Loaded parfait config: name=memory_heartbeat:/odm/bin/hw/vendor.oculus.hardware.sensors@1.0-service configpath=/data/oculus/parfait/config/perfetto_config.pb sampling=1
+09-29 10:14:47.959 D/parfait:tracing( 1284): Not sampling trace for scenario memory_heartbeat:/odm/bin/hw/vendor.oculus.hardware.sensors@1.0-service, sampling rate is 1 per million
+09-29 10:14:47.959 D/parfait:logger( 1284): Dropping event /data/oculus/parfait/telemetry_logs/8e76c773-df96-5a8e-0648-2c2d2c332b7c.log
+09-29 10:14:50.703 D/[SEO] 0HE( 3375): Creating GraphQL request to fetch notifications feed with params: {"sentSecondsAgo":30,"includedInFeed":"true","supportedByCaller":"true"}
+09-29 10:14:50.962 D/parfait:service( 1284): Received TRACE_START memory_heartbeat:/system_ext/bin/mrsystemservice request
+09-29 10:14:50.962 D/parfait:tracing( 1284): Trigger scenario name: memory_heartbeat:/system_ext/bin/mrsystemservice
+09-29 10:14:50.962 D/parfait:config( 1284): Loaded ParfaitConfig: memory_heartbeat:/system_ext/bin/mrsystemservice /data/oculus/parfait/config/perfetto_config.pb /system_ext/bin/mrsystemservice 7
+09-29 10:14:50.962 D/parfait:config( 1284): Loaded ParfaitConfig: memory_heartbeat:/system_ext/bin/mrsystemservice /data/oculus/parfait/config/perfetto_config.pb  1
+09-29 10:14:50.962 I/parfait:tracing( 1284): Loaded parfait config: name=memory_heartbeat:/system_ext/bin/mrsystemservice configpath=/data/oculus/parfait/config/perfetto_config.pb sampling=7
+09-29 10:14:50.962 D/parfait:tracing( 1284): Not sampling trace for scenario memory_heartbeat:/system_ext/bin/mrsystemservice, sampling rate is 7 per million
+09-29 10:14:50.962 I/parfait:tracing( 1284): Loaded parfait config: name=memory_heartbeat:/system_ext/bin/mrsystemservice configpath=/data/oculus/parfait/config/perfetto_config.pb sampling=1
+09-29 10:14:50.962 D/parfait:tracing( 1284): Not sampling trace for scenario memory_heartbeat:/system_ext/bin/mrsystemservice, sampling rate is 1 per million
+09-29 10:14:50.963 D/parfait:logger( 1284): Dropping event /data/oculus/parfait/telemetry_logs/7e4c97a7-0939-5127-9dae-51945eb585e8.log
+09-29 10:14:50.970 D/TrafficStats( 5660): tagSocket(102) with statsTag=0xffffffff, statsUid=-1
+09-29 10:14:52.076 I/MRSS    ( 1282): BOLT:HexagonTelemetry: Global DSP utilization: 0.02% (1 / 5001 ms), Scalar Util: 39.92%, HVX Util: 0.00%, HMX Util: 0.00%, DMA Active: 0.00%, Freq: 1171.2 MHz, GetPmu: 0.22 ms
+09-29 10:14:53.023 I/MRSS    ( 1282): MIXEDREALITY: MrService: renderIteration: (every 10 seconds), screen is: OFF, PT is: OFF, Depth is: OFF
+09-29 10:14:53.102 W/healthd (    0): battery l=97 v=4360 t=29.0 h=2 st=5 c=0 fc=5033000 cc=31 chg=u
