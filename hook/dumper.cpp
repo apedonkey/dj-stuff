@@ -863,6 +863,22 @@ static void decode_errors(uintptr_t asset,uintptr_t fnErr){
     uintptr_t data=*(uintptr_t*)ep; int num=*(int32_t*)(ep+8); load_status("GetErrors: Num=%d",num);
     for(int i=0;i<num&&i<20;i++){ char b[256]; read_fstring(data+(uintptr_t)i*16,b,sizeof b); load_status("  err[%d]=%s",i,b); }
 }
+// build the skeletal mesh from the asset; skipMaterials=1 => gray (default material), 0 => load glb materials.
+static uintptr_t load_mesh(uintptr_t asset,uintptr_t fnMesh,int skipMaterials){
+    static uint8_t mp[0x758]; memset(mp,0,sizeof mp);
+    *(int32_t*)(mp+0x00)=0; *(int32_t*)(mp+0x04)=0;             // MeshIndex,SkinIndex
+    *(uintptr_t*)(mp+0x08+0x08)=0;                             // Skeleton=null(auto-build)
+    *(int32_t*)(mp+0x08+0x2c)=-1;                             // OverrideSkinIndex=-1
+    *(int32_t*)(mp+0x08+0x30+0xc4)=-1;                        // SkeletonConfig.RootNodeIndex=-1
+    *(int32_t*)(mp+0x08+0x30+0x1ac)=-1;                       // SkeletonConfig.MaxNodesTreeDepth=-1
+    *(double*)(mp+0x08+0x640)=1.0; *(double*)(mp+0x08+0x648)=1.0; *(double*)(mp+0x08+0x650)=1.0; // BoundsScale=(1,1,1)
+    *(uint8_t*)(mp+0x08+0x240+0x220)=(uint8_t)skipMaterials;   // MaterialsConfig.bSkipLoad
+    *(uint8_t*)(mp+0x08+0x6ca)=1;                             // bIgnoreEmptyMorphTargets=true
+    call_uf(asset,fnMesh,mp); return *(uintptr_t*)(mp+0x750);
+}
+// call a single-bool (or two-bool) UFunction on obj via ProcessEvent
+static void call_bool2(uintptr_t obj,uintptr_t fn,uint8_t a,uint8_t b){ if(!obj||!fn) return;
+    static uint8_t bp[16]; memset(bp,0,sizeof bp); bp[0]=a; bp[1]=b; call_uf(obj,fn,bp); }
 static void do_load(){
     load_status("=== do_load (game tid=%d) ===",my_tid());
     uintptr_t fnLoad=find_by_path("/Script/glTFRuntime.glTFRuntimeFunctionLibrary.glTFLoadAssetFromFilename",0);
@@ -886,24 +902,27 @@ static void do_load(){
     call_uf(libCDO,fnLoad,lp); uintptr_t asset=*(uintptr_t*)(lp+0x210);
     load_status("asset=0x%lx (path=%s)",(unsigned long)asset,path);
     if(!asset){ load_status("asset NULL -> glb parse/file-access failed (check bAllowExternalFiles/path)"); return; }
-    // 2) asset.LoadSkeletalMesh(0,0,SkeletalMeshConfig)  [by index -> ignores AvatarRoot/Armature]
-    static uint8_t mp[0x758]; memset(mp,0,sizeof mp);
-    *(int32_t*)(mp+0x00)=0; *(int32_t*)(mp+0x04)=0;              // MeshIndex,SkinIndex
-    *(uintptr_t*)(mp+0x08+0x08)=0;                              // Skeleton=null(auto-build)
-    *(int32_t*)(mp+0x08+0x2c)=-1;                              // OverrideSkinIndex=-1 (INDEX_NONE)
-    *(int32_t*)(mp+0x08+0x30+0xc4)=-1;                         // SkeletonConfig.RootNodeIndex=-1 (auto-detect root)
-    *(int32_t*)(mp+0x08+0x30+0x1ac)=-1;                        // SkeletonConfig.MaxNodesTreeDepth=-1 (unlimited)
-    *(double*)(mp+0x08+0x640)=1.0; *(double*)(mp+0x08+0x648)=1.0; *(double*)(mp+0x08+0x650)=1.0; // BoundsScale=(1,1,1)
-    *(uint8_t*)(mp+0x08+0x240+0x220)=1;                        // MaterialsConfig.bSkipLoad=true (gray v1)
-    *(uint8_t*)(mp+0x08+0x6ca)=1;                              // bIgnoreEmptyMorphTargets=true
-    call_uf(asset,fnMesh,mp); uintptr_t mesh=*(uintptr_t*)(mp+0x750);
-    load_status("mesh=0x%lx",(unsigned long)mesh);
-    if(!mesh){ load_status("mesh NULL -> LoadSkeletalMesh failed:"); decode_errors(asset,fnErr); return; }
+    // 2) asset.LoadSkeletalMesh(0,0) [by index -> ignores AvatarRoot/Armature]. Try materials ON;
+    //    if it fails (uncooked M_glTFRuntimeBase aborts the primitive) fall back to gray so SOMETHING shows.
+    uintptr_t mesh=load_mesh(asset,fnMesh,0);            // materials ON
+    load_status("mesh(materials)=0x%lx",(unsigned long)mesh);
+    if(!mesh){ load_status("materials-on failed -> errors:"); decode_errors(asset,fnErr);
+        mesh=load_mesh(asset,fnMesh,1); load_status("mesh(gray fallback)=0x%lx",(unsigned long)mesh); }
+    if(!mesh){ load_status("mesh NULL even gray:"); decode_errors(asset,fnErr); return; }
+    // did the glTFRuntime base material load? (advisor's cooked-materials check)
+    { uintptr_t mb=find_struct("M_glTFRuntimeBase"); load_status("M_glTFRuntimeBase resident=%s",mb?"YES":"no(maybe uncooked)"); }
     // 3) AvatarBodyMesh.SetSkeletalMeshAsset(mesh)
-    if(body){ static uint8_t sp[0x10]; memset(sp,0,sizeof sp); *(uintptr_t*)(sp+0x00)=mesh; call_uf(body,fnSet,sp);
-        load_status("SetSkeletalMeshAsset -> body=0x%lx DONE (mesh should be visible if RPM skin active)",(unsigned long)body); }
-    else load_status("mesh loaded (0x%lx) but no live AvatarBodyMesh found -- select the RPM avatar, then retry",(unsigned long)mesh);
-    load_status("=== do_load done ===");
+    if(!body){ load_status("mesh loaded (0x%lx) but no live AvatarBodyMesh -- select the RPM avatar, then retry",(unsigned long)mesh); load_status("=== do_load done ==="); return; }
+    { static uint8_t sp[0x10]; memset(sp,0,sizeof sp); *(uintptr_t*)(sp+0x00)=mesh; call_uf(body,fnSet,sp);
+      load_status("SetSkeletalMeshAsset -> body=0x%lx DONE",(unsigned long)body); }
+    // 4) make it visible to the owner (first-person + selfie cam): OwnerNoSee off, Visibility on.
+    uintptr_t fnOwner=find_by_path("/Script/Engine.PrimitiveComponent.SetOwnerNoSee",0);
+    uintptr_t fnVis  =find_by_path("/Script/Engine.SceneComponent.SetVisibility",0);
+    uintptr_t fnHid  =find_by_path("/Script/Engine.SceneComponent.SetHiddenInGame",0);
+    call_bool2(body,fnOwner,0,0);  load_status("SetOwnerNoSee(false) fn=0x%lx",(unsigned long)fnOwner);
+    call_bool2(body,fnVis,1,1);    load_status("SetVisibility(true,true) fn=0x%lx",(unsigned long)fnVis);
+    call_bool2(body,fnHid,0,1);    load_status("SetHiddenInGame(false,true) fn=0x%lx",(unsigned long)fnHid);
+    load_status("=== do_load done (materials on, visible) ===");
 }
 static void run_load_guarded(){
     g_dump_tid=my_tid(); struct sigaction sa,os,ob; memset(&sa,0,sizeof sa); sa.sa_sigaction=segv_handler; sa.sa_flags=SA_SIGINFO;

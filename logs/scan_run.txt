@@ -1,0 +1,169 @@
+--------- beginning of main
+09-30 05:57:40.126 11549 11549 I TRIBEMOD: dumper libhook constructor
+09-30 05:57:40.129 11549 11549 I TRIBEMOD: [INI] cache: already staged /sdcard/Android/data/com.TribeXR.TribeXR/files/Documents/rpmavatar-custom.glb
+09-30 05:57:40.130 11549 11549 I TRIBEMOD: [INI] ReadyPlayerMeAvatarUrl: no change (set)
+09-30 05:57:40.130 11549 11549 I TRIBEMOD: [INI] ReadyPlayerMeETag: no change (absent)
+09-30 05:57:40.130 11549 11549 I TRIBEMOD: [INI] summary: url="http://127.0.0.1:8000/custom.glb" etag=(none)
+09-30 05:57:40.135 11549 11549 I TRIBEMOD: dumper thread spawned (base=0x7bf7240000)
+09-30 05:57:40.135 11549 11593 I TRIBEMOD: dumper thread up; base=0x7bf7240000; poll /sdcard/Android/data/com.TribeXR.TribeXR/files/tribemod/dump_now
+09-30 05:57:40.135 11549 11549 I TRIBEMOD: httpd thread spawned (127.0.0.1:8787)
+09-30 05:57:40.174 11549 11594 I TRIBEMOD: [HTTPD] asset loaded 4732412 bytes ETag=BB01368FC663411E5AD676EE268AAC4E
+09-30 05:57:40.175 11549 11594 I TRIBEMOD: [HTTPD] listening on 127.0.0.1:8787 (glb=4732412 ETag=BB01368FC663411E5AD676EE268AAC4E)
+09-30 05:59:19.672 11549 11593 I TRIBEMOD: dump_now seen; dumping...
+09-30 05:59:19.681 11549 11593 I TRIBEMOD: [PASS] R1.NamePool.scan : NamePoolData rva=0x7c632c0 hits=0 blocks_off=0x40 CurrentBlock=0 CurrentByteCursor=0 leadBlocks=0
+09-30 05:59:19.681 11549 11593 I TRIBEMOD: [PASS] R1.NamePool.Resolve(0)==None : resolved='None' (rva=0x7c632c0)
+09-30 05:59:19.681 11549 11593 I TRIBEMOD: [PASS] R2a.objarray : via=param GUObjectArray rva=0x7cbbdd0 NumElements=63036 NumChunks=1 neOff=0x14 (got->rva=0x6d293e8 direct.rva=0x7cbadd0)
+09-30 05:59:19.681 11549 11593 I TRIBEMOD: [PASS] R2b.index0/1 : obj0=0x7bef619900 idx=0 obj1 idx=1
+09-30 05:59:19.681 11549 11593 I TRIBEMOD: [PASS] R2c.obj0.name_printable : obj0.name='/Script/CoreUObject'
+09-30 05:59:19.841 11549 11593 I TRIBEMOD: [PASS] R3a.Class.self_ref : Class(ClassPrivate==self)=0x7bef24cb80
+09-30 05:59:19.842 11549 11593 I TRIBEMOD: [PASS] R3b.UStruct.offsets : Object=0x7bef240b00 Super=0x40 Children=0x48 ChildProps=0x50 PropSize=0x58
+09-30 05:59:19.842 11549 11593 I TRIBEMOD: [PASS] R3c.coupling : Class.name='Class' Object.name='Object'
+09-30 05:59:19.844 11549 11593 I TRIBEMOD: [PASS] R3d.Actor : Actor.Super='Object' PropSize=0x290
+09-30 05:59:19.847 11549 11593 I TRIBEMOD: [PASS] R4.FField.chain : props=12
+09-30 05:59:19.847 11549 11593 I TRIBEMOD:   +0x028 StructProperty PrimaryActorTick
+09-30 05:59:19.847 11549 11593 I TRIBEMOD:   +0x058 BoolProperty bNetTemporary
+09-30 05:59:19.847 11549 11593 I TRIBEMOD:   +0x058 BoolProperty bOnlyRelevantToOwner
+09-30 05:59:19.847 11549 11593 I TRIBEMOD:   +0x058 BoolProperty bAlwaysRelevant
+09-30 05:59:19.847 11549 11593 I TRIBEMOD:   +0x058 BoolProperty bReplicateMovement
+09-30 05:59:19.847 11549 11593 I TRIBEMOD:   +0x058 BoolProperty bCallPreReplication
+09-30 05:59:19.847 11549 11593 I TRIBEMOD:   +0x
+09-30 05:59:49.450 11549 11593 I TRIBEMOD: dump complete, fails=0
+09-30 06:11:45.601 13445 13445 I TRIBEMOD: dumper libhook constructor
+09-30 06:11:45.602 13445 13445 I TRIBEMOD: [INI] cache: already staged /sdcard/Android/data/com.TribeXR.TribeXR/files/Documents/rpmavatar-custom.glb
+09-30 06:11:45.602 13445 13445 I TRIBEMOD: [INI] ReadyPlayerMeAvatarUrl: no change (set)
+09-30 06:11:45.602 13445 13445 I TRIBEMOD: [INI] ReadyPlayerMeETag: no change (absent)
+09-30 06:11:45.602 13445 13445 I TRIBEMOD: [INI] summary: url="http://127.0.0.1:8000/custom.glb" etag=(none)
+09-30 06:11:45.605 13445 13445 I TRIBEMOD: dumper thread spawned (base=0x7bf7809000)
+09-30 06:11:45.605 13445 13481 I TRIBEMOD: dumper thread up; base=0x7bf7809000; poll /sdcard/Android/data/com.TribeXR.TribeXR/files/tribemod/dump_now
+09-30 06:11:45.605 13445 13445 I TRIBEMOD: httpd thread spawned (127.0.0.1:8787)
+09-30 06:11:45.605 13445 13445 I TRIBEMOD: executor_on absent; PE hook not installed (safe mode)
+09-30 06:11:45.644 13445 13482 I TRIBEMOD: [HTTPD] asset loaded 4732412 bytes ETag=BB01368FC663411E5AD676EE268AAC4E
+09-30 06:11:45.644 13445 13482 I TRIBEMOD: [HTTPD] listening on 127.0.0.1:8787 (glb=4732412 ETag=BB01368FC663411E5AD676EE268AAC4E)
+09-30 06:17:38.375 15161 15161 I TRIBEMOD: dumper libhook constructor
+09-30 06:17:38.377 15161 15161 I TRIBEMOD: [INI] cache: already staged /sdcard/Android/data/com.TribeXR.TribeXR/files/Documents/rpmavatar-custom.glb
+09-30 06:17:38.377 15161 15161 I TRIBEMOD: [INI] ReadyPlayerMeAvatarUrl: no change (set)
+09-30 06:17:38.377 15161 15161 I TRIBEMOD: [INI] ReadyPlayerMeETag: no change (absent)
+09-30 06:17:38.377 15161 15161 I TRIBEMOD: [INI] summary: url="http://127.0.0.1:8000/custom.glb" etag=(none)
+09-30 06:17:38.380 15161 15161 I TRIBEMOD: dumper thread spawned (base=0x7c03431000)
+09-30 06:17:38.380 15161 15202 I TRIBEMOD: dumper thread up; base=0x7c03431000; poll /sdcard/Android/data/com.TribeXR.TribeXR/files/tribemod/dump_now
+09-30 06:17:38.380 15161 15161 I TRIBEMOD: httpd thread spawned (127.0.0.1:8787)
+09-30 06:17:38.382 15161 15161 I TRIBEMOD: ProcessEvent hook installed @0x7c04c89dd4 (orig=0x7c0cdc9000)
+09-30 06:17:38.421 15161 15203 I TRIBEMOD: [HTTPD] asset loaded 4732412 bytes ETag=BB01368FC663411E5AD676EE268AAC4E
+09-30 06:17:38.423 15161 15203 I TRIBEMOD: [HTTPD] listening on 127.0.0.1:8787 (glb=4732412 ETag=BB01368FC663411E5AD676EE268AAC4E)
+09-30 06:18:21.896 15161 15202 I TRIBEMOD: load_avatar seen; arming executor...
+09-30 06:18:21.902 15161 15202 I TRIBEMOD: [LOAD] resolved: np=0x7c632c0 ga=0x7cbbdd0 NumElem=63062 None='None'
+09-30 06:18:21.903 15161 15202 I TRIBEMOD: [LOAD] armed; waiting for next ProcessEvent on game thread
+09-30 06:18:21.912 15161 15219 I TRIBEMOD: [LOAD] === do_load (game tid=15219) ===
+09-30 06:18:23.694 15161 15219 I TRIBEMOD: [LOAD] fnLoad=0x7b6af5a5e0 fnMesh=0x7b6af55b80 fnErr=0x7b6af54e60 fnSet=0x7b6acbb140 libCDO=0x7c0fc15dd0 body=0x7b5ef350b0
+09-30 06:18:23.726 15161 15219 I TRIBEMOD: [LOAD] asset=0x7b22a6d360 (path=/sdcard/Android/data/com.TribeXR.TribeXR/files/tribemod/custom.glb)
+09-30 06:18:23.747 15161 15219 I TRIBEMOD: [LOAD] mesh=0x0
+09-30 06:18:23.748 15161 15219 I TRIBEMOD: [LOAD] mesh NULL -> LoadSkeletalMesh failed:
+09-30 06:18:23.748 15161 15219 I TRIBEMOD: [LOAD] GetErrors: Num=2
+09-30 06:18:23.748 15161 15219 I TRIBEMOD: [LOAD]   err[0]=LoadSkeletalMesh_Internal(): Unable to find map for bone 5
+09-30 06:18:23.748 15161 15219 I TRIBEMOD: [LOAD]   err[1]=LoadSkeletalMesh(): Unable to load SkeletalMesh.
+09-30 06:21:11.742 16058 16058 I TRIBEMOD: dumper libhook constructor
+09-30 06:21:11.744 16058 16058 I TRIBEMOD: [INI] cache: already staged /sdcard/Android/data/com.TribeXR.TribeXR/files/Documents/rpmavatar-custom.glb
+09-30 06:21:11.744 16058 16058 I TRIBEMOD: [INI] ReadyPlayerMeAvatarUrl: no change (set)
+09-30 06:21:11.744 16058 16058 I TRIBEMOD: [INI] ReadyPlayerMeETag: no change (absent)
+09-30 06:21:11.744 16058 16058 I TRIBEMOD: [INI] summary: url="http://127.0.0.1:8000/custom.glb" etag=(none)
+09-30 06:21:11.747 16058 16058 I TRIBEMOD: dumper thread spawned (base=0x7c01801000)
+09-30 06:21:11.747 16058 16058 I TRIBEMOD: httpd thread spawned (127.0.0.1:8787)
+09-30 06:21:11.747 16058 16095 I TRIBEMOD: dumper thread up; base=0x7c01801000; poll /sdcard/Android/data/com.TribeXR.TribeXR/files/tribemod/dump_now
+09-30 06:21:11.750 16058 16058 I TRIBEMOD: ProcessEvent hook installed @0x7c03059dd4 (orig=0x7bfe8e2000)
+09-30 06:21:11.800 16058 16096 I TRIBEMOD: [HTTPD] asset loaded 4732412 bytes ETag=BB01368FC663411E5AD676EE268AAC4E
+09-30 06:21:11.800 16058 16096 I TRIBEMOD: [HTTPD] listening on 127.0.0.1:8787 (glb=4732412 ETag=BB01368FC663411E5AD676EE268AAC4E)
+09-30 06:21:21.251 16058 16095 I TRIBEMOD: load_avatar seen; arming executor...
+09-30 06:21:21.257 16058 16095 I TRIBEMOD: [LOAD] resolved: np=0x7c632c0 ga=0x7cbbdd0 NumElem=63030 None='None'
+09-30 06:21:21.258 16058 16095 I TRIBEMOD: [LOAD] armed; waiting for next ProcessEvent on game thread
+09-30 06:21:21.258 16058 16104 I TRIBEMOD: [LOAD] === do_load (game tid=16104) ===
+09-30 06:21:23.010 16058 16104 I TRIBEMOD: [LOAD] fnLoad=0x7b61a2a260 fnMesh=0x7b61a25800 fnErr=0x7b61a24ae0 fnSet=0x7b6177e6a0 libCDO=0x7b62400100 body=0x7b518e60a0
+09-30 06:21:23.041 16058 16104 I TRIBEMOD: [LOAD] asset=0x7b12201820 (path=/sdcard/Android/data/com.TribeXR.TribeXR/files/tribemod/custom.glb)
+09-30 06:21:23.191 16058 16104 I TRIBEMOD: [LOAD] mesh=0x7b122eb470
+09-30 06:21:23.192 16058 16104 I TRIBEMOD: [LOAD] SetSkeletalMeshAsset -> body=0x7b518e60a0 DONE (mesh should be visible if RPM skin active)
+09-30 06:21:23.192 16058 16104 I TRIBEMOD: [LOAD] === do_load done ===
+09-30 06:22:06.777 16058 16095 I TRIBEMOD: dump_now seen; dumping...
+09-30 06:22:06.787 16058 16095 I TRIBEMOD: [PASS] R1.NamePool.scan : NamePoolData rva=0x7c632c0 hits=0 blocks_off=0x40 CurrentBlock=0 CurrentByteCursor=0 leadBlocks=0
+09-30 06:22:06.787 16058 16095 I TRIBEMOD: [PASS] R1.NamePool.Resolve(0)==None : resolved='None' (rva=0x7c632c0)
+09-30 06:22:06.788 16058 16095 I TRIBEMOD: [PASS] R2a.objarray : via=param GUObjectArray rva=0x7cbbdd0 NumElements=63101 NumChunks=1 neOff=0x14 (got->rva=0x6d293e8 direct.rva=0x7cbadd0)
+09-30 06:22:06.788 16058 16095 I TRIBEMOD: [PASS] R2b.index0/1 : obj0=0x7bf3ed9900 idx=0 obj1 idx=1
+09-30 06:22:06.788 16058 16095 I TRIBEMOD: [PASS] R2c.obj0.name_printable : obj0.name='/Script/CoreUObject'
+09-30 06:22:06.943 16058 16095 I TRIBEMOD: [PASS] R3a.Class.self_ref : Class(ClassPrivate==self)=0x7bf3b0cb80
+09-30 06:22:06.943 16058 16095 I TRIBEMOD: [PASS] R3b.UStruct.offsets : Object=0x7bf3b00b00 Super=0x40 Children=0x48 ChildProps=0x50 PropSize=0x58
+09-30 06:22:06.943 16058 16095 I TRIBEMOD: [PASS] R3c.coupling : Class.name='Class' Object.name='Object'
+09-30 06:22:06.945 16058 16095 I TRIBEMOD: [PASS] R3d.Actor : Actor.Super='Object' PropSize=0x290
+09-30 06:22:06.948 16058 16095 I TRIBEMOD: [PASS] R4.FField.chain : props=12
+09-30 06:22:06.948 16058 16095 I TRIBEMOD:   +0x028 StructProperty PrimaryActorTick
+09-30 06:22:06.948 16058 16095 I TRIBEMOD:   +0x058 BoolProperty bNetTemporary
+09-30 06:22:06.948 16058 16095 I TRIBEMOD:   +0x058 BoolProperty bOnlyRelevantToOwner
+09-30 06:22:06.948 16058 16095 I TRIBEMOD:   +0x058 BoolProperty bAlwaysRelevant
+09-30 06:22:06.948 16058 16095 I TRIBEMOD:   +0x058 BoolProperty bReplicateMovement
+09-30 06:22:06.948 16058 16095 I TRIBEMOD:   +0x058 BoolProperty bCallPreReplication
+09-30 06:22:06.948 16058 16095 I TRIBEMOD:   +0x
+09-30 06:22:39.735 16058 16095 I TRIBEMOD: dump complete, fails=0
+09-30 06:24:29.745 16941 16941 I TRIBEMOD: dumper libhook constructor
+09-30 06:24:29.748 16941 16941 I TRIBEMOD: [INI] cache: already staged /sdcard/Android/data/com.TribeXR.TribeXR/files/Documents/rpmavatar-custom.glb
+09-30 06:24:29.751 16941 16941 I TRIBEMOD: [INI] ReadyPlayerMeAvatarUrl: no change (set)
+09-30 06:24:29.751 16941 16941 I TRIBEMOD: [INI] ReadyPlayerMeETag: no change (absent)
+09-30 06:24:29.751 16941 16941 I TRIBEMOD: [INI] summary: url="http://127.0.0.1:8000/custom.glb" etag=(none)
+09-30 06:24:29.756 16941 16941 I TRIBEMOD: dumper thread spawned (base=0x7c01e07000)
+09-30 06:24:29.757 16941 16941 I TRIBEMOD: httpd thread spawned (127.0.0.1:8787)
+09-30 06:24:29.757 16941 16979 I TRIBEMOD: dumper thread up; base=0x7c01e07000; poll /sdcard/Android/data/com.TribeXR.TribeXR/files/tribemod/dump_now
+09-30 06:24:29.764 16941 16941 I TRIBEMOD: ProcessEvent hook installed @0x7c0365fdd4 (orig=0x7c0fb13000)
+09-30 06:24:29.789 16941 16980 I TRIBEMOD: [HTTPD] asset loaded 4732412 bytes ETag=BB01368FC663411E5AD676EE268AAC4E
+09-30 06:24:29.791 16941 16980 I TRIBEMOD: [HTTPD] listening on 127.0.0.1:8787 (glb=4732412 ETag=BB01368FC663411E5AD676EE268AAC4E)
+09-30 06:32:33.951 16941 16979 I TRIBEMOD: load_avatar seen; arming executor...
+09-30 06:32:33.958 16941 16979 I TRIBEMOD: [LOAD] resolved: np=0x7c632c0 ga=0x7cbbdd0 NumElem=63036 None='None'
+09-30 06:32:33.958 16941 16979 I TRIBEMOD: [LOAD] armed; waiting for next ProcessEvent on game thread
+09-30 06:32:33.967 16941 16991 I TRIBEMOD: [LOAD] === do_load (game tid=16991) ===
+09-30 06:32:36.322 16941 16991 I TRIBEMOD: [LOAD] fnLoad=0x7b613a5c60 fnMesh=0x7b613a4bc0 fnErr=0x7b613a04e0 fnSet=0x7b610967c0 libCDO=0x7b72590be0 body=0x7b1b387090
+09-30 06:32:36.342 16941 16991 I TRIBEMOD: [LOAD] asset=0x7ab0a9a960 (path=/sdcard/Android/data/com.TribeXR.TribeXR/files/tribemod/custom.glb)
+09-30 06:32:36.536 16941 16991 I TRIBEMOD: [LOAD] mesh=0x7b71c0d750
+09-30 06:32:36.536 16941 16991 I TRIBEMOD: [LOAD] SetSkeletalMeshAsset -> body=0x7b1b387090 DONE (mesh should be visible if RPM skin active)
+09-30 06:32:36.536 16941 16991 I TRIBEMOD: [LOAD] === do_load done ===
+09-30 06:41:42.853 19676 19676 I TRIBEMOD: dumper libhook constructor
+09-30 06:41:42.855 19676 19676 I TRIBEMOD: [INI] cache: already staged /sdcard/Android/data/com.TribeXR.TribeXR/files/Documents/rpmavatar-custom.glb
+09-30 06:41:42.856 19676 19676 I TRIBEMOD: [INI] ReadyPlayerMeAvatarUrl: no change (set)
+09-30 06:41:42.856 19676 19676 I TRIBEMOD: [INI] ReadyPlayerMeETag: no change (absent)
+09-30 06:41:42.856 19676 19676 I TRIBEMOD: [INI] summary: url="http://127.0.0.1:8000/custom.glb" etag=(none)
+09-30 06:41:42.862 19676 19676 I TRIBEMOD: dumper thread spawned (base=0x7bf1201000)
+09-30 06:41:42.863 19676 19676 I TRIBEMOD: httpd thread spawned (127.0.0.1:8787)
+09-30 06:41:42.868 19676 19676 I TRIBEMOD: ProcessEvent hook installed @0x7bf2a59dd4 (orig=0x7c05931000)
+09-30 06:41:42.895 19676 19724 I TRIBEMOD: dumper thread up; base=0x7bf1201000; poll /sdcard/Android/data/com.TribeXR.TribeXR/files/tribemod/dump_now
+09-30 06:41:42.917 19676 19725 I TRIBEMOD: [HTTPD] asset loaded 4732412 bytes ETag=BB01368FC663411E5AD676EE268AAC4E
+09-30 06:41:42.918 19676 19725 I TRIBEMOD: [HTTPD] listening on 127.0.0.1:8787 (glb=4732412 ETag=BB01368FC663411E5AD676EE268AAC4E)
+09-30 06:42:35.416 19676 19724 I TRIBEMOD: load_avatar seen; arming executor...
+09-30 06:42:35.423 19676 19724 I TRIBEMOD: [LOAD] resolved: np=0x7c632c0 ga=0x7cbbdd0 NumElem=63062 None='None'
+09-30 06:42:35.424 19676 19724 I TRIBEMOD: [LOAD] armed; waiting for next ProcessEvent on game thread
+09-30 06:42:35.425 19676 19734 I TRIBEMOD: [LOAD] === do_load (game tid=19734) ===
+09-30 06:42:37.697 19676 19734 I TRIBEMOD: [LOAD] fnLoad=0x7b4d5b6280 fnMesh=0x7b4d5b51e0 fnErr=0x7b4d5b0b00 fnSet=0x7b4d31a6c0 libCDO=0x7b5f4008e0 body=0x7b083a50b0
+09-30 06:42:37.725 19676 19734 I TRIBEMOD: [LOAD] asset=0x7b1ae17160 (path=/sdcard/Android/data/com.TribeXR.TribeXR/files/tribemod/custom.glb)
+09-30 06:42:37.894 19676 19734 I TRIBEMOD: [LOAD] mesh=0x7b0885a300
+09-30 06:42:37.894 19676 19734 I TRIBEMOD: [LOAD] SetSkeletalMeshAsset -> body=0x7b083a50b0 DONE (mesh should be visible if RPM skin active)
+09-30 06:42:37.894 19676 19734 I TRIBEMOD: [LOAD] === do_load done ===
+09-30 06:52:18.451 21459 21459 I TRIBEMOD: dumper libhook constructor
+09-30 06:52:18.453 21459 21459 I TRIBEMOD: [INI] cache: already staged /sdcard/Android/data/com.TribeXR.TribeXR/files/Documents/rpmavatar-custom.glb
+09-30 06:52:18.453 21459 21459 I TRIBEMOD: [INI] ReadyPlayerMeAvatarUrl: no change (set)
+09-30 06:52:18.453 21459 21459 I TRIBEMOD: [INI] ReadyPlayerMeETag: no change (absent)
+09-30 06:52:18.453 21459 21459 I TRIBEMOD: [INI] summary: url="http://127.0.0.1:8000/custom.glb" etag=(none)
+09-30 06:52:18.456 21459 21459 I TRIBEMOD: dumper thread spawned (base=0x7bfb22c000)
+09-30 06:52:18.456 21459 21503 I TRIBEMOD: dumper thread up; base=0x7bfb22c000; poll /sdcard/Android/data/com.TribeXR.TribeXR/files/tribemod/dump_now
+09-30 06:52:18.456 21459 21459 I TRIBEMOD: httpd thread spawned (127.0.0.1:8787)
+09-30 06:52:18.459 21459 21459 I TRIBEMOD: ProcessEvent hook installed @0x7bfca84dd4 (orig=0x7c0eb19000)
+09-30 06:52:18.528 21459 21504 I TRIBEMOD: [HTTPD] asset loaded 4732412 bytes ETag=BB01368FC663411E5AD676EE268AAC4E
+09-30 06:52:18.529 21459 21504 I TRIBEMOD: [HTTPD] listening on 127.0.0.1:8787 (glb=4732412 ETag=BB01368FC663411E5AD676EE268AAC4E)
+09-30 06:52:18.967 21459 21503 I TRIBEMOD: load_avatar seen; arming executor...
+09-30 06:52:19.148 21459 21503 I TRIBEMOD: [LOAD] resolve: objarray FAIL
+09-30 06:52:19.148 21459 21503 I TRIBEMOD: [LOAD] NOT armed (resolved=0 pe=0x7bfca84dd4)
+09-30 06:52:54.662 21459 21503 I TRIBEMOD: load_avatar seen; arming executor...
+09-30 06:52:54.671 21459 21503 I TRIBEMOD: [LOAD] resolved: np=0x7c632c0 ga=0x7cbbdd0 NumElem=63036 None='None'
+09-30 06:52:54.672 21459 21503 I TRIBEMOD: [LOAD] armed; waiting for next ProcessEvent on game thread
+09-30 06:52:54.676 21459 21515 I TRIBEMOD: [LOAD] === do_load (game tid=21515) ===
+09-30 06:52:56.650 21459 21515 I TRIBEMOD: [LOAD] fnLoad=0x7b61a867c0 fnMesh=0x7b61a81d60 fnErr=0x7b61a81040 fnSet=0x7b617eace0 libCDO=0x7b6eff4c90 body=0x7b5022d030
+09-30 06:52:56.679 21459 21515 I TRIBEMOD: [LOAD] asset=0x7b192d44c0 (path=/sdcard/Android/data/com.TribeXR.TribeXR/files/tribemod/custom.glb)
+09-30 06:52:56.897 21459 21515 I TRIBEMOD: [LOAD] mesh(materials)=0x7b1592c010
+09-30 06:52:57.114 21459 21515 I TRIBEMOD: [LOAD] M_glTFRuntimeBase resident=YES
+09-30 06:52:57.115 21459 21515 I TRIBEMOD: [LOAD] SetSkeletalMeshAsset -> body=0x7b5022d030 DONE
+09-30 06:52:57.369 21459 21515 I TRIBEMOD: [LOAD] SetOwnerNoSee(false) fn=0x7b6ef619e0
+09-30 06:52:57.369 21459 21515 I TRIBEMOD: [LOAD] SetVisibility(true,true) fn=0x7b6eeaac00
+09-30 06:52:57.369 21459 21515 I TRIBEMOD: [LOAD] SetHiddenInGame(false,true) fn=0x7b6eea75c0
+09-30 06:52:57.369 21459 21515 I TRIBEMOD: [LOAD] === do_load done (materials on, visible) ===
