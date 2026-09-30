@@ -3940,3 +3940,43 @@ Follow v1 test (battery 24%): auto_actor spawned our actor ~2 s after load, then
 Open: user was seated (eye 1.1 m) while the model stands at full height -> camera inside the chest in first person.
 Next phase: articulation (Meta OculusXRBodyTrackingComponent retarget, or PoseableMesh + IK), hands vs Tribe's hands,
 seated/crouch (pelvis drop), and wire the skin-cycle to swap the actor's mesh.
+
+## Session 3c — ROUTE A1: Meta body tracking ENABLED in Tribe (full body, 84 joints streaming)
+
+Advisor route A, in his order: manifest -> ini -> permission -> start -> verify. All verified on device.
+- MANIFEST: scripts/patch_manifest.py (binary AXML) clones existing leaf elements byte-for-byte (FACE_TRACKING permission,
+  oculus.software.face_tracking feature w/ required=false) and re-points android:name at strings APPENDED to the UTF-16
+  pool (#191/#192; no existing index moves, so the resource-map-bound attr names stay valid). Adds
+  com.oculus.permission.BODY_TRACKING + com.oculus.software.body_tracking (required=false). aapt xmltree diff = exactly
+  the 2 elements; permissions 19 -> 20; idempotent re-run = no-op. Packaging now also adds AndroidManifest.xml:
+    python scripts/patch_manifest.py <(unzip base.apk AndroidManifest.xml) out/hookA/stage/AndroidManifest.xml \
+      uses-permission:com.oculus.permission.FACE_TRACKING:com.oculus.permission.BODY_TRACKING \
+      uses-feature:oculus.software.face_tracking:com.oculus.software.body_tracking
+    7z a ... lib/arm64-v8a/libUnreal.so lib/arm64-v8a/libhook.so AndroidManifest.xml   (then zipalign + apksigner as before)
+- PERMISSION: BODY_TRACKING is INSTALL-TIME on this Horizon OS: `pm grant` -> "not a changeable permission type", and
+  dumpsys shows granted=true right after install (no horizonos.* runtime twin, unlike FACE_TRACKING).
+- ENGINE.INI: constructor upserts [/Script/OculusXRHMD.OculusXRHMDRuntimeSettings] bBodyTrackingEnabled=True into
+  Saved/Config/Android/Engine.ini (created if missing; gated on tribemod/body_tracking, flag absent -> key deleted).
+  CDO readback = 1 -> this shipping build DOES read the saved-ini layer. XrApi = OVRPluginOpenXR. (CDO defaults
+  BodyTrackingFidelity=Low, BodyTrackingJointSet=UpperBody; overridden at runtime.)
+- GHIDRA (scripts/FindNativeThunk.java: exec thunks by name via the FNameNativePtrPair tables):
+  TryGetBodyState impl FUN_04b7f43c writes Joints.Data[0..69] (upper) / [0..83] (full) at stride 0x40 with NO resize and
+  NO bounds check; under ProcessEvent the out-struct IS our parm buffer -> a zeroed TArray = null write = crash. So
+  Joints is pre-pointed at our own static 84-slot storage (ProcessEvent never frees/copies back out-params).
+  StartBodyTrackingByJointSet -> PluginWrapper+0x758 (StartBodyTracking2) then +0x760 (fidelity); NO settings gate.
+  IsBodyTrackingEnabled = +0x730, GetBodyState4 = +0x748, GetFullBodyTrackingEnabled = +0x750 (picks 70 vs 84 joints).
+- LAYOUT (reflection == native): FOculusXRBodyState {IsActive@0, Confidence@4, SkeletonChangedCount@8, Time@0xC,
+  Joints@0x10} 0x20 B; FOculusXRBodyJoint {LocationFlags u64@0, bIsValid@8, Orientation FRotator@0x10, Position
+  FVector@0x28} 0x40 B. TryGetBodyState parms 0x25: state@0, WorldToMeters@0x20, Ret@0x24. EOculusXRBoneID: 84 bones
+  (0 BodyRoot, 1 BodyHips, 2-5 spine/chest, 6 Neck, 7 Head, 8-17 arms, 18-69 hands, 70-83 legs/feet) + 3 sentinels.
+- RESULT: CheckPermission=1, IsBodyTrackingSupported=1, StartBodyTrackingByJointSet(FullBody=1)=1,
+  RequestBodyTrackingFidelity(High=2)=1; IsBodyTrackingEnabled 0 right after start -> 1 within 1 s (async).
+  TryGetBodyState=1, IsActive=1, conf=1.00, 84/84 valid, still enabled at poll #7 (~90 s; no Avatars-SDK conflict seen).
+  OS: "NIMBLE:InsideOutBodyTracking: Using raw images", "Body Tracking Processed FPS = 29.8 Hz ... Dropped 0 frames".
+  Game frame dt unchanged (12-16 ms).
+- FRAMES: positions = tracking space, UE axes, cm, floor z~0 (seated: hips 62 / head 115 / ankles ~2, knees forward;
+  standing: hips 104 / head 165 vs HMD world z 171 -> head joint ~7 cm below the eyes). logs/bt1/bt_joints.txt = first
+  full 84-joint dump. Joint rotations are Meta's joint frames (spine chain roll 50-90 deg) -> calibrate, don't name-map.
+Next (A2, advisor Q4): PoseableMesh retarget -- calibration pose (user roughly in the avatar's A-pose) captures C_j and
+R_b; per frame bone world rot = (M_j * C_j^-1) * R_b; rotations + hips position only; wrists pinned (two-bone IK,
+Meta elbow as pole); keep Tribe's tracked hands. Tracking -> world via the VROrigin transform (verify: Head vs Camera).

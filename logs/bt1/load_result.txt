@@ -1,0 +1,110 @@
+resolve: objarray FAIL
+resolve: objarray FAIL
+resolve: objarray FAIL
+resolve: objarray FAIL
+resolved: np=0x7c632c0 ga=0x7cbbdd0 NumElem=28417 None='None'
+auto-load: pawn ready (body=0x79521860a0 numel=47678) -> armed
+=== do_load (game tid=27021) ===
+fnLoad=0x79988ab760 fnMesh=0x79988aa6c0 fnErr=0x79988a5fe0 fnSet=0x79985ec1e0 libCDO=0x79a5600ee0 body=0x79521860a0
+asset=0x795208b300 (path=/sdcard/Android/data/com.TribeXR.TribeXR/files/tribemod/skins/skullbuck.glb)
+mesh(materials)=0x7959574bd0
+M_glTFRuntimeBase resident=YES
+attached mesh=0x7959574bd0 body=0x79521860a0 rooted=1 leader=0x799852f120 camMgr=0x79537c6dc0; keeper ON; render report in 3s
+=== do_load done (materials on, visible, kept) ===
+BT: EOculusXRBoneID entries=87 ([0]=BodyRoot [1]=BodyHips [7]=BodyHead [69]=BodyRightHandLittleTip [83]=BodyRightFootBall)
+BT:   OculusXRBodyState.IsActive BoolProperty @0x0
+BT:   OculusXRBodyState.Confidence FloatProperty @0x4
+BT:   OculusXRBodyState.SkeletonChangedCount IntProperty @0x8
+BT:   OculusXRBodyState.Time FloatProperty @0xc
+BT:   OculusXRBodyState.Joints ArrayProperty @0x10
+BT:   OculusXRBodyJoint.bIsValid BoolProperty @0x8
+BT:   OculusXRBodyJoint.Orientation StructProperty @0x10
+BT:   OculusXRBodyJoint.Position StructProperty @0x28
+BT: lib=0x79a5600f70 sup=0x79988a06a0 en=0x79988a0780 startSet=0x79988a3960 start=0x79988a0080 fid=0x79988a0240 state=0x79988a3340 perm=0x79988a4840 cfg=0x79aafbbb00 FullBody=1 High=2
+BT: TryGetBodyState psz=0x25 state@0 (OculusXRBodyState, 0x20 B) W2M@32 ret@36 Joints@0x10 of OculusXRBodyJoint (0x40 B) -> layout OK
+BT: armed; starting on the game thread
+=== body tracking start (game tid=27021) ===
+BT: OculusXRHMDRuntimeSettings CDO (did the Engine.ini override land? which XrApi?):
+  cfg SystemSplashBackground                       = 1 Contextual
+  cfg bAutoEnabled                                 = 1
+  cfg XrApi                                        = 0 OVRPluginOpenXR
+  cfg ColorSpace                                   = 7 P3
+  cfg ControllerPoseAlignment                      = 0 Default
+  cfg bThumbstickDpadEmulationEnabled              = 1
+  cfg bSupportsDash                                = 1
+  cfg bCompositesDepth                             = 1
+  cfg bHQDistortion                                = 0
+  cfg bSetActivePIEToPrimary                       = 0
+  cfg bSetCVarPIEToPrimary                         = 0
+  cfg bUpdateHeadPoseForInactivePlayer             = 0
+  cfg MPPoseRestoreType                            = 0 Disabled
+  cfg bDynamicResolution                           = 1
+  cfg PixelDensityMin                              = 0.000
+  cfg PixelDensityMax                              = 0.000
+  cfg CPULevel                                     = 0
+  cfg GPULevel                                     = 0
+  cfg SuggestedCpuPerfLevel                        = 0 PowerSavings
+  cfg SuggestedGpuPerfLevel                        = 0 PowerSavings
+  cfg FoveatedRenderingMethod                      = 0 FixedFoveatedRendering
+  cfg FoveatedRenderingLevel                       = 0 Off
+  cfg bDynamicFoveatedRendering                    = 0
+  cfg bSupportEyeTrackedFoveatedRendering          = 0
+  cfg bCompositeDepthMobile                        = 0
+  cfg bFocusAware                                  = 1
+  cfg bLateLatching                                = 0
+  cfg bRequiresSystemKeyboard                      = 0
+  cfg HandTrackingSupport                          = 1 ControllersAndHands
+  cfg HandTrackingFrequency                        = 1 HIGH
+  cfg HandTrackingVersion                          = 0 Default
+  cfg bInsightPassthroughEnabled                   = 1
+  cfg bAnchorSupportEnabled                        = 1
+  cfg bAnchorSharingEnabled                        = 0
+  cfg bSceneSupportEnabled                         = 0
+  cfg bBoundaryVisibilitySupportEnabled            = 0
+  cfg bDefaultBoundaryVisibilitySuppressed         = 0
+  cfg bColocationSessionsEnabled                   = 0
+  cfg bBodyTrackingEnabled                         = 1
+  cfg BodyTrackingFidelity                         = 1 Low
+  cfg BodyTrackingJointSet                         = 0 UpperBody
+  cfg bEyeTrackingEnabled                          = 1
+  cfg bFaceTrackingEnabled                         = 1
+  cfg bDeploySoToDevice                            = 0
+  cfg bIterativeCookOnTheFly                       = 0
+  cfg bSupportExperimentalFeatures                 = 0
+  cfg ProcessorFavor                               = 0 FavorEqually
+  cfg bTileTurnOffEnabled                          = 1
+BT: CheckPermission(BODY_TRACKING)=1 IsBodyTrackingSupported=1 StartBodyTrackingByJointSet(1)=1 StartBodyTracking()=-9(not tried) RequestBodyTrackingFidelity(2)=1 IsBodyTrackingEnabled=0
+BT poll #1: IsBodyTrackingEnabled=0 TryGetBodyState=1 IsActive=0 conf=0.00 skelChanged=0 time=0.00 valid=0/84 | Hips=(-0,0,0)!invalid Head=(-0,0,0)!invalid LeftHandWrist=(-0,0,0)!invalid RightHandWrist=(-0,0,0)!invalid LeftFootAnkle=(-0,0,0)!invalid RightFootAnkle=(-0,0,0)!invalid
+BT poll #2: IsBodyTrackingEnabled=1 TryGetBodyState=1 IsActive=1 conf=1.00 skelChanged=7 time=4427.95 valid=84/84 | Hips=(-8,-8,63) Head=(-9,-19,115) LeftHandWrist=(0,-19,55) RightHandWrist=(-5,5,102) LeftFootAnkle=(13,16,1) RightFootAnkle=(0,13,2)
+BT: wrote bt_joints.txt (first ACTIVE poll)
+auto_actor: spawning our following avatar
+iso: gs=0x79a55b18a0 begin=0x799863a420 finish=0x79986390e0 cls=0x7a282f8580 cam=0x79537c6dc0 mesh=0x7959574bd0
+iso: begin psz=0x90 WC@0 Cls@8 Xf@16(gap 96) Coll@112 Scl@128 Ret@136
+iso: BeginDeferredActorSpawnFromClass -> actor=0x795399f200  at (-117,-73,97) camYaw=-121
+tick: sizeof(FProperty)=0x70 PrimaryActorTick field=0x79aaba9500
+tick: PrimaryActorTick@0x28 struct=ActorTickFunction
+  bCanEverTick: off=10 byteOff=0 mask=0x02 -> byte now 0x0e
+  bStartWithTickEnabled: off=10 byteOff=0 mask=0x04 -> byte now 0x0e
+tick: bCanEverTick=1 bStartWithTickEnabled=1 TickGroup@8 EndTickGroup@9 -> 5
+iso: actor tick enabled=1
+iso: FinishSpawningActor done; SkeletalMeshComponent@0x298 = 0x79540fd030
+follow: ReceiveTick=0x79aab7d8a0 getRot=0x79ab75a0a0 setLR=0x79aab7bae0 cam=0x79a538cae0 vrOrigin=0x795197bec0 mcL=0x7a28587a20 mcR=0x7955046d60 pawn=0x79ab87e020 fallback=0x79ab87e020
+iso: mesh set on our own actor (comp=0x79540fd030); following the HMD from its next tick
+RENDER #1 slot: WasRecentlyRendered(0.5)=0 | loc=(0,0,0) scale=(1.000,1.000,1.000) | cam=(-15,99,134) d=(15,-99,-134)cm | mesh ok=1
+RENDER #1 ISO: WasRecentlyRendered(0.5)=0 | loc=(-117,-73,97) scale=(1.000,1.000,1.000) | cam=(-15,99,134) d=(-102,-172,-37)cm | mesh ok=1
+BT poll #3: IsBodyTrackingEnabled=1 TryGetBodyState=1 IsActive=1 conf=1.00 skelChanged=12 time=4428.95 valid=84/84 | Hips=(-1,-7,64) Head=(-7,-20,115) LeftHandWrist=(0,-20,58) RightHandWrist=(-4,3,106) LeftFootAnkle=(22,15,3) RightFootAnkle=(10,16,2)
+rest: 54 bones; LFoot=(3.0,11.5,-90.0) LToe=(-9.5,12.0,-95.2) -> model forward=180.0 deg, toeZ=-95.2 cm
+setLR: psz=0x132 NewLocation@0 NewRotation@24 bSweep@48 bTeleport@304
+follow: isoTicks=0 fallbackTicks=1 dt=0.0126 hmd=(-15,99,134) hmdYaw=-121 target=-121 body=-121 floorZ=0 -> actor=(-9,108,95) yaw=59
+RENDER #2 slot: WasRecentlyRendered(0.5)=0 | loc=(0,0,0) scale=(1.000,1.000,1.000) | cam=(-13,97,131) d=(13,-97,-131)cm | mesh ok=1
+RENDER #2 ISO: WasRecentlyRendered(0.5)=1 | loc=(-10,107,95) scale=(1.000,1.000,1.000) | cam=(-13,97,131) d=(3,10,-36)cm | mesh ok=1
+follow: isoTicks=0 fallbackTicks=180 dt=0.0148 hmd=(-12,105,140) hmdYaw=-115 target=-101 body=-121 floorZ=0 -> actor=(-8,114,95) yaw=59
+BT poll #4: IsBodyTrackingEnabled=1 TryGetBodyState=1 IsActive=1 conf=1.00 skelChanged=18 time=4436.95 valid=84/84 | Hips=(7,-7,64) Head=(-2,-21,115) LeftHandWrist=(4,-18,56) RightHandWrist=(6,-0,101) LeftFootAnkle=(33,13,3) RightFootAnkle=(22,15,3)
+follow: isoTicks=0 fallbackTicks=360 dt=0.0156 hmd=(-21,99,134) hmdYaw=-128 target=-89 body=-121 floorZ=0 -> actor=(-15,107,95) yaw=59
+follow: isoTicks=0 fallbackTicks=540 dt=0.0145 hmd=(-6,86,133) hmdYaw=-70 target=-64 body=-70 floorZ=0 -> actor=(-10,95,95) yaw=110
+follow: isoTicks=0 fallbackTicks=720 dt=0.0152 hmd=(-5,65,130) hmdYaw=-76 target=-76 body=-69 floorZ=0 -> actor=(-7,74,95) yaw=111
+RENDER #3 slot: WasRecentlyRendered(0.5)=0 | loc=(0,0,0) scale=(1.000,1.000,1.000) | cam=(-4,63,129) d=(4,-63,-129)cm | mesh ok=1
+RENDER #3 ISO: WasRecentlyRendered(0.5)=1 | loc=(-6,72,95) scale=(1.000,1.000,1.000) | cam=(-4,63,129) d=(-3,10,-34)cm | mesh ok=1
+follow: isoTicks=0 fallbackTicks=900 dt=0.0125 hmd=(6,57,124) hmdYaw=-77 target=-77 body=-69 floorZ=0 -> actor=(4,66,95) yaw=111
+follow: isoTicks=0 fallbackTicks=1080 dt=0.0117 hmd=(-1,63,132) hmdYaw=-93 target=-93 body=-69 floorZ=0 -> actor=(-1,73,95) yaw=111
+follow: isoTicks=0 fallbackTicks=1260 dt=0.0138 hmd=(-11,97,138) hmdYaw=-94 target=-103 body=-103 floorZ=0 -> actor=(-10,107,95) yaw=77

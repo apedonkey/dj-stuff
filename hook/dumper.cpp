@@ -679,12 +679,14 @@ static bool read_trim_file(const char* fname, char* out, int cap){
     while(e>s&&(t[e-1]==' '||t[e-1]=='\t'||t[e-1]=='\r'||t[e-1]=='\n'))e--;
     if(e<=s) return false; int L=e-s; if(L>cap-1)L=cap-1; memcpy(out,t+s,L); out[L]=0; return true;
 }
-// upsert (value!=0) or delete (value==0) [TribeAvatar] <key> in GameUserSettings.ini; atomic tmp+fsync+rename.
-static void upsert_ini_key(const char* key, const char* value){
-    const char* SEC="[TribeAvatar]"; int kl=(int)strlen(key), sl=(int)strlen(SEC); bool have=(value!=0);
+// upsert (value!=0) or delete (value==0) SEC <key> in the ini at PATH; atomic tmp+fsync+rename.
+// create: a missing file counts as empty (Engine.ini doesn't exist until something writes it).
+static void upsert_ini(const char* PATH, const char* SEC, const char* key, const char* value, bool create){
+    int kl=(int)strlen(key), sl=(int)strlen(SEC); bool have=(value!=0);
     static char buf[65536]; int n=0;
-    { int fd=open(INI_PATH,O_RDONLY); if(fd<0){ ini_status("ini not readable; skip"); return; }
-      ssize_t r=read(fd,buf,sizeof buf-1); close(fd); if(r<0){ ini_status("ini read error"); return; } n=(int)r; buf[n]=0; }
+    { int fd=open(PATH,O_RDONLY);
+      if(fd<0){ if(!(create && errno==ENOENT)){ ini_status("ini not readable; skip"); return; } buf[0]=0; }
+      else { ssize_t r=read(fd,buf,sizeof buf-1); close(fd); if(r<0){ ini_status("ini read error"); return; } n=(int)r; buf[n]=0; } }
     if(n>=2 && (unsigned char)buf[0]==0xFF && (unsigned char)buf[1]==0xFE){ ini_status("UTF-16 BOM; bail"); return; }
     static char out[70000]; int o=0; bool inSec=false, wrote=false, sawSec=false; int i=0;
     while(i<n){ int j=i; while(j<n && buf[j]!='\n') j++; int le=(j<n)?j+1:n; int len=j-i;
@@ -699,13 +701,18 @@ static void upsert_ini_key(const char* key, const char* value){
         i=le; }
     if(!sawSec && have){ o+=snprintf(out+o,sizeof out-o,"%s%s\n%s=%s\n",(n>0&&buf[n-1]=='\n')?"":"\n",SEC,key,value); }
     if(o==n && memcmp(out,buf,n)==0){ char m[256]; snprintf(m,sizeof m,"%s: no change (%s)",key,have?"set":"absent"); ini_status(m); return; }
-    char tmp[700]; snprintf(tmp,sizeof tmp,"%s.tribetmp",INI_PATH);
+    char tmp[700]; snprintf(tmp,sizeof tmp,"%s.tribetmp",PATH);
     int fd=open(tmp,O_WRONLY|O_CREAT|O_TRUNC,0644); if(fd<0){ ini_status("tmp open fail"); return; }
     ssize_t w=write(fd,out,o); fsync(fd); close(fd);
     if(w!=(ssize_t)o){ ini_status("short write"); unlink(tmp); return; }
-    if(rename(tmp,INI_PATH)!=0){ ini_status("rename fail"); unlink(tmp); return; }
+    if(rename(tmp,PATH)!=0){ ini_status("rename fail"); unlink(tmp); return; }
     char m[300]; snprintf(m,sizeof m,"%s: %s (%d->%d bytes)",key,have?"SET":"DELETED",n,o); ini_status(m);
 }
+static void upsert_ini_key(const char* key, const char* value){ upsert_ini(INI_PATH,"[TribeAvatar]",key,value,false); }
+// Route A (body tracking): the project setting Tribe never ticked. Only an ini layer can reach settings read during
+// engine/XR init, which is before any code of ours can touch the CDO. Flag tribemod/body_tracking absent -> key deleted.
+static const char* ENGINE_INI_PATH =
+  "/data/data/com.TribeXR.TribeXR/files/UnrealGame/TribeXR/TribeXR/Saved/Config/Android/Engine.ini";
 static void ini_upsert(){
     char url[1024], etag[256]; bool hu=read_trim_file("avatar_url.txt",url,sizeof url);
     bool he=read_trim_file("avatar_etag.txt",etag,sizeof etag);
@@ -716,6 +723,8 @@ static void ini_upsert(){
     upsert_ini_key("ReadyPlayerMeAvatarUrl", hu?qurl:0);
     upsert_ini_key("ReadyPlayerMeETag",      he?etag:0);   // ETag present => FUN_050f584c takes the cache-hit branch
     char m[1400]; snprintf(m,sizeof m,"summary: url=%s etag=%s",hu?qurl:"(none)",he?etag:"(none)"); ini_status(m);
+    char bp[600]; snprintf(bp,sizeof bp,"%s/body_tracking",OUTDIR); int bf=open(bp,O_RDONLY); if(bf>=0) close(bf);
+    upsert_ini(ENGINE_INI_PATH,"[/Script/OculusXRHMD.OculusXRHMDRuntimeSettings]","bBodyTrackingEnabled",bf>=0?"True":0,true);
 }
 
 // ================= Phase 1: in-libhook loopback HTTP server =================
@@ -1212,11 +1221,146 @@ static void do_load(){
     g_loaded_once=1;                                             // enable the menu-select skin-cycle trigger
     load_status("=== do_load done (materials on, visible, kept) ===");
 }
-static void run_load_guarded(){
+static void run_guarded(void (*fn)(),const char* what){
     g_dump_tid=my_tid(); struct sigaction sa,os,ob; memset(&sa,0,sizeof sa); sa.sa_sigaction=segv_handler; sa.sa_flags=SA_SIGINFO;
     sigaction(SIGSEGV,&sa,&os); sigaction(SIGBUS,&sa,&ob); g_old_segv=os; g_old_bus=ob;
-    if(!sigsetjmp(g_jmp,1)){ g_guard=1; do_load(); } else load_status("SIGSEGV/BUS during load; recovered");
+    if(!sigsetjmp(g_jmp,1)){ g_guard=1; fn(); } else load_status("SIGSEGV/BUS during %s; recovered",what);
     g_guard=0; sigaction(SIGSEGV,&os,0); sigaction(SIGBUS,&ob,0);
+}
+static void run_load_guarded(){ run_guarded(do_load,"load"); }
+
+// ================= Route A: Meta body tracking (Movement SDK over OVRPlugin), flag tribemod/body_tracking =================
+// Resolution (heavy find_by_path scans) runs on the poll thread; the UFunction calls run on the game thread (PE drain).
+// Verify chain (advisor): IsBodyTrackingSupported -> StartBodyTrackingByJointSet(FullBody) + RequestBodyTrackingFidelity(High)
+// -> IsBodyTrackingEnabled -> TryGetBodyState IsActive. Ghidra FUN_04b7f43c (TryGetBodyState's impl) writes Joints.Data[0..69]
+// (upper body) or [0..83] (full body) at stride 0x40 WITHOUT resizing or bounds-checking, and under ProcessEvent the
+// out-struct IS our parm buffer -- so Joints must already point at 84 valid slots. It points at our own static storage:
+// ProcessEvent never frees or copies back an out-param, and the impl never reallocates the array.
+static volatile sig_atomic_t g_bt_req=0, g_bt_poll_req=0, g_bt_started=0;
+static uintptr_t g_btLib=0, g_fnBtSupported=0, g_fnBtEnabled=0, g_fnBtStartSet=0, g_fnBtStart=0, g_fnBtFid=0, g_fnBtState=0;
+static uintptr_t g_permLib=0, g_fnPermCheck=0, g_hmdCfg=0, g_hmdCfgCls=0;
+static int64_t g_btFullBody=1, g_btHigh=2;
+static const int BT_NJ=84, BT_JSZ=0x40;                    // EOculusXRBoneID::COUNT (default ctor's Joints.SetNum) / sizeof(FOculusXRBodyJoint)
+static uint8_t g_btParms[0x100] __attribute__((aligned(16)));
+static uint8_t g_btJoints[BT_NJ*BT_JSZ] __attribute__((aligned(16)));
+static int bt_oState=-1, bt_oW2M=-1, bt_oRet=-1, g_btPolls=0; static bool g_btLayoutOK=false, g_btDumped=false;
+static char g_boneNames[BT_NJ][40];
+// UEnum::Names = TArray<TPair<FName,int64>> @0x40 (UE5.4: UField 0x30 + FString CppType), 16 B per entry
+static int enum_entries(uintptr_t e,uintptr_t* data){ *data=0; if(!e) return 0; *data=rdptr(e+0x40); int n=(int)rd32(e+0x48); return (*data&&n>0&&n<=1024)?n:0; }
+static bool enum_entry(uintptr_t data,int i,char* nm,int cap,int64_t* v){ char full[128]; fname_resolve(rd32(data+(uintptr_t)i*16),full,sizeof full);
+    const char* s=strstr(full,"::"); snprintf(nm,cap,"%s",s?s+2:full); *v=0; return sr(data+(uintptr_t)i*16+8,v,8); }
+static int64_t enum_value(const char* path,const char* want,int64_t fallback){
+    uintptr_t d; int n=enum_entries(find_by_path(path,0),&d); char nm[96]; int64_t v;
+    for(int i=0;i<n;i++) if(enum_entry(d,i,nm,sizeof nm,&v) && !strcmp(nm,want)) return v;
+    load_status("BT: %s::%s not found (n=%d) -> fallback %lld",path,want,n,(long long)fallback); return fallback; }
+static void enum_label(uintptr_t e,int64_t val,char* out,int cap){ uintptr_t d; int n=enum_entries(e,&d); char nm[96]; int64_t v;
+    for(int i=0;i<n;i++) if(enum_entry(d,i,nm,sizeof nm,&v) && v==val){ snprintf(out,cap,"%s",nm); return; } snprintf(out,cap,"?"); }
+static bool ffield_is(uintptr_t f,const char* type){ if(!f||!in_range(f,0x30)) return false; char ty[64]; ffield_type(f,ty,sizeof ty); return !strcmp(ty,type); }
+// log a (CDO) object's scalar properties: bools, bytes/enums (+enum label), ints, floats
+static void log_obj_props(uintptr_t obj,uintptr_t cls){
+    int S=calib_fprop_size();
+    if(!obj||!cls||S<0){ load_status("BT: settings CDO/class missing (obj=0x%lx cls=0x%lx S=%d)",(unsigned long)obj,(unsigned long)cls,S); return; }
+    char nm[128],ty[64],lab[96]; int n=0;
+    for(uintptr_t f=rdptr(cls+OFF_ChildProps); f && n<160; f=rdptr(f+FF_Next),n++){
+        fname_resolve(rd32(f+FF_Name),nm,sizeof nm); ffield_type(f,ty,sizeof ty); uint32_t off=rd32(f+FP_Offset);
+        if(!strcmp(ty,"BoolProperty")){ uint8_t bo=rd8(f+S+1), bm=rd8(f+S+2); load_status("  cfg %-44s = %d",nm,(rd8(obj+off+bo)&bm)?1:0); }
+        else if(!strcmp(ty,"EnumProperty")||!strcmp(ty,"ByteProperty")){             // FEnumProperty{Underlying,Enum} / FByteProperty{Enum}
+            uintptr_t e=rdptr(f+S+(ty[0]=='E'?8:0)); uint8_t v=rd8(obj+off); lab[0]=0; if(e&&in_range(e,0x50)) enum_label(e,v,lab,sizeof lab);
+            load_status("  cfg %-44s = %u %s",nm,v,lab); }
+        else if(!strcmp(ty,"IntProperty")) load_status("  cfg %-44s = %d",nm,(int)rd32(obj+off));
+        else if(!strcmp(ty,"FloatProperty")){ float x=0; sr(obj+off,&x,4); load_status("  cfg %-44s = %.3f",nm,x); } }
+}
+// static-library UFunction with an optional 1-byte first argument; returns the byte ReturnValue (-1 none, -2 unresolved)
+static int call_lib1(uintptr_t cdo,uintptr_t fn,int arg){
+    if(!cdo||!fn) return -2; uint16_t psz=rd16(fn+0xB6); static uint8_t b[64]; if(psz>sizeof b) return -3; memset(b,0,sizeof b);
+    if(arg>=0) for(uintptr_t f=rdptr(fn+OFF_ChildProps); f; f=rdptr(f+FF_Next)){ char nm[64]; fname_resolve(rd32(f+FF_Name),nm,sizeof nm);
+        if(strcmp(nm,"ReturnValue")){ uint32_t o=rd32(f+FP_Offset); if(o<psz) b[o]=(uint8_t)arg; break; } }
+    call_uf(cdo,fn,b); uint16_t rvo=rd16(fn+0xB8); return (rvo==0xFFFF||rvo>=psz)?-1:(int)b[rvo]; }
+// UAndroidPermissionFunctionLibrary::CheckPermission(const FString&) -- what the app process itself sees
+static int check_permission(const char* perm){
+    if(!g_permLib||!g_fnPermCheck) return -2; uint16_t psz=rd16(g_fnPermCheck+0xB6); static uint8_t b[64]; if(psz>sizeof b) return -3; memset(b,0,sizeof b);
+    int oP=-1; for(uintptr_t f=rdptr(g_fnPermCheck+OFF_ChildProps); f; f=rdptr(f+FF_Next)) if(ffield_is(f,"StrProperty")){ oP=(int)rd32(f+FP_Offset); break; }
+    if(oP<0||oP+16>psz) return -4; FStr s; build_fstr(&s,perm); memcpy(b+oP,&s,sizeof s);
+    call_uf(g_permLib,g_fnPermCheck,b); uint16_t rvo=rd16(g_fnPermCheck+0xB8); return (rvo==0xFFFF||rvo>=psz)?-1:(int)b[rvo]; }
+// poll thread: resolve everything + validate TryGetBodyState's layout against what the native impl hard-codes
+static bool bt_resolve(){
+    refresh_numelements();
+    g_btLib=find_by_path("/Script/OculusXRMovement.Default__OculusXRMovementFunctionLibrary",0);
+    uintptr_t* outs[6]={&g_fnBtSupported,&g_fnBtEnabled,&g_fnBtStartSet,&g_fnBtStart,&g_fnBtFid,&g_fnBtState};
+    const char* names[6]={"IsBodyTrackingSupported","IsBodyTrackingEnabled","StartBodyTrackingByJointSet","StartBodyTracking","RequestBodyTrackingFidelity","TryGetBodyState"};
+    char p[200]; for(int i=0;i<6;i++){ snprintf(p,sizeof p,"/Script/OculusXRMovement.OculusXRMovementFunctionLibrary.%s",names[i]); *outs[i]=find_by_path(p,0); }
+    g_permLib   =find_by_path("/Script/AndroidPermission.Default__AndroidPermissionFunctionLibrary",0);
+    g_fnPermCheck=find_by_path("/Script/AndroidPermission.AndroidPermissionFunctionLibrary.CheckPermission",0);
+    g_hmdCfgCls =find_by_path("/Script/OculusXRHMD.OculusXRHMDRuntimeSettings",1);
+    g_hmdCfg    =find_by_path("/Script/OculusXRHMD.Default__OculusXRHMDRuntimeSettings",0);
+    g_btFullBody=enum_value("/Script/OculusXRMovement.EOculusXRBodyJointSet","FullBody",1);
+    g_btHigh    =enum_value("/Script/OculusXRMovement.EOculusXRBodyTrackingFidelity","High",2);
+    { uintptr_t d; int n=enum_entries(find_by_path("/Script/OculusXRMovement.EOculusXRBoneID",0),&d); char nm[96]; int64_t v;
+      for(int i=0;i<n;i++) if(enum_entry(d,i,nm,sizeof nm,&v) && v>=0 && v<BT_NJ) snprintf(g_boneNames[v],sizeof g_boneNames[v],"%s",nm);
+      load_status("BT: EOculusXRBoneID entries=%d ([0]=%s [1]=%s [7]=%s [69]=%s [83]=%s)",n,g_boneNames[0],g_boneNames[1],g_boneNames[7],g_boneNames[69],g_boneNames[83]); }
+    int S=calib_fprop_size(); uintptr_t st=0;
+    if(g_fnBtState && S>0) for(uintptr_t f=rdptr(g_fnBtState+OFF_ChildProps); f; f=rdptr(f+FF_Next)){
+        char nm[64],ty[64]; fname_resolve(rd32(f+FF_Name),nm,sizeof nm); ffield_type(f,ty,sizeof ty); int o=(int)rd32(f+FP_Offset);
+        if(!strcmp(nm,"ReturnValue")) bt_oRet=o; else if(!strcmp(ty,"FloatProperty")) bt_oW2M=o; else if(!strcmp(ty,"StructProperty")){ bt_oState=o; st=rdptr(f+S); } }
+    uint16_t psz=g_fnBtState?rd16(g_fnBtState+0xB6):0; int ssz=st?(int)rd32(st+OFF_PropSize):-1;
+    uintptr_t fJ=st?find_field(st,"Joints"):0; int oJ=fJ?(int)rd32(fJ+FP_Offset):-1;
+    uintptr_t inner=0; if(fJ){ if(ffield_is(rdptr(fJ+S),"StructProperty")) inner=rdptr(fJ+S); else if(ffield_is(rdptr(fJ+S+8),"StructProperty")) inner=rdptr(fJ+S+8); }
+    uintptr_t js=inner?rdptr(inner+S):0; int jsz=js?(int)rd32(js+OFF_PropSize):-1;
+    char sn[64]="",jn[64]=""; if(st) obj_name(st,sn,sizeof sn); if(js) obj_name(js,jn,sizeof jn);
+    for(int k=0;k<2;k++){ uintptr_t s=k?js:st; if(!s) continue;                   // field map, for the retarget work
+        for(uintptr_t f=rdptr(s+OFF_ChildProps); f; f=rdptr(f+FF_Next)){ char nm[64],ty[64]; fname_resolve(rd32(f+FF_Name),nm,sizeof nm); ffield_type(f,ty,sizeof ty);
+            load_status("BT:   %s.%s %s @0x%x",k?jn:sn,nm,ty,rd32(f+FP_Offset)); } }
+    g_btLayoutOK = g_btLib && g_fnBtState && bt_oState>=0 && bt_oRet>=0 && psz<=sizeof g_btParms && !strcmp(sn,"OculusXRBodyState")
+                && oJ==0x10 && !strcmp(jn,"OculusXRBodyJoint") && jsz==BT_JSZ && ssz>0 && bt_oState+ssz<=(int)psz;
+    load_status("BT: lib=0x%lx sup=0x%lx en=0x%lx startSet=0x%lx start=0x%lx fid=0x%lx state=0x%lx perm=0x%lx cfg=0x%lx FullBody=%lld High=%lld",
+        (unsigned long)g_btLib,(unsigned long)g_fnBtSupported,(unsigned long)g_fnBtEnabled,(unsigned long)g_fnBtStartSet,(unsigned long)g_fnBtStart,
+        (unsigned long)g_fnBtFid,(unsigned long)g_fnBtState,(unsigned long)g_fnPermCheck,(unsigned long)g_hmdCfg,(long long)g_btFullBody,(long long)g_btHigh);
+    load_status("BT: TryGetBodyState psz=0x%x state@%d (%s, 0x%x B) W2M@%d ret@%d Joints@0x%x of %s (0x%x B) -> layout %s",
+        psz,bt_oState,sn,ssz,bt_oW2M,bt_oRet,oJ,jn,jsz,g_btLayoutOK?"OK":"MISMATCH (TryGetBodyState will NOT be called)");
+    return g_btLib && g_fnBtStartSet && g_fnBtEnabled;
+}
+static void bt_dump_joints(const char* why){
+    char p[600]; snprintf(p,sizeof p,"%s/bt_joints.txt",OUTDIR); FILE* f=fopen(p,"w"); if(!f) return;
+    uint8_t* s=g_btParms+bt_oState;
+    fprintf(f,"# %s: IsActive=%d conf=%.3f skelChanged=%d time=%.3f  (tracking space, UE axes, cm; rot = Pitch,Yaw,Roll deg)\n",
+        why,s[0],*(float*)(s+4),*(int32_t*)(s+8),*(float*)(s+12));
+    for(int i=0;i<BT_NJ;i++){ uint8_t* j=g_btJoints+i*BT_JSZ; double* r=(double*)(j+0x10); double* q=(double*)(j+0x28);
+        fprintf(f,"%2d %-34s flags=0x%02llx valid=%d rot=(%7.1f,%7.1f,%7.1f) pos=(%7.1f,%7.1f,%7.1f)\n",
+            i,g_boneNames[i],(unsigned long long)*(uint64_t*)j,j[8],r[0],r[1],r[2],q[0],q[1],q[2]); }
+    fclose(f); load_status("BT: wrote bt_joints.txt (%s)",why); }
+static void bt_poll(){
+    g_btPolls++; int en=call_lib1(g_btLib,g_fnBtEnabled,-1);
+    if(!g_btLayoutOK){ load_status("BT poll #%d: IsBodyTrackingEnabled=%d (TryGetBodyState skipped: layout unverified)",g_btPolls,en); return; }
+    memset(g_btParms,0,sizeof g_btParms); memset(g_btJoints,0,sizeof g_btJoints);
+    uint8_t* s=g_btParms+bt_oState;
+    *(uintptr_t*)(s+0x10)=(uintptr_t)g_btJoints; *(int32_t*)(s+0x18)=BT_NJ; *(int32_t*)(s+0x1C)=BT_NJ;   // Joints -> our 84 slots
+    if(bt_oW2M>=0) *(float*)(g_btParms+bt_oW2M)=100.0f;
+    call_uf(g_btLib,g_fnBtState,g_btParms);
+    if(*(uintptr_t*)(s+0x10)!=(uintptr_t)g_btJoints||*(int32_t*)(s+0x18)!=BT_NJ)
+        load_status("BT: WARNING engine re-pointed Joints (0x%lx num=%d)",(unsigned long)*(uintptr_t*)(s+0x10),*(int32_t*)(s+0x18));
+    int nv=0; for(int i=0;i<BT_NJ;i++) if(g_btJoints[i*BT_JSZ+8]) nv++;
+    static const char* want[]={"Hips","Head","LeftHandWrist","RightHandWrist","LeftFootAnkle","RightFootAnkle"};
+    char key[512]; int k=0; key[0]=0;
+    for(int w=0;w<6;w++){ int idx=-1; for(int i=0;i<BT_NJ;i++) if(strstr(g_boneNames[i],want[w])){ idx=i; break; }
+        if(idx<0) continue; double* q=(double*)(g_btJoints+idx*BT_JSZ+0x28);
+        k+=snprintf(key+k,sizeof key-k," %s=(%.0f,%.0f,%.0f)%s",want[w],q[0],q[1],q[2],g_btJoints[idx*BT_JSZ+8]?"":"!invalid"); }
+    load_status("BT poll #%d: IsBodyTrackingEnabled=%d TryGetBodyState=%d IsActive=%d conf=%.2f skelChanged=%d time=%.2f valid=%d/%d |%s",
+        g_btPolls,en,g_btParms[bt_oRet],s[0],*(float*)(s+4),*(int32_t*)(s+8),*(float*)(s+12),nv,BT_NJ,key);
+    if(!g_btDumped && (s[0] || g_btPolls==4)){ g_btDumped=(s[0]!=0); bt_dump_joints(s[0]?"first ACTIVE poll":"poll #4, not active yet"); }
+}
+static void bt_start(){
+    load_status("=== body tracking start (game tid=%d) ===",my_tid());
+    load_status("BT: OculusXRHMDRuntimeSettings CDO (did the Engine.ini override land? which XrApi?):");
+    log_obj_props(g_hmdCfg,g_hmdCfgCls);
+    int perm=check_permission("com.oculus.permission.BODY_TRACKING");
+    int sup=call_lib1(g_btLib,g_fnBtSupported,-1);
+    int ss=call_lib1(g_btLib,g_fnBtStartSet,(int)g_btFullBody);
+    int s0=-9; if(ss!=1) s0=call_lib1(g_btLib,g_fnBtStart,-1);            // FullBody refused -> try the default joint set
+    int fid=call_lib1(g_btLib,g_fnBtFid,(int)g_btHigh);
+    int en=call_lib1(g_btLib,g_fnBtEnabled,-1);
+    load_status("BT: CheckPermission(BODY_TRACKING)=%d IsBodyTrackingSupported=%d StartBodyTrackingByJointSet(%lld)=%d StartBodyTracking()=%d%s RequestBodyTrackingFidelity(%lld)=%d IsBodyTrackingEnabled=%d",
+        perm,sup,(long long)g_btFullBody,ss,s0,s0==-9?"(not tried)":"",(long long)g_btHigh,fid,en);
+    g_bt_started=1; bt_poll();
 }
 extern "C" void repl_pe(void* self,void* func,void* parms){
     // BLOCK Blueprint-level resets of our body while the keeper is on (Tribe setting AvatarBodyMesh to null/other).
@@ -1244,6 +1388,8 @@ extern "C" void repl_pe(void* self,void* func,void* parms){
         if(now-g_last_cycle>=2){ uintptr_t skin=*(uintptr_t*)parms;
             if(is_rpm_skin(skin)){ g_last_cycle=now; advance_skin(); g_load_req=1; } } }
     if(g_load_req && !g_in_load){ g_in_load=1; g_load_req=0; run_load_guarded(); g_in_load=0; }
+    if(g_bt_req && !g_in_load){ g_bt_req=0; g_in_load=1; run_guarded(bt_start,"body-tracking start"); g_in_load=0; }
+    if(g_bt_poll_req && !g_in_load){ g_bt_poll_req=0; g_in_load=1; run_guarded(bt_poll,"body-tracking poll"); g_in_load=0; }
     orig_pe(self,func,parms);
 }
 
@@ -1272,6 +1418,12 @@ static void* dump_thread(void*){
         // AUTO avatar actor: once per launch, ~2 s after the mesh loads, if tribemod/auto_actor exists -> spawn + follow.
         { static int aa=-1; if(aa==-1 && g_loaded_once && g_mymesh && !g_isoActor && file_present("auto_actor")) aa=4;
           if(aa>0 && --aa==0){ g_iso_req=1; load_status("auto_actor: spawning our following avatar"); } }
+        // ROUTE A body tracking (flag tribemod/body_tracking): ~3 s after the world is up, resolve HERE (heavy scans stay off
+        // the game thread), then start + poll on the game thread: +1 s, +3 s, +10 s, then every 30 s (24 polls max).
+        { static int bt=-1, pt=0;
+          if(bt==-1 && orig_pe && (g_loaded_once||auto_done) && file_present("body_tracking")) bt=6;
+          if(bt>0 && --bt==0){ if(bt_resolve()){ g_bt_req=1; load_status("BT: armed; starting on the game thread"); } else load_status("BT: resolve failed; not started"); }
+          if(g_bt_started && g_btPolls<24){ pt++; if(pt==2||pt==6||pt==20||(pt>=60&&pt%60==0)) g_bt_poll_req=1; } }
         // RENDER report schedule: first at ~3s after attach, then every ~10s, up to 8 reports (drained on the game thread).
         if(g_report_ticks>0 && --g_report_ticks==0){ if(g_reports<8){ g_report_req=1; g_report_ticks=20; } }
         // KEEPER (~1s): if Tribe reset our body natively (bypassing the PE blocker), request a re-attach on the game thread.
