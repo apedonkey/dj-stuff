@@ -847,6 +847,14 @@ static volatile sig_atomic_t g_report_req=0; static int g_report_ticks=0, g_repo
 // isolation actor (advisor Q1): our OWN engine ASkeletalMeshActor -- not owned by the pawn (so owner-no-see can't
 // apply), no Tribe logic, no AnimBP. Spawned 2 m in front of the HMD on demand (flag tribemod/iso_here).
 static uintptr_t g_isoActor=0, g_isoComp=0; static volatile sig_atomic_t g_iso_req=0;
+// FOLLOW (advisor #1/#2/#5): our actor ticks itself (PrimaryActorTick bits set via reflection before FinishSpawning,
+// TG_PostUpdateWork so camera/controllers are already updated); its ReceiveTick is caught in the PE hook and drives the
+// body: HMD over the floor, pushed back 10 cm; yaw smoothed with a +-35 deg dead zone, biased toward the hands' midpoint.
+static uintptr_t g_fnReceiveTick=0, g_fnGetRot=0, g_fnSetActorLR=0, g_camComp=0, g_vrOrigin=0, g_mcL=0, g_mcR=0;
+static int g_fpsz=-1;                                        // sizeof(FProperty) in THIS build (self-calibrated)
+static long g_isoTicks=0, g_camTicks=0; static bool g_restOK=false, g_followInit=false, g_turning=false;
+static double g_bodyYaw=0, g_faceOff=180.0, g_footZ=0.0;     // rest-pose facing (deg) + toe height (cm) in mesh space
+static int g_restTries=0;
 static const uint32_t IOF_RootSet=0x40000000;               // EInternalObjectFlags::RootSet (1<<30)
 static bool root_object(uintptr_t obj){                     // == UObject::AddToRoot (sets RootSet on its FUObjectItem)
     if(!obj) return false; uint32_t idx=rd32(obj+OFF_Index); if(idx>=g_numElements) return false;
@@ -967,6 +975,107 @@ static void report_one(const char* label,uintptr_t comp){
         g_reports,label,rendered,L[0],L[1],L[2],S[0],S[1],S[2],C[0],C[1],C[2],L[0]-C[0],L[1]-C[1],L[2]-C[2],(int)(rdptr(comp+SMC_MESH_OFF)==g_mymesh));
 }
 static void render_report(){ report_one("slot",g_body); report_one("ISO",g_isoComp); }
+// ---- reflection helpers for FOLLOW ----
+static uintptr_t g_pawn=0, g_fallbackTicker=0;
+static uintptr_t find_field(uintptr_t st,const char* name){ char nm[128];
+    for(uintptr_t c=st; c; c=rdptr(c+OFF_Super)) for(uintptr_t f=rdptr(c+OFF_ChildProps); f; f=rdptr(f+FF_Next)){
+        fname_resolve(rd32(f+FF_Name),nm,sizeof nm); if(!strcmp(nm,name)) return f; }
+    return 0; }
+// sizeof(FProperty) == offset of FObjectPropertyBase::PropertyClass. Find it on SkeletalMeshActor.SkeletalMeshComponent,
+// whose PropertyClass must be the SkeletalMeshComponent UClass. (FP_ElemSize@0x34 proved wrong, so don't assume 0x70.)
+static int calib_fprop_size(){
+    if(g_fpsz>0) return g_fpsz;
+    uintptr_t cls=find_by_path("/Script/Engine.SkeletalMeshActor",1), smc=find_by_path("/Script/Engine.SkeletalMeshComponent",1);
+    uintptr_t f=cls?find_field(cls,"SkeletalMeshComponent"):0; if(!f||!smc) return -1;
+    for(int o=0x48;o<=0xB0;o+=8) if(rdptr(f+o)==smc){ g_fpsz=o; break; }
+    return g_fpsz; }
+static uint8_t rd8(uintptr_t p){ uint8_t v=0; sr(p,&v,1); return v; }
+// set a (bitfield) bool member of a struct instance at `base`. FBoolProperty = {FieldSize,ByteOffset,ByteMask,FieldMask}@S.
+static bool set_struct_bool(uintptr_t base,uintptr_t st,const char* name,bool on){
+    int S=calib_fprop_size(); uintptr_t f=find_field(st,name); if(S<0||!f) return false;
+    int off=(int)rd32(f+FP_Offset); uint8_t fs=rd8(f+S), bo=rd8(f+S+1), bm=rd8(f+S+2), fm=rd8(f+S+3);
+    // sanity: bitfield bool = FieldSize 1, ByteOffset 0..7, ByteMask==FieldMask single bit, member inside FTickFunction
+    if(fs<1||fs>8||bo>7||!bm||(bm&(bm-1))||bm!=fm||off<0||off>0x80){
+        load_status("  %s: FBoolProperty looks wrong (S=0x%x off=%d fs=%u bo=%u bm=0x%x fm=0x%x) -> NOT writing",name,S,off,fs,bo,bm,fm); return false; }
+    uint8_t* p=(uint8_t*)(base+off+bo); if(on) *p|=bm; else *p&=(uint8_t)~bm;
+    load_status("  %s: off=%d byteOff=%d mask=0x%02x -> byte now 0x%02x",name,off,bo,bm,*p); return true; }
+// make a deferred (not yet finished) actor tick in the given ETickingGroup (5 = TG_PostUpdateWork)
+static bool enable_actor_tick(uintptr_t actor,uintptr_t actorCls,uint8_t group){
+    int S=calib_fprop_size(); uintptr_t fPAT=find_field(actorCls,"PrimaryActorTick");
+    load_status("tick: sizeof(FProperty)=0x%x PrimaryActorTick field=0x%lx",S,(unsigned long)fPAT);
+    if(S<0||!fPAT) return false;
+    int pat=(int)rd32(fPAT+FP_Offset); uintptr_t tst=rdptr(fPAT+S);           // FStructProperty::Struct
+    char sn[64]; obj_name(tst,sn,sizeof sn); load_status("tick: PrimaryActorTick@0x%x struct=%s",pat,sn);
+    uintptr_t base=actor+pat;
+    bool a=set_struct_bool(base,tst,"bCanEverTick",true), b=set_struct_bool(base,tst,"bStartWithTickEnabled",true);
+    if(!a||!b) return false;                                     // don't touch anything else if the bools didn't resolve
+    uintptr_t fg=find_field(tst,"TickGroup"), fe=find_field(tst,"EndTickGroup");
+    uint32_t og=fg?rd32(fg+FP_Offset):0xFFFF, oe=fe?rd32(fe+FP_Offset):0xFFFF;
+    if(og<0x40) *(uint8_t*)(base+og)=group;
+    if(oe<0x40) *(uint8_t*)(base+oe)=group;
+    load_status("tick: bCanEverTick=%d bStartWithTickEnabled=%d TickGroup@%d EndTickGroup@%d -> %d",
+        (int)a,(int)b,fg?(int)rd32(fg+FP_Offset):-1,fe?(int)rd32(fe+FP_Offset):-1,group);
+    return a&&b; }
+static bool get_vec3(uintptr_t obj,uintptr_t fn,double out[3]){ uint8_t* r=call_ret(obj,fn,0,0); if(!r) return false; memcpy(out,r,24); return true; }
+static double wrap180(double a){ while(a>180) a-=360; while(a<-180) a+=360; return a; }
+static void set_actor_lr(uintptr_t actor,const double loc[3],const double rot[3]){      // K2_SetActorLocationAndRotation
+    static int oL=-2,oR=-1,oSw=-1,oTp=-1;
+    if(oL==-2){ oL=prop_offset(g_fnSetActorLR,"NewLocation",0); oR=prop_offset(g_fnSetActorLR,"NewRotation",0);
+        oSw=prop_offset(g_fnSetActorLR,"bSweep",0); oTp=prop_offset(g_fnSetActorLR,"bTeleport",0);
+        load_status("setLR: psz=0x%x NewLocation@%d NewRotation@%d bSweep@%d bTeleport@%d",rd16(g_fnSetActorLR+0xB6),oL,oR,oSw,oTp); }
+    uint16_t psz=rd16(g_fnSetActorLR+0xB6); static uint8_t b[1024]; if(oL<0||oR<0||psz>sizeof b) return;
+    memset(b,0,psz); memcpy(b+oL,loc,24); memcpy(b+oR,rot,24); if(oSw>=0) b[oSw]=0; if(oTp>=0) b[oTp]=1;
+    call_uf(actor,g_fnSetActorLR,b); }
+// rest pose, read lazily on the first ticks (once the component has bone transforms): model forward = horizontal
+// (Toe - Foot) in component space (advisor #5, survives any export orientation); lowest toe z -> feet on the floor.
+static bool capture_rest(uintptr_t comp){
+    static uintptr_t fnNum=0,fnName=0,fnSock=0; static int oIdx=-1,oNRet=-1,oSName=-1,oSSpace=-1,oSRet=-1;
+    if(!fnNum){ fnNum=find_by_path("/Script/Engine.SkinnedMeshComponent.GetNumBones",0);
+        fnName=find_by_path("/Script/Engine.SkinnedMeshComponent.GetBoneName",0);
+        fnSock=find_by_path("/Script/Engine.SceneComponent.GetSocketTransform",0);
+        if(fnName){ oIdx=prop_offset(fnName,"BoneIndex",0); oNRet=prop_offset(fnName,"ReturnValue",0); }
+        if(fnSock){ oSName=prop_offset(fnSock,"InSocketName",0); oSSpace=prop_offset(fnSock,"TransformSpace",0); oSRet=prop_offset(fnSock,"ReturnValue",0); } }
+    if(!fnNum||!fnName||!fnSock||oIdx<0||oNRet<0||oSName<0||oSRet<0) return false;
+    uint8_t* r=call_ret(comp,fnNum,0,0); int n=r?*(int32_t*)r:0; if(n<=0||n>512) return false;
+    static uint8_t b[256]; uint64_t nF=0,nT=0,nRF=0,nRT=0;
+    for(int i=0;i<n;i++){ uint16_t psz=rd16(fnName+0xB6); if(psz>sizeof b) return false; memset(b,0,sizeof b);
+        *(int32_t*)(b+oIdx)=i; call_uf(comp,fnName,b); uint64_t nm; memcpy(&nm,b+oNRet,8); char s[64]; fname_resolve((uint32_t)nm,s,sizeof s);
+        if(!strcmp(s,"LeftFoot")) nF=nm; else if(!strcmp(s,"LeftToeBase")) nT=nm; else if(!strcmp(s,"RightFoot")) nRF=nm; else if(!strcmp(s,"RightToeBase")) nRT=nm; }
+    if(!nF||!nT){ load_status("rest: %d bones, no LeftFoot/LeftToeBase -> keep faceOff=%.0f footZ=%.0f",n,g_faceOff,g_footZ); return true; }
+    double F[3],T[3],RF[3]={0,0,0},RT[3]={0,0,0}; uint64_t nms[4]={nF,nT,nRF,nRT}; double* outs[4]={F,T,RF,RT};
+    for(int k=0;k<4;k++){ if(!nms[k]) continue; memset(b,0,sizeof b); memcpy(b+oSName,&nms[k],8); if(oSSpace>=0) b[oSSpace]=2 /*RTS_Component*/;
+        call_uf(comp,fnSock,b); memcpy(outs[k],b+oSRet+32,24); }             // FTransform.Translation @+32
+    double dx=T[0]-F[0], dy=T[1]-F[1]; if(fabs(dx)+fabs(dy)<0.5) return false;   // bone transforms not computed yet -> retry
+    if(nRF&&nRT){ dx+=RT[0]-RF[0]; dy+=RT[1]-RF[1]; }
+    g_faceOff=atan2(dy,dx)*180.0/M_PI; g_footZ=T[2]; if(nRT&&RT[2]<g_footZ) g_footZ=RT[2];
+    load_status("rest: %d bones; LFoot=(%.1f,%.1f,%.1f) LToe=(%.1f,%.1f,%.1f) -> model forward=%.1f deg, toeZ=%.1f cm",
+        n,F[0],F[1],F[2],T[0],T[1],T[2],g_faceOff,g_footZ);
+    return true; }
+// per-frame body placement (advisor #1): over the HMD, 10 cm behind the eyes, feet on the VROrigin floor, yaw smoothed
+// with a +-35 deg dead zone and biased 50% toward the hands' midpoint so the torso keeps facing the decks.
+static void follow_update(float dt){
+    if(!g_isoActor||!g_camComp) return;
+    if(!g_restOK && g_restTries<120){ g_restTries++; g_restOK=capture_rest(g_isoComp); }
+    double C[3]={0,0,0},CR[3]={0,0,0},O[3]={0,0,0};
+    if(!get_vec3(g_camComp,g_fnLoc,C)||!get_vec3(g_camComp,g_fnGetRot,CR)) return;
+    if(g_vrOrigin) get_vec3(g_vrOrigin,g_fnLoc,O);
+    double hmdYaw=CR[1], target=hmdYaw;
+    if(g_mcL&&g_mcR){ double L[3],R[3]; if(get_vec3(g_mcL,g_fnLoc,L)&&get_vec3(g_mcR,g_fnLoc,R)){
+        double mx=(L[0]+R[0])*0.5-C[0], my=(L[1]+R[1])*0.5-C[1], d=sqrt(mx*mx+my*my);
+        if(d>15&&d<110){ double handsYaw=atan2(my,mx)*180.0/M_PI; target=wrap180(hmdYaw+0.5*wrap180(handsYaw-hmdYaw)); } } }
+    if(!g_followInit){ g_bodyYaw=target; g_followInit=true; }
+    double diff=wrap180(target-g_bodyYaw);
+    if(fabs(diff)>35) g_turning=true;
+    if(g_turning){ double k=dt*5.0; if(k>1)k=1; if(k<0)k=0; g_bodyYaw=wrap180(g_bodyYaw+diff*k); if(fabs(diff)<5) g_turning=false; }
+    double hr=hmdYaw*M_PI/180.0;
+    double P[3]={C[0]-cos(hr)*10.0, C[1]-sin(hr)*10.0, O[2]-g_footZ};
+    double R[3]={0, wrap180(g_bodyYaw-g_faceOff), 0};                  // FRotator: Pitch, Yaw, Roll
+    set_actor_lr(g_isoActor,P,R);
+    long t=g_isoTicks+g_camTicks;
+    if(t==1||(t%180)==0) load_status("follow: isoTicks=%ld fallbackTicks=%ld dt=%.4f hmd=(%.0f,%.0f,%.0f) hmdYaw=%.0f target=%.0f body=%.0f floorZ=%.0f -> actor=(%.0f,%.0f,%.0f) yaw=%.0f",
+        g_isoTicks,g_camTicks,dt,C[0],C[1],C[2],hmdYaw,target,g_bodyYaw,O[2],P[0],P[1],P[2],R[1]); }
+static bool is_receive_tick(void* func){ if(func==(void*)g_fnReceiveTick) return true;
+    char nm[32]; obj_name((uintptr_t)func,nm,sizeof nm); return !strcmp(nm,"ReceiveTick"); }
 // spawn our own ASkeletalMeshActor 2 m in front of the HMD, facing it, feet on the floor (skullbuck's origin is at its
 // hips, 97 cm up). All param offsets are resolved BY NAME from the UFunction at runtime; FTransform (UE5 LWC, NEON) is
 // 96 B = quat@0, translation@32, scale@64 -- checked against the SpawnTransform param's ElementSize before use.
@@ -1006,6 +1115,9 @@ static uintptr_t spawn_iso_actor(uintptr_t mesh){
     call_uf(gs,fnB,pb); uintptr_t actor=*(uintptr_t*)(pb+oRet);
     load_status("iso: BeginDeferredActorSpawnFromClass -> actor=0x%lx  at (%.0f,%.0f,%.0f) camYaw=%.0f",(unsigned long)actor,P[0],P[1],P[2],R[1]);
     if(!actor) return 0;
+    // make OUR actor tick at TG_PostUpdateWork (5) -- must be set before FinishSpawningActor registers its tick function
+    bool ticking=enable_actor_tick(actor,cls,5);
+    load_status("iso: actor tick enabled=%d",(int)ticking);
     int fA=prop_offset(fnF,"Actor",0), fXf=prop_offset(fnF,"SpawnTransform",0), fScl=prop_offset(fnF,"TransformScaleMethod",0);
     uint16_t pszF=rd16(fnF+0xB6); if(fA<0||fXf<0||pszF>512){ load_status("iso: finish layout bad"); return 0; }
     static uint8_t pf[512]; memset(pf,0,sizeof pf); *(uintptr_t*)(pf+fA)=actor; memcpy(pf+fXf,xf,96); if(fScl>=0) pf[fScl]=1;
@@ -1015,9 +1127,28 @@ static uintptr_t spawn_iso_actor(uintptr_t mesh){
     if(!comp) return 0;
     static uint8_t sp[0x10]; memset(sp,0,sizeof sp); *(uintptr_t*)sp=mesh; call_uf(comp,g_fnSet,sp);
     call_bool2(comp,g_fnVis,1,1); call_bool2(comp,g_fnHid,0,1);
+    // advisor "now, not later": the body must not block Tribe's hand/deck traces, and shadows cost Quest frame time
+    uintptr_t fnColl=find_by_path("/Script/Engine.PrimitiveComponent.SetCollisionEnabled",0);
+    uintptr_t fnShad=find_by_path("/Script/Engine.PrimitiveComponent.SetCastShadow",0);
+    call_bool2(comp,fnColl,0,0);                                // ECollisionEnabled::NoCollision
+    call_bool2(comp,fnShad,0,0);                                // SetCastShadow(false)
     refresh_numelements(); root_object(actor);                  // keep our actor alive
+    // FOLLOW wiring: the pawn's tracked components + the functions the per-frame update uses
+    g_fnReceiveTick=find_by_path("/Script/Engine.Actor.ReceiveTick",0);
+    g_fnGetRot     =find_by_path("/Script/Engine.SceneComponent.K2_GetComponentRotation",0);
+    g_fnSetActorLR =find_by_path("/Script/Engine.Actor.K2_SetActorLocationAndRotation",0);
+    g_camComp =find_live("Camera","CameraComponent","TribePawnBP_C");
+    g_vrOrigin=find_live("VROrigin","SceneComponent","TribePawnBP_C");
+    g_mcL     =find_live("MotionControllerL","MotionControllerComponent","TribePawnBP_C");
+    g_mcR     =find_live("MotionControllerR","MotionControllerComponent","TribePawnBP_C");
+    g_pawn    =find_live_class_sub("TribePawnBP_C");
+    g_fallbackTicker = g_pawn? g_pawn : g_camMgr;               // used only if OUR actor never ticks
+    g_isoTicks=0; g_camTicks=0; g_restOK=false; g_restTries=0; g_followInit=false; g_turning=false;
+    load_status("follow: ReceiveTick=0x%lx getRot=0x%lx setLR=0x%lx cam=0x%lx vrOrigin=0x%lx mcL=0x%lx mcR=0x%lx pawn=0x%lx fallback=0x%lx",
+        (unsigned long)g_fnReceiveTick,(unsigned long)g_fnGetRot,(unsigned long)g_fnSetActorLR,(unsigned long)g_camComp,
+        (unsigned long)g_vrOrigin,(unsigned long)g_mcL,(unsigned long)g_mcR,(unsigned long)g_pawn,(unsigned long)g_fallbackTicker);
     g_isoActor=actor; g_isoComp=comp;
-    load_status("iso: mesh set on our own actor (comp=0x%lx) -- look ~2 m in front of where the headset faced",(unsigned long)comp);
+    load_status("iso: mesh set on our own actor (comp=0x%lx); following the HMD from its next tick",(unsigned long)comp);
     return comp;
 }
 static void do_load(){
@@ -1093,6 +1224,13 @@ extern "C" void repl_pe(void* self,void* func,void* parms){
         g_resets_bp++; if(g_resets_bp<=20||(g_resets_bp%100)==0) load_status("BLOCKED BP reset of body -> 0x%lx (#%d)",(unsigned long)*(uintptr_t*)parms,g_resets_bp);
         return;                                                    // swallow it
     }
+    // FOLLOW: our actor's ReceiveTick (TG_PostUpdateWork) drives the body each frame. AActor::Tick always routes
+    // ReceiveTick through ProcessEvent even with no Blueprint implementation. Fallback: the pawn's tick, only while ours is silent.
+    if(g_isoActor && !g_in_load && parms){
+        uintptr_t s=(uintptr_t)self;
+        if(s==g_isoActor && func==(void*)g_fnReceiveTick){ g_isoTicks++; g_in_load=1; follow_update(*(float*)parms); g_in_load=0; }
+        else if(g_isoTicks==0 && s && s==g_fallbackTicker && is_receive_tick(func)){ g_camTicks++; g_in_load=1; follow_update(*(float*)parms); g_in_load=0; }
+    }
     // keeper: poll thread saw a NATIVE reset -> re-attach our (rooted) mesh here on the game thread
     if(g_reattach_req && g_keep && !g_in_load){ g_reattach_req=0; g_in_load=1; attach_mesh(g_body,g_mymesh); g_in_load=0; }
     if(g_iso_req && !g_in_load){ g_iso_req=0; g_in_load=1; spawn_iso_actor(g_mymesh); g_in_load=0;
@@ -1131,6 +1269,9 @@ static void* dump_thread(void*){
         // ISO trigger: tribemod/iso_here (one-shot) -> spawn our own actor in front of the HMD on the game thread.
         { char ip[600]; snprintf(ip,sizeof ip,"%s/iso_here",OUTDIR); int fi=open(ip,O_RDONLY);
           if(fi>=0){ close(fi); unlink(ip); if(g_mymesh){ g_iso_req=1; load_status("iso_here seen -> spawning our actor"); } else load_status("iso_here: no mesh loaded yet"); } }
+        // AUTO avatar actor: once per launch, ~2 s after the mesh loads, if tribemod/auto_actor exists -> spawn + follow.
+        { static int aa=-1; if(aa==-1 && g_loaded_once && g_mymesh && !g_isoActor && file_present("auto_actor")) aa=4;
+          if(aa>0 && --aa==0){ g_iso_req=1; load_status("auto_actor: spawning our following avatar"); } }
         // RENDER report schedule: first at ~3s after attach, then every ~10s, up to 8 reports (drained on the game thread).
         if(g_report_ticks>0 && --g_report_ticks==0){ if(g_reports<8){ g_report_req=1; g_report_ticks=20; } }
         // KEEPER (~1s): if Tribe reset our body natively (bypassing the PE blocker), request a re-attach on the game thread.

@@ -3892,3 +3892,31 @@ zeroed (-1 fixed bone map); (3) SceneScale 1.0 vs default 100 (avatar was 2 cm);
 inactive (world origin, never drawn) -- replaced by our own spawned ASkeletalMeshActor.
 Next: attach our actor to the player so it follows them (replace Tribe's slot); face/orientation; then articulation
 (bind to Tribe's skeleton/IK so arms/head/legs move). Also re-export skullbuck with origin at feet (convention).
+
+## Session 3c — Follow v1 (advisor round 3) + Meta body tracking IS compiled in
+
+Advisor answers (follow/tick/articulation/hands/facing/multiplayer) recorded in the conversation; implemented #1/#2/#5 now:
+- Our ASkeletalMeshActor ticks itself: before FinishSpawningActor, set PrimaryActorTick.bCanEverTick/bStartWithTickEnabled
+  and TickGroup/EndTickGroup=TG_PostUpdateWork(5) via reflection. sizeof(FProperty) is SELF-CALIBRATED (offset of
+  FObjectPropertyBase::PropertyClass on SkeletalMeshActor.SkeletalMeshComponent == SkeletalMeshComponent UClass), then
+  FBoolProperty {FieldSize,ByteOffset,ByteMask,FieldMask}@S; sanity-gated (single-bit mask, bo<8, off<0x80) -> abort, not corrupt.
+  Theory (to verify): FField data ends at 0x2C and FProperty members pack into its tail padding (Itanium ABI):
+  ArrayDim@0x2C, ElementSize@0x30, PropertyFlags@0x38, Offset_Internal@0x44 (matches) -> FP_ElemSize=0x34 was wrong.
+- ReceiveTick of OUR actor (== /Script/Engine.Actor.ReceiveTick; AActor::Tick always routes it through ProcessEvent) is caught in
+  the PE hook -> follow_update(dt). Fallback only while ours is silent: the pawn's (BP) ReceiveTick, matched by name.
+- follow_update: HMD = TribePawnBP_C.Camera (K2_GetComponentLocation/Rotation); floor = TribePawnBP_C.VROrigin world Z;
+  body = HMD xy pushed back 10 cm along HMD yaw; yaw smoothed (dead zone +-35 deg, k=5*dt) and biased 50% toward the
+  MotionControllerL/R midpoint when it's 15-110 cm away (torso keeps facing the decks); K2_SetActorLocationAndRotation
+  (bTeleport). Rest pose captured lazily on the first ticks: model forward = horizontal(Toe-Foot, L+R) via GetBoneName +
+  GetSocketTransform(RTS_Component) -> actor yaw = bodyYaw - forward; actor z = floorZ - toeZ (feet on floor).
+- SetCollisionEnabled(NoCollision) + SetCastShadow(false) on our mesh (can't block Tribe traces; Quest frame time).
+- tribemod/auto_actor: spawn + follow automatically ~2 s after the mesh loads, every launch.
+Pawn components found: VROrigin, Camera, MotionControllerL/R, TribeAvatar, VRBodyReplication (Tribe's MP head/hand sync), HeadCollisionSphere.
+
+Meta Movement SDK IS in the build: /Script/OculusXRMovement.{OculusXRBodyTrackingComponent, OculusXRMovementFunctionLibrary,
+OculusXRBodySkeleton/Bone/State, OculusXRBodyJoint}. => advisor #3c: real Quest 3 body tracking retargeted onto the mesh via a
+bone-name map (needs com.oculus.permission.BODY_TRACKING in the manifest + body tracking enabled at startup -- both doable
+since we repack the APK and inject ini before PreInit). Candidate for the articulation phase instead of hand-rolled IK.
+Missing UFunctions: SkinnedMeshComponent.GetBoneLocation (use GetSocketTransform), SkinnedMeshComponent.SetBoneScaleByName
+(use PoseableMeshComponent.SetBoneScaleByName or HideBoneByName).
+Built 94800 B; not yet installed (headset charging).
