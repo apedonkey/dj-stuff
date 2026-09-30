@@ -482,6 +482,34 @@ static void do_dump(){
         "/Game/Pawn/TribePawnBP.TribePawnBP_C.SetAvatarThirdPersonVisible",
         "/Game/Visuals/BP_TribeVisualsManager.BP_TribeVisualsManager_C.FinishSkinsSetup" };
       for(auto fp:fns) dump_ufunction(fs,fp);
+
+      // --- glTFRuntime finalizer output: transient USkeletons. BoneTree.Num discriminates the failure:
+      //     0 bones => gather failed (empty mesh finalized); ~39 (root AvatarRoot/Hips) => mesh built & dropped downstream.
+      uintptr_t skelCls=find_by_path("/Script/Engine.Skeleton",1);
+      int btOff = skelCls? prop_offset(skelCls,"BoneTree",0):-1;
+      fprintf(fs,"\n==== USkeleton instances (glTF finalizer output)  class=0x%lx BoneTree@0x%x ====\n",(unsigned long)skelCls,btOff);
+      { int n=0; for(uint32_t i=0;i<g_numElements && n<24;i++){ uintptr_t o=obj_at(i); if(!o) continue; char cn[128]; class_name(o,cn,sizeof cn);
+          if(strcmp(cn,"Skeleton")!=0) continue; if(rd32(o+OFF_Flags)&RF_ClassDefaultObject) continue;
+          char fp[512]; full_path(o,fp,sizeof fp); int bones = btOff>=0? (int)rd32(o+btOff+8):-1;   // TArray.Num @ +0x08
+          fprintf(fs,"  0x%lx BoneTree.Num=%d  %s\n",(unsigned long)o,bones,fp);
+          // find FReferenceSkeleton.RawRefBoneInfo: a TArray{ptr,Num==bones,Max} with 12B elems {FName,int32 Parent}
+          if(bones>0) for(uint32_t off=0x28; off<=0x220; off+=8){ uintptr_t data=rdptr(o+off); uint32_t num=rd32(o+off+8);
+              if(num!=(uint32_t)bones||!data||!in_range(data,(size_t)num*12)) continue;
+              char b0[64]; fname_resolve(rd32(data),b0,sizeof b0); if(!b0[0]||b0[0]=='?') continue;
+              fprintf(fs,"    RawRefBoneInfo@0x%x bones:",off);
+              for(uint32_t k=0;k<num&&k<16;k++){ char bn[64]; fname_resolve(rd32(data+(uintptr_t)k*12),bn,sizeof bn); int par=(int)rd32(data+(uintptr_t)k*12+8); fprintf(fs," %s(p%d)",bn,par); }
+              fprintf(fs,"\n"); break; }
+          n++; }
+        if(n==0) fprintf(fs,"  (no non-CDO Skeleton instances)\n"); }
+      // also: is the RPM avatar's AvatarBodyMesh SkeletalMeshComponent actually holding a mesh?
+      uintptr_t smcCls=find_by_path("/Script/Engine.SkeletalMeshComponent",1);
+      int smaOff = smcCls? prop_offset(smcCls,"SkeletalMeshAsset",0):-1;
+      if(smaOff<0 && smcCls) smaOff=prop_offset(smcCls,"SkeletalMesh",0);
+      fprintf(fs,"\n==== AvatarBodyMesh SkeletalMeshAsset  (SMC class=0x%lx asset@0x%x) ====\n",(unsigned long)smcCls,smaOff);
+      { int n=0; for(uint32_t i=0;i<g_numElements && n<8;i++){ uintptr_t o=obj_at(i); if(!o) continue; char nm[96]; obj_name(o,nm,sizeof nm);
+          if(strcmp(nm,"AvatarBodyMesh")!=0) continue; char fp[512]; full_path(o,fp,sizeof fp);
+          uintptr_t mesh = smaOff>=0? rdptr(o+smaOff):0; char mn[96]="(null)"; if(mesh) obj_name(mesh,mn,sizeof mn);
+          fprintf(fs,"  0x%lx SkeletalMeshAsset=0x%lx '%s'  %s\n",(unsigned long)o,(unsigned long)mesh,mn,fp); n++; } }
       fclose(fs);
     }
 
@@ -529,45 +557,52 @@ static void stage_cache(const char* url){
     char b[65536]; ssize_t n; long tot=0; bool ok=true; while((n=read(in,b,sizeof b))>0){ if(write(out,b,n)!=n){ ok=false; break; } tot+=n; }
     close(in); close(out); char m[900]; snprintf(m,sizeof m,"cache %s: %s (%ld bytes)",ok?"staged":"PARTIAL",dst,tot); ini_status(m);
 }
-static void ini_upsert(){
-    const char* KEY="ReadyPlayerMeAvatarUrl"; const char* SEC="[TribeAvatar]";
-    int kl=(int)strlen(KEY), sl=(int)strlen(SEC);
-    // 1) desired url from tribemod/avatar_url.txt (trimmed)
-    char urlfile[600]; snprintf(urlfile,sizeof urlfile,"%s/avatar_url.txt",OUTDIR);
-    char url[1024]={0}; bool have=false;
-    { int fd=open(urlfile,O_RDONLY); if(fd>=0){ char t[1024]; ssize_t r=read(fd,t,sizeof t-1); close(fd);
-        if(r>0){ t[r]=0; int s=0,e=(int)r; while(s<e&&(t[s]==' '||t[s]=='\t'||t[s]=='\r'||t[s]=='\n'))s++;
-          while(e>s&&(t[e-1]==' '||t[e-1]=='\t'||t[e-1]=='\r'||t[e-1]=='\n'))e--;
-          if(e>s){ int L=e-s; if(L>1023)L=1023; memcpy(url,t+s,L); url[L]=0; have=true; } } } }
-    if(have && (url[0]=='+'||url[0]=='-'||url[0]=='.'||url[0]=='!')){ ini_status("WARN: url starts with ini operator char; treating as unset"); have=false; }
-    if(have) stage_cache(url);         // put the .glb in the loader's cache slot => cache HIT, local load, no HTTP
-    // 2) read ini
+// read tribemod/<fname>, trim whitespace; returns true + fills out if non-empty
+static bool read_trim_file(const char* fname, char* out, int cap){
+    char p[600]; snprintf(p,sizeof p,"%s/%s",OUTDIR,fname);
+    int fd=open(p,O_RDONLY); if(fd<0) return false; char t[1200]; ssize_t r=read(fd,t,sizeof t-1); close(fd);
+    if(r<=0) return false; t[r]=0; int s=0,e=(int)r;
+    while(s<e&&(t[s]==' '||t[s]=='\t'||t[s]=='\r'||t[s]=='\n'))s++;
+    while(e>s&&(t[e-1]==' '||t[e-1]=='\t'||t[e-1]=='\r'||t[e-1]=='\n'))e--;
+    if(e<=s) return false; int L=e-s; if(L>cap-1)L=cap-1; memcpy(out,t+s,L); out[L]=0; return true;
+}
+// upsert (value!=0) or delete (value==0) [TribeAvatar] <key> in GameUserSettings.ini; atomic tmp+fsync+rename.
+static void upsert_ini_key(const char* key, const char* value){
+    const char* SEC="[TribeAvatar]"; int kl=(int)strlen(key), sl=(int)strlen(SEC); bool have=(value!=0);
     static char buf[65536]; int n=0;
-    { int fd=open(INI_PATH,O_RDONLY); if(fd<0){ ini_status("ini not readable (UE creates at PreInit); skip"); return; }
-      ssize_t r=read(fd,buf,sizeof buf-1); close(fd); if(r<0){ ini_status("ini read error; skip"); return; } n=(int)r; buf[n]=0; }
-    if(n>=2 && (unsigned char)buf[0]==0xFF && (unsigned char)buf[1]==0xFE){ ini_status("UTF-16 BOM; bailing (no corruption)"); return; }
-    // 3) rebuild line-by-line: write key right after [TribeAvatar] header (set) or drop it (delete)
+    { int fd=open(INI_PATH,O_RDONLY); if(fd<0){ ini_status("ini not readable; skip"); return; }
+      ssize_t r=read(fd,buf,sizeof buf-1); close(fd); if(r<0){ ini_status("ini read error"); return; } n=(int)r; buf[n]=0; }
+    if(n>=2 && (unsigned char)buf[0]==0xFF && (unsigned char)buf[1]==0xFE){ ini_status("UTF-16 BOM; bail"); return; }
     static char out[70000]; int o=0; bool inSec=false, wrote=false, sawSec=false; int i=0;
     while(i<n){ int j=i; while(j<n && buf[j]!='\n') j++; int le=(j<n)?j+1:n; int len=j-i;
         int clen=len; if(clen>0 && buf[i+clen-1]=='\r') clen--;
         bool isHdr=(clen>=2 && buf[i]=='[');
         if(isHdr){ memcpy(out+o,buf+i,le-i); o+=le-i;
             inSec=(clen==sl && strncmp(buf+i,SEC,sl)==0);
-            if(inSec){ sawSec=true; if(have && !wrote){ o+=snprintf(out+o,sizeof out-o,"%s=%s\n",KEY,url); wrote=true; } }
-        } else if(inSec && clen>=kl && strncmp(buf+i,KEY,kl)==0 && (buf[i+kl]=='='||buf[i+kl]==' ')){
+            if(inSec){ sawSec=true; if(have && !wrote){ o+=snprintf(out+o,sizeof out-o,"%s=%s\n",key,value); wrote=true; } }
+        } else if(inSec && clen>=kl && strncmp(buf+i,key,kl)==0 && (buf[i+kl]=='='||buf[i+kl]==' ')){
             /* existing key line: skip (delete, or dedupe since we wrote it at the header) */
         } else { memcpy(out+o,buf+i,le-i); o+=le-i; }
         i=le; }
-    if(!sawSec && have){ o+=snprintf(out+o,sizeof out-o,"%s%s\n%s=%s\n",(n>0&&buf[n-1]=='\n')?"":"\n",SEC,KEY,url); }
-    // 4) no-op?
-    if(o==n && memcmp(out,buf,n)==0){ ini_status(have?"no change (key already set)":"no change (key absent)"); return; }
-    // 5) atomic write
+    if(!sawSec && have){ o+=snprintf(out+o,sizeof out-o,"%s%s\n%s=%s\n",(n>0&&buf[n-1]=='\n')?"":"\n",SEC,key,value); }
+    if(o==n && memcmp(out,buf,n)==0){ char m[256]; snprintf(m,sizeof m,"%s: no change (%s)",key,have?"set":"absent"); ini_status(m); return; }
     char tmp[700]; snprintf(tmp,sizeof tmp,"%s.tribetmp",INI_PATH);
-    int fd=open(tmp,O_WRONLY|O_CREAT|O_TRUNC,0644); if(fd<0){ ini_status("tmp open failed"); return; }
+    int fd=open(tmp,O_WRONLY|O_CREAT|O_TRUNC,0644); if(fd<0){ ini_status("tmp open fail"); return; }
     ssize_t w=write(fd,out,o); fsync(fd); close(fd);
-    if(w!=(ssize_t)o){ ini_status("short write; abort"); unlink(tmp); return; }
-    if(rename(tmp,INI_PATH)!=0){ ini_status("rename failed (perms?)"); unlink(tmp); return; }
-    char m[1200]; snprintf(m,sizeof m,"upsert OK: %s (%d->%d bytes) url=%s",have?"SET":"DELETED-KEY",n,o,have?url:"(none)"); ini_status(m);
+    if(w!=(ssize_t)o){ ini_status("short write"); unlink(tmp); return; }
+    if(rename(tmp,INI_PATH)!=0){ ini_status("rename fail"); unlink(tmp); return; }
+    char m[300]; snprintf(m,sizeof m,"%s: %s (%d->%d bytes)",key,have?"SET":"DELETED",n,o); ini_status(m);
+}
+static void ini_upsert(){
+    char url[1024], etag[256]; bool hu=read_trim_file("avatar_url.txt",url,sizeof url);
+    bool he=read_trim_file("avatar_etag.txt",etag,sizeof etag);
+    if(hu && (url[0]=='+'||url[0]=='-'||url[0]=='.'||url[0]=='!')){ ini_status("WARN url op-char; unset"); hu=false; }
+    if(hu) stage_cache(url);            // cache slot => cache HIT (local glTF load, no network)
+    // UE ini truncates an UNQUOTED value at "//" -> quote the URL (matches Tribe's own DataRouterUrl="...")
+    char qurl[1100]; snprintf(qurl,sizeof qurl,"\"%s\"",url);
+    upsert_ini_key("ReadyPlayerMeAvatarUrl", hu?qurl:0);
+    upsert_ini_key("ReadyPlayerMeETag",      he?etag:0);   // ETag present => FUN_050f584c takes the cache-hit branch
+    char m[1400]; snprintf(m,sizeof m,"summary: url=%s etag=%s",hu?qurl:"(none)",he?etag:"(none)"); ini_status(m);
 }
 
 static void* dump_thread(void*){

@@ -3540,3 +3540,20 @@ Config-injection + quoted-URL + ETag + Documents/rpmavatar-<clean>.glb cache sta
 
 Open for reviewer: what the async completion delegate/abort is, what glTFRuntimeSkeletalMeshConfig/target
 skeleton FUN_04c5a578 passes, and the exact Blender .glb spec (skeleton/morphs/materials) this path needs.
+
+## Session 3b — discriminator run: mesh BUILT but not attached; failure is downstream of glTFRuntime
+
+Added read-only skeleton/mesh probes to the dumper (USkeleton.BoneTree.Num @ +0x38 reflected;
+SkeletalMeshComponent.SkeletalMeshAsset @ +0x550 reflected). Findings (in-game as the RPM avatar):
+- ReadyPlayerMeComponent.AvatarBodyMesh.SkeletalMeshAsset = NULL on the live pawn, EVERY run.
+- glTF finalizer transient USkeletons appear with BoneTree.Num=24 (not 0, not ~39); transient, GC'd within
+  ~a cycle (absent on a later dump). RawRefBoneInfo read TODO (scan mis-matched BoneTree@0x38; use
+  VirtualBoneGuid+0x10 route).
+=> Per reviewer's model: skeleton-with-bones => glTFRuntime built a skeleton (load ran); AvatarBodyMesh=null
+   => the built mesh is dropped DOWNSTREAM (Tribe's OnSkinLoaded/HandleAvatarLoaded handler), not a load-fail.
+Open q: does 24 (vs 38 skin joints) mean a partial gather (errored partway) or a valid pruned skeleton?
+
+Next step (first game hooks since the read-only dumper): AddError(this,FString,FString) -> logcat (find via
+xref to ASCII "CreateSkeletalMeshFromLODs()"), and ProcessEvent filtered on the load-complete callback
+UFunction logging *(USkeletalMesh**)Parms (non-null => Tribe dropped it; never fired => dead delegate).
+Awaiting go-ahead to build the diagnostic hooks.
