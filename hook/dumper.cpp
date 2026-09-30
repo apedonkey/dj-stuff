@@ -844,13 +844,17 @@ static void ensure_resolved(){
 }
 static void call_uf(uintptr_t obj,uintptr_t fn,void* parms){ if(orig_pe&&obj&&fn) orig_pe((void*)obj,(void*)fn,parms); }
 // find a live (non-CDO) object by name + class-name whose full path contains 'inpath'
+// live = in a spawned world (path has PersistentLevel), never a CDO/archetype (Default__ / GEN_VARIABLE / _GEN).
 static uintptr_t find_live(const char* name,const char* cls,const char* inpath){
     char nm[96],cn[96],fp[400];
     for(uint32_t i=0;i<g_numElements;i++){ uintptr_t o=obj_at(i); if(!o) continue;
         obj_name(o,nm,sizeof nm); if(strcmp(nm,name)) continue;
         class_name(o,cn,sizeof cn); if(strcmp(cn,cls)) continue;
         if(rd32(o+OFF_Flags)&RF_ClassDefaultObject) continue;
-        if(inpath){ full_path(o,fp,sizeof fp); if(!strstr(fp,inpath)) continue; }
+        full_path(o,fp,sizeof fp);
+        if(strstr(fp,"Default__")||strstr(fp,"GEN_VARIABLE")||strstr(fp,"_GEN")) continue;   // skip CDO/archetype
+        if(!strstr(fp,"PersistentLevel")) continue;                                          // require a live world instance
+        if(inpath && !strstr(fp,inpath)) continue;
         return o; }
     return 0;
 }
@@ -886,7 +890,9 @@ static void do_load(){
     static uint8_t mp[0x758]; memset(mp,0,sizeof mp);
     *(int32_t*)(mp+0x00)=0; *(int32_t*)(mp+0x04)=0;              // MeshIndex,SkinIndex
     *(uintptr_t*)(mp+0x08+0x08)=0;                              // Skeleton=null(auto-build)
-    *(int32_t*)(mp+0x08+0x2c)=-1;                              // OverrideSkinIndex=-1
+    *(int32_t*)(mp+0x08+0x2c)=-1;                              // OverrideSkinIndex=-1 (INDEX_NONE)
+    *(int32_t*)(mp+0x08+0x30+0xc4)=-1;                         // SkeletonConfig.RootNodeIndex=-1 (auto-detect root)
+    *(int32_t*)(mp+0x08+0x30+0x1ac)=-1;                        // SkeletonConfig.MaxNodesTreeDepth=-1 (unlimited)
     *(double*)(mp+0x08+0x640)=1.0; *(double*)(mp+0x08+0x648)=1.0; *(double*)(mp+0x08+0x650)=1.0; // BoundsScale=(1,1,1)
     *(uint8_t*)(mp+0x08+0x240+0x220)=1;                        // MaterialsConfig.bSkipLoad=true (gray v1)
     *(uint8_t*)(mp+0x08+0x6ca)=1;                              // bIgnoreEmptyMorphTargets=true
