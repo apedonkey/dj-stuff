@@ -15,6 +15,10 @@
 #include <signal.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <errno.h>
 #include <dirent.h>
 #include <cstdarg>
 static inline pid_t my_tid(){ return (pid_t)syscall(SYS_gettid); }
@@ -645,6 +649,109 @@ static void ini_upsert(){
     char m[1400]; snprintf(m,sizeof m,"summary: url=%s etag=%s",hu?qurl:"(none)",he?etag:"(none)"); ini_status(m);
 }
 
+// ================= Phase 1: in-libhook loopback HTTP server =================
+// Binds 127.0.0.1:HTTP_PORT (NOT the adb-reverse dev port 8000, which adbd holds while tethered).
+// Serves tribemod/custom.glb for any *.glb path (model/gltf-binary + ETag) and a JSON metadata blob
+// for any *.json path. Strips query strings; sends Content-Length/Type/ETag; supports HEAD and
+// If-None-Match -> 304. Read-only w.r.t. the game; started from the constructor so it's up before load.
+static const int HTTP_PORT = 8787;
+static void httpd_log(const char* fmt,...){ char m[512]; va_list ap; va_start(ap,fmt); vsnprintf(m,sizeof m,fmt,ap); va_end(ap);
+    LOGI("[HTTPD] %s",m); char p[600]; snprintf(p,sizeof p,"%s/httpd.log",OUTDIR); FILE* f=fopen(p,"a"); if(f){ fprintf(f,"%s\n",m); fclose(f); } }
+
+// ---- compact MD5 (public-domain style) for the ETag (uppercase hex), matching the python server ----
+struct MD5C{ uint32_t a,b,c,d; uint64_t len; uint8_t buf[64]; uint32_t n; };
+static uint32_t md5_lr(uint32_t x,int c){ return (x<<c)|(x>>(32-c)); }
+static void md5_block(MD5C* m,const uint8_t* p){
+    static const uint32_t K[64]={
+      0xd76aa478,0xe8c7b756,0x242070db,0xc1bdceee,0xf57c0faf,0x4787c62a,0xa8304613,0xfd469501,
+      0x698098d8,0x8b44f7af,0xffff5bb1,0x895cd7be,0x6b901122,0xfd987193,0xa679438e,0x49b40821,
+      0xf61e2562,0xc040b340,0x265e5a51,0xe9b6c7aa,0xd62f105d,0x02441453,0xd8a1e681,0xe7d3fbc8,
+      0x21e1cde6,0xc33707d6,0xf4d50d87,0x455a14ed,0xa9e3e905,0xfcefa3f8,0x676f02d9,0x8d2a4c8a,
+      0xfffa3942,0x8771f681,0x6d9d6122,0xfde5380c,0xa4beea44,0x4bdecfa9,0xf6bb4b60,0xbebfbc70,
+      0x289b7ec6,0xeaa127fa,0xd4ef3085,0x04881d05,0xd9d4d039,0xe6db99e5,0x1fa27cf8,0xc4ac5665,
+      0xf4292244,0x432aff97,0xab9423a7,0xfc93a039,0x655b59c3,0x8f0ccc92,0xffeff47d,0x85845dd1,
+      0x6fa87e4f,0xfe2ce6e0,0xa3014314,0x4e0811a1,0xf7537e82,0xbd3af235,0x2ad7d2bb,0xeb86d391};
+    static const int S[64]={7,12,17,22,7,12,17,22,7,12,17,22,7,12,17,22,
+      5,9,14,20,5,9,14,20,5,9,14,20,5,9,14,20, 4,11,16,23,4,11,16,23,4,11,16,23,4,11,16,23,
+      6,10,15,21,6,10,15,21,6,10,15,21,6,10,15,21};
+    uint32_t M[16]; for(int i=0;i<16;i++) M[i]=(uint32_t)p[i*4]|((uint32_t)p[i*4+1]<<8)|((uint32_t)p[i*4+2]<<16)|((uint32_t)p[i*4+3]<<24);
+    uint32_t A=m->a,B=m->b,C=m->c,D=m->d;
+    for(int i=0;i<64;i++){ uint32_t F; int g;
+        if(i<16){ F=(B&C)|(~B&D); g=i; } else if(i<32){ F=(D&B)|(~D&C); g=(5*i+1)&15; }
+        else if(i<48){ F=B^C^D; g=(3*i+5)&15; } else { F=C^(B|~D); g=(7*i)&15; }
+        F=F+A+K[i]+M[g]; A=D; D=C; C=B; B=B+md5_lr(F,S[i]); }
+    m->a+=A; m->b+=B; m->c+=C; m->d+=D;
+}
+static void md5_init(MD5C* m){ m->a=0x67452301;m->b=0xefcdab89;m->c=0x98badcfe;m->d=0x10325476;m->len=0;m->n=0; }
+static void md5_update(MD5C* m,const uint8_t* p,size_t n){ m->len+=n;
+    while(n){ uint32_t take=64-m->n; if(take>n)take=(uint32_t)n; memcpy(m->buf+m->n,p,take); m->n+=take; p+=take; n-=take;
+        if(m->n==64){ md5_block(m,m->buf); m->n=0; } } }
+static void md5_hex_upper(MD5C* m,char out[33]){ uint64_t bits=m->len*8; uint8_t pad=0x80; md5_update(m,&pad,1);
+    uint8_t z=0; while(m->n!=56) md5_update(m,&z,1); uint8_t L[8]; for(int i=0;i<8;i++) L[i]=(uint8_t)(bits>>(8*i)); md5_update(m,L,8);
+    uint8_t dig[16]; uint32_t v[4]={m->a,m->b,m->c,m->d}; for(int i=0;i<4;i++) for(int j=0;j<4;j++) dig[i*4+j]=(uint8_t)(v[i]>>(8*j));
+    static const char* H="0123456789ABCDEF"; for(int i=0;i<16;i++){ out[i*2]=H[dig[i]>>4]; out[i*2+1]=H[dig[i]&15]; } out[32]=0; }
+
+static uint8_t* g_glb=0; static long g_glb_len=0; static char g_etag[40]="";
+static char g_meta[400]; static int g_meta_len=0;
+static bool httpd_load_asset(){
+    char src[700]; snprintf(src,sizeof src,"%s/custom.glb",OUTDIR);
+    int fd=open(src,O_RDONLY); if(fd<0){ httpd_log("asset open fail %s (errno %d)",src,errno); return false; }
+    struct stat st; if(fstat(fd,&st)!=0||st.st_size<=0){ close(fd); httpd_log("asset stat fail"); return false; }
+    g_glb=(uint8_t*)malloc(st.st_size); if(!g_glb){ close(fd); httpd_log("asset malloc fail"); return false; }
+    long tot=0; ssize_t r; while(tot<st.st_size && (r=read(fd,g_glb+tot,st.st_size-tot))>0) tot+=r; close(fd);
+    if(tot!=st.st_size){ httpd_log("asset short read %ld/%ld",tot,(long)st.st_size); free(g_glb); g_glb=0; return false; }
+    g_glb_len=tot; MD5C m; md5_init(&m); md5_update(&m,g_glb,g_glb_len); md5_hex_upper(&m,g_etag);
+    g_meta_len=snprintf(g_meta,sizeof g_meta,
+        "{\"id\":\"custom\",\"bodyType\":\"halfbody\",\"outfitGender\":\"masculine\","
+        "\"skinTone\":\"#cf9c7b\",\"updatedAt\":\"2026-09-30T00:00:00.000Z\","
+        "\"createdAt\":\"2026-09-30T00:00:00.000Z\"}");
+    httpd_log("asset loaded %ld bytes ETag=%s",g_glb_len,g_etag); return true;
+}
+static void httpd_send(int fd,const char* status,const char* ctype,const uint8_t* body,long blen,bool headOnly){
+    char hdr[512]; int hl=snprintf(hdr,sizeof hdr,
+        "HTTP/1.1 %s\r\nContent-Type: %s\r\nContent-Length: %ld\r\nETag: \"%s\"\r\n"
+        "Access-Control-Allow-Origin: *\r\nCache-Control: no-cache\r\nConnection: close\r\n\r\n",
+        status,ctype,blen,g_etag);
+    send(fd,hdr,hl,MSG_NOSIGNAL);
+    if(!headOnly && body && blen>0){ long off=0; while(off<blen){ ssize_t w=send(fd,body+off,blen-off,MSG_NOSIGNAL); if(w<=0) break; off+=w; } }
+}
+static void httpd_send304(int fd){ char hdr[256]; int hl=snprintf(hdr,sizeof hdr,
+        "HTTP/1.1 304 Not Modified\r\nETag: \"%s\"\r\nConnection: close\r\n\r\n",g_etag); send(fd,hdr,hl,MSG_NOSIGNAL); }
+static void httpd_handle(int fd){
+    char req[8192]; int n=0; // read until end of headers (\r\n\r\n) or buffer full
+    while(n<(int)sizeof(req)-1){ ssize_t r=recv(fd,req+n,sizeof(req)-1-n,0); if(r<=0) break; n+=r;
+        req[n]=0; if(strstr(req,"\r\n\r\n")) break; }
+    if(n<=0){ return; } req[n]=0;
+    bool head = strncmp(req,"HEAD ",5)==0; bool get = strncmp(req,"GET ",4)==0;
+    if(!head && !get){ httpd_send(fd,"405 Method Not Allowed","text/plain",(const uint8_t*)"",0,true); return; }
+    // parse path
+    const char* sp=strchr(req,' '); const char* path=sp?sp+1:"/"; const char* pe=strchr(path,' ');
+    char pbuf[1024]; int pl=pe?(int)(pe-path):0; if(pl<=0||pl>=(int)sizeof pbuf) pl=1; memcpy(pbuf,path,pl); pbuf[pl]=0;
+    char* q=strchr(pbuf,'?'); if(q)*q=0;                       // strip query string
+    // If-None-Match
+    char inm[64]=""; const char* h=strstr(req,"If-None-Match:"); if(!h) h=strstr(req,"if-none-match:");
+    if(h){ h+=14; while(*h==' '||*h=='"') h++; int i=0; while(*h&&*h!='\r'&&*h!='"'&&i<63) inm[i++]=*h++; inm[i]=0; }
+    bool isjson = (pl>=5 && strcmp(pbuf+pl-5,".json")==0);
+    bool match = inm[0] && g_etag[0] && strcmp(inm,g_etag)==0;
+    httpd_log("%s %s  If-None-Match=%s%s",head?"HEAD":"GET",pbuf,inm[0]?inm:"(none)",match?"  ->304":"");
+    if(match){ httpd_send304(fd); return; }
+    if(isjson) httpd_send(fd,"200 OK","application/json",(const uint8_t*)g_meta,g_meta_len,head);
+    else       httpd_send(fd,"200 OK","model/gltf-binary",g_glb,g_glb_len,head);
+}
+static void* httpd_thread(void*){
+    if(!httpd_load_asset()){ httpd_log("server NOT started (no asset)"); return nullptr; }
+    int s=socket(AF_INET,SOCK_STREAM,0); if(s<0){ httpd_log("socket fail errno %d",errno); return nullptr; }
+    int one=1; setsockopt(s,SOL_SOCKET,SO_REUSEADDR,&one,sizeof one);
+    sockaddr_in a; memset(&a,0,sizeof a); a.sin_family=AF_INET; a.sin_port=htons(HTTP_PORT);
+    a.sin_addr.s_addr=htonl(INADDR_LOOPBACK);                  // 127.0.0.1 only
+    if(bind(s,(sockaddr*)&a,sizeof a)!=0){ httpd_log("bind 127.0.0.1:%d fail errno %d",HTTP_PORT,errno); close(s); return nullptr; }
+    if(listen(s,8)!=0){ httpd_log("listen fail errno %d",errno); close(s); return nullptr; }
+    httpd_log("listening on 127.0.0.1:%d (glb=%ld ETag=%s)",HTTP_PORT,g_glb_len,g_etag);
+    for(;;){ int c=accept(s,nullptr,nullptr); if(c<0){ if(errno==EINTR) continue; httpd_log("accept fail errno %d",errno); break; }
+        httpd_handle(c); close(c); }
+    close(s); return nullptr;
+}
+
 static void* dump_thread(void*){
     LOGI("dumper thread up; base=0x%lx; poll %s/dump_now",(unsigned long)g_base,OUTDIR);
     char cmd[600]; snprintf(cmd,sizeof cmd,"%s/dump_now",OUTDIR);
@@ -665,4 +772,8 @@ static void on_load(){
     pthread_attr_t a; pthread_attr_init(&a); pthread_attr_setstacksize(&a,8*1024*1024); pthread_attr_setdetachstate(&a,PTHREAD_CREATE_DETACHED);
     pthread_t th; pthread_create(&th,&a,dump_thread,nullptr); pthread_attr_destroy(&a);
     LOGI("dumper thread spawned (base=0x%lx)",(unsigned long)g_base);
+    // Phase 1: in-libhook loopback HTTP server (127.0.0.1:8787), detached.
+    pthread_attr_t sa; pthread_attr_init(&sa); pthread_attr_setstacksize(&sa,256*1024); pthread_attr_setdetachstate(&sa,PTHREAD_CREATE_DETACHED);
+    pthread_t sh; pthread_create(&sh,&sa,httpd_thread,nullptr); pthread_attr_destroy(&sa);
+    LOGI("httpd thread spawned (127.0.0.1:%d)",HTTP_PORT);
 }

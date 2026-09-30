@@ -3712,3 +3712,15 @@ log-only hooks: glTF entry 0x4ac2de0, AddError, finalize, ProcessEvent filter on
 target, HandleAvatarLoaded}; (3) game-thread executor: create a W_RPMAvatarCreator_C (UWidgetBlueprintLibrary
 ::Create, AddToRoot) and ProcessEvent LoadAvatarAtUrl(url) — OR call SetAvatarID direct + bind completion. First
 run is DIAGNOSTIC: does driving SetAvatarID make Tribe fetch, and does the native build yield a USkeletalMesh?
+
+## Session 3c Phase 1 — in-libhook loopback HTTP server (127.0.0.1:8787) VERIFIED
+
+Added a constructor-started HTTP server thread to dumper.cpp (bind 127.0.0.1 only, port 8787 != adb-reverse
+dev port 8000). Serves tribemod/custom.glb for any *.glb path (model/gltf-binary) and a JSON metadata blob
+for *.json; strips query strings; sends Content-Length/Type/ETag; supports HEAD and If-None-Match->304.
+ETag = uppercase MD5 (compact in-tree MD5; verified on-device against python: 'abc' and custom.glb both match
+BB01368FC663411E5AD676EE268AAC4E). Verified via adb forward tcp:8790->device 8787:
+  GET glb -> 200, 4732412 bytes, body byte-identical to custom.glb
+  GET json-> 200 metadata ; HEAD -> headers only ; If-None-Match=ETag -> 304.
+No game mutation. This makes the mod self-hosting (standalone target). Next: Phase 2 diagnostic hooks +
+Phase 3 game-thread executor to drive LoadAvatarAtUrl (fires SetAvatarID for the first time).

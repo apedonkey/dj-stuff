@@ -495,3 +495,29 @@
 09-29 23:35:00.663 18181 18217 I TRIBEMOD:   +0x058 BoolProperty bCallPreReplication
 09-29 23:35:00.663 18181 18217 I TRIBEMOD:   +0x
 09-29 23:35:22.735 18181 18217 I TRIBEMOD: dump complete, fails=0
+09-30 04:16:20.270 32296 32296 I TRIBEMOD: dumper libhook constructor
+09-30 04:16:20.273 32296 32296 I TRIBEMOD: [INI] cache: already staged /sdcard/Android/data/com.TribeXR.TribeXR/files/Documents/rpmavatar-custom.glb
+09-30 04:16:20.278 32296 32296 I TRIBEMOD: [INI] ReadyPlayerMeAvatarUrl: SET (1510->1461 bytes)
+09-30 04:16:20.278 32296 32296 I TRIBEMOD: [INI] ReadyPlayerMeETag: no change (absent)
+09-30 04:16:20.278 32296 32296 I TRIBEMOD: [INI] summary: url="http://127.0.0.1:8000/custom.glb" etag=(none)
+09-30 04:16:20.282 32296 32296 I TRIBEMOD: dumper thread spawned (base=0x7c0600e000)
+09-30 04:16:20.283 32296 32335 I TRIBEMOD: dumper thread up; base=0x7c0600e000; poll /sdcard/Android/data/com.TribeXR.TribeXR/files/tribemod/dump_now
+09-30 04:16:49.293 32296 32335 I TRIBEMOD: dump_now seen; dumping...
+09-30 04:16:49.302 32296 32335 I TRIBEMOD: [PASS] R1.NamePool.scan : NamePoolData rva=0x7c632c0 hits=0 blocks_off=0x40 CurrentBlock=0 CurrentByteCursor=0 leadBlocks=0
+09-30 04:16:49.302 32296 32335 I TRIBEMOD: [PASS] R1.NamePool.Resolve(0)==None : resolved='None' (rva=0x7c632c0)
+09-30 04:16:49.303 32296 32335 I TRIBEMOD: [PASS] R2a.objarray : via=param GUObjectArray rva=0x7cbbdd0 NumElements=63314 NumChunks=1 neOff=0x14 (got->rva=0x6d293e8 direct.rva=0x7cbadd0)
+09-30 04:16:49.303 32296 32335 I TRIBEMOD: [PASS] R2b.index0/1 : obj0=0x7bf5be9900 idx=0 obj1 idx=1
+09-30 04:16:49.303 32296 32335 I TRIBEMOD: [PASS] R2c.obj0.name_printable : obj0.name='/Script/CoreUObject'
+09-30 04:16:49.418 32296 32335 I TRIBEMOD: [PASS] R3a.Class.self_ref : Class(ClassPrivate==self)=0x7bf581cb80
+09-30 04:16:49.418 32296 32335 I TRIBEMOD: [PASS] R3b.UStruct.offsets : Object=0x7bf5810b00 Super=0x40 Children=0x48 ChildProps=0x50 PropSize=0x58
+09-30 04:16:49.418 32296 32335 I TRIBEMOD: [PASS] R3c.coupling : Class.name='Class' Object.name='Object'
+09-30 04:16:49.419 32296 32335 I TRIBEMOD: [PASS] R3d.Actor : Actor.Super='Object' PropSize=0x290
+09-30 04:16:49.421 32296 32335 I TRIBEMOD: [PASS] R4.FField.chain : props=12
+09-30 04:16:49.421 32296 32335 I TRIBEMOD:   +0x028 StructProperty PrimaryActorTick
+09-30 04:16:49.421 32296 32335 I TRIBEMOD:   +0x058 BoolProperty bNetTemporary
+09-30 04:16:49.421 32296 32335 I TRIBEMOD:   +0x058 BoolProperty bOnlyRelevantToOwner
+09-30 04:16:49.421 32296 32335 I TRIBEMOD:   +0x058 BoolProperty bAlwaysRelevant
+09-30 04:16:49.421 32296 32335 I TRIBEMOD:   +0x058 BoolProperty bReplicateMovement
+09-30 04:16:49.421 32296 32335 I TRIBEMOD:   +0x058 BoolProperty bCallPreReplication
+09-30 04:16:49.421 32296 32335 I TRIBEMOD:   +0x
+09-30 04:17:08.151 32296 32335 I TRIBEMOD: dump complete, fails=0
