@@ -985,8 +985,11 @@ static uintptr_t spawn_iso_actor(uintptr_t mesh){
     uint16_t pszB=rd16(fnB+0xB6);
     // ElementSize of the SpawnTransform param (walk ChildProperties to the FField named SpawnTransform)
     uint32_t xfSize=0; { char nm[64]; for(uintptr_t f=rdptr(fnB+OFF_ChildProps); f; f=rdptr(f+FF_Next)){ fname_resolve(rd32(f+FF_Name),nm,sizeof nm); if(!strcmp(nm,"SpawnTransform")){ xfSize=rd32(f+FP_ElemSize); break; } } }
-    load_status("iso: begin psz=0x%x WC@%d Cls@%d Xf@%d(size 0x%x) Coll@%d Scl@%d Ret@%d",pszB,oWC,oCls,oXf,xfSize,oColl,oScl,oRet);
-    if(oWC<0||oCls<0||oXf<0||oRet<0||xfSize!=96||pszB>512){ load_status("iso: unexpected layout -> abort"); return 0; }
+    // FP_ElemSize(0x34) reads 0 for every property in this build, so validate FTransform's size by the GAP to the
+    // next param instead (CollisionHandlingOverride directly follows SpawnTransform): must be 96 B.
+    int xfGap=(oColl>0)?(oColl-oXf):-1; (void)xfSize;
+    load_status("iso: begin psz=0x%x WC@%d Cls@%d Xf@%d(gap %d) Coll@%d Scl@%d Ret@%d",pszB,oWC,oCls,oXf,xfGap,oColl,oScl,oRet);
+    if(oWC<0||oCls<0||oXf<0||oRet<0||xfGap!=96||pszB>512){ load_status("iso: unexpected layout -> abort"); return 0; }
     double C[3]={0,0,0},R[3]={0,0,0};
     uint8_t* c=call_ret(g_camMgr,g_fnCamLoc,0,0); if(c) memcpy(C,c,24);
     uint8_t* r=call_ret(g_camMgr,fnRot,0,0);      if(r) memcpy(R,r,24);      // FRotator: Pitch, Yaw, Roll (deg)

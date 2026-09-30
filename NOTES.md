@@ -3875,3 +3875,20 @@ UFunction at runtime; FTransform = 96 B (quat@0, translation@32, scale@64), veri
 param ElementSize (aborts if != 96). RENDER reports now cover both 'slot' and 'ISO'. Links -lm (sin/cos).
 If ISO renders: mesh good -> attach our actor to follow the player (replacing Tribe's slot for good).
 If ISO doesn't: run advisor matrix {bSkipLoad on/off} x {DefaultAvatar, skullbuck}.
+
+## Session 3c — *** FIRST CONFIRMED RENDER: skullbuck visible in Tribe XR *** (user: "I SEE HIM!")
+
+Isolation-actor build, after fixing my own size check (FP_ElemSize@0x34 reads 0 for every property in this build --
+that offset is wrong; validated FTransform instead by the param GAP: SpawnTransform@16 -> CollisionHandlingOverride@112
+= 96 B exactly). Spawn log: BeginDeferredActorSpawnFromClass psz=0x90 WC@0 Cls@8 Xf@16 Coll@112 Scl@128 Ret@136 ->
+actor; FinishSpawningActor; ASkeletalMeshActor.SkeletalMeshComponent@0x298; SetSkeletalMeshAsset(skullbuck).
+RENDER #1 ISO: WasRecentlyRendered(0.5)=1 at (56,-104,97), d=(63,-190,-24)cm from camera, scale 1.
+User confirmed visually; screenshot (claudedocs/skullbuck_first_render.jpg): white deer skull + antlers, dark body,
+upright at human height, TEXTURED (materials on, not the gray fallback), feet on the floor (z=97 = hip origin).
+
+Proven end-to-end: custom Blender .glb -> glTFRuntime (SceneScale=100) -> USkeletalMesh -> our own actor -> drawn.
+Root causes, in order: (1) dead readyplayer.me metadata path (bypassed via direct glTFRuntime load); (2) RootNodeIndex
+zeroed (-1 fixed bone map); (3) SceneScale 1.0 vs default 100 (avatar was 2 cm); (4) Tribe's AvatarBodyMesh slot is
+inactive (world origin, never drawn) -- replaced by our own spawned ASkeletalMeshActor.
+Next: attach our actor to the player so it follows them (replace Tribe's slot); face/orientation; then articulation
+(bind to Tribe's skeleton/IK so arms/head/legs move). Also re-export skullbuck with origin at feet (convention).
