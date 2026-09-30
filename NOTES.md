@@ -3920,3 +3920,23 @@ since we repack the APK and inject ini before PreInit). Candidate for the articu
 Missing UFunctions: SkinnedMeshComponent.GetBoneLocation (use GetSocketTransform), SkinnedMeshComponent.SetBoneScaleByName
 (use PoseableMeshComponent.SetBoneScaleByName or HideBoneByName).
 Built 94800 B; not yet installed (headset charging).
+
+## Session 3c — *** FOLLOW WORKS: skullbuck in Tribe's own SELFIE CAM, at the decks, facing correctly ***
+
+Follow v1 test (battery 24%): auto_actor spawned our actor ~2 s after load, then it followed the HMD every frame.
+- Tick calibration: sizeof(FProperty)=0x70 (confirms FP_ElemSize=0x34 was wrong; FProperty ends at 0x70, so
+  FBoolProperty {FieldSize,ByteOffset,ByteMask,FieldMask}@0x70..0x73, FObjectProperty.PropertyClass@0x70).
+  AActor.PrimaryActorTick@0x28 (ActorTickFunction); bCanEverTick = byte 10 mask 0x02, bStartWithTickEnabled = byte 10
+  mask 0x04; TickGroup@8, EndTickGroup@9 -> 5. All sanity gates passed.
+- BUT isoTicks stayed 0: this engine does NOT route ReceiveTick through ProcessEvent for NATIVE actor classes
+  (ASkeletalMeshActor) -- advisor's "always routes" doesn't hold here. The fallback (TribePawnBP_C's Blueprint
+  ReceiveTick, matched by name) drives follow at ~70 fps (dt ~0.014). Pawn ticks PrePhysics -> <=1 frame lag, invisible.
+- Rest pose: 54 bones, LFoot=(3,11.5,-90) LToe=(-9.5,12,-95.2) -> model forward 180 deg (exactly the advisor's
+  glTF-Default prediction), toeZ=-95.2 -> actor z = floor+95 = feet on the floor.
+- Follow math verified from logs: hmd=(-10,85,108) yaw -86 -> actor=(-11,95,95) (10 cm behind along yaw);
+  actor yaw = body - 180. WasRecentlyRendered=1 at the user's position.
+- VISUAL (claudedocs/skullbuck_selfie_cam_following.jpg): Tribe Visuals -> Camera -> Selfie shows skullbuck standing
+  behind the DJ decks, facing the selfie cam, textured, human-scale. Rest A-pose (no articulation yet).
+Open: user was seated (eye 1.1 m) while the model stands at full height -> camera inside the chest in first person.
+Next phase: articulation (Meta OculusXRBodyTrackingComponent retarget, or PoseableMesh + IK), hands vs Tribe's hands,
+seated/crouch (pelvis drop), and wire the skin-cycle to swap the actor's mesh.
