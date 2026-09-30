@@ -20,6 +20,7 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <dirent.h>
+#include <time.h>
 #include <cstdarg>
 #include "vendor/And64InlineHook.hpp"
 static inline pid_t my_tid(){ return (pid_t)syscall(SYS_gettid); }
@@ -828,6 +829,11 @@ static void* httpd_thread(void*){
 static const uintptr_t RVA_PE_GHIDRA = 0x1857dd4; static const uintptr_t PE_SKEW = 0x1000;
 typedef void(*pe_t)(void*,void*,void*); static pe_t orig_pe=0; static void* g_pe_addr=0;
 static volatile sig_atomic_t g_load_req=0, g_in_load=0; static bool g_resolved=0;
+// skin-cycle-on-menu-select: when Tribe re-applies the RPM skin (ApplySkinToPlayer), advance to the next skin.
+static uintptr_t g_apply_fn=0; static volatile sig_atomic_t g_loaded_once=0; static long g_last_cycle=0;
+// diagnostic (flag tribemod/log_pe): log each UNIQUE ProcessEvent func whose name looks avatar/skin/menu-ish,
+// so an in-headset avatar-select reveals which event actually goes through ProcessEvent (the real cycle trigger).
+static volatile sig_atomic_t g_log_pe=0; static uintptr_t g_seen[1024]; static int g_nseen=0;
 
 struct FStr { uint16_t* data; int32_t num; int32_t max; };
 static uint16_t g_fpath[600];
@@ -844,6 +850,7 @@ static void ensure_resolved(){
     char t[32]; fname_resolve(0,t,sizeof t);
     load_status("resolved: np=0x%lx ga=0x%lx NumElem=%u None='%s'",(unsigned long)(g_namepool-g_base),(unsigned long)(g_objarray-g_base),g_numElements,t);
     g_resolved=(g_numElements>1000);
+    if(g_resolved) g_apply_fn=find_by_path("/Game/Visuals/BP_TribeVisualsManager.BP_TribeVisualsManager_C.ApplySkinToPlayer",0);
 }
 static void call_uf(uintptr_t obj,uintptr_t fn,void* parms){ if(orig_pe&&obj&&fn) orig_pe((void*)obj,(void*)fn,parms); }
 // find a live (non-CDO) object by name + class-name whose full path contains 'inpath'
@@ -860,6 +867,31 @@ static uintptr_t find_live(const char* name,const char* cls,const char* inpath){
         if(inpath && !strstr(fp,inpath)) continue;
         return o; }
     return 0;
+}
+static bool is_rpm_skin(uintptr_t skin){ if(!skin||!in_range(skin,0x30)) return false;
+    char cn[96]; class_name(skin,cn,sizeof cn); return strcmp(cn,"BP_ReadyPlayerMeAvatarSkin_C")==0; }
+static void pe_log_func(uintptr_t func){
+    if(!func||!in_range(func,0x30)) return;
+    for(int i=0;i<g_nseen;i++) if(g_seen[i]==func) return;      // log each unique func once
+    if(g_nseen<1024) g_seen[g_nseen++]=func;
+    char nm[96]; obj_name(func,nm,sizeof nm);
+    if(strstr(nm,"Skin")||strstr(nm,"Avatar")||strstr(nm,"Apply")||strstr(nm,"Select")||strstr(nm,"RPM")||strstr(nm,"Clicked")||strstr(nm,"Button")){
+        char fp[400]; full_path(func,fp,sizeof fp); char p[600]; snprintf(p,sizeof p,"%s/pe_funcs.txt",OUTDIR);
+        FILE* f=fopen(p,"a"); if(f){ fprintf(f,"%s\n",fp); fclose(f); } }
+}
+// advance active_skin.txt to the next *.glb in tribemod/skins/ (sorted, wrapping). Writes the new name.
+static void advance_skin(){
+    char dir[600]; snprintf(dir,sizeof dir,"%s/skins",OUTDIR);
+    static char names[32][128]; int n=0; DIR* d=opendir(dir); if(!d){ load_status("skins/ not found"); return; }
+    struct dirent* e; while((e=readdir(d)) && n<32){ const char* nm=e->d_name; size_t L=strlen(nm);
+        if(L>4 && (strcmp(nm+L-4,".glb")==0||strcmp(nm+L-4,".GLB")==0)){ strncpy(names[n],nm,127); names[n][127]=0; n++; } }
+    closedir(d); if(n==0){ load_status("no skins in skins/"); return; }
+    for(int i=0;i<n;i++) for(int j=i+1;j<n;j++) if(strcmp(names[i],names[j])>0){ char t[128]; strcpy(t,names[i]); strcpy(names[i],names[j]); strcpy(names[j],t); }
+    char cur[128]=""; read_trim_file("active_skin.txt",cur,sizeof cur);
+    int idx=0; for(int i=0;i<n;i++) if(strcmp(names[i],cur)==0){ idx=i; break; }
+    int nxt=(idx+1)%n; char p[600]; snprintf(p,sizeof p,"%s/active_skin.txt",OUTDIR);
+    int fd=open(p,O_WRONLY|O_CREAT|O_TRUNC,0644); if(fd>=0){ write(fd,names[nxt],strlen(names[nxt])); close(fd); }
+    load_status("skin cycle: '%s' -> '%s' (%d skins)",cur,names[nxt],n);
 }
 static void decode_errors(uintptr_t asset,uintptr_t fnErr){
     if(!asset||!fnErr) return; static uint8_t ep[0x10]; memset(ep,0,sizeof ep); call_uf(asset,fnErr,ep);
@@ -929,6 +961,7 @@ static void do_load(){
     call_bool2(body,fnOwner,0,0);  load_status("SetOwnerNoSee(false) fn=0x%lx",(unsigned long)fnOwner);
     call_bool2(body,fnVis,1,1);    load_status("SetVisibility(true,true) fn=0x%lx",(unsigned long)fnVis);
     call_bool2(body,fnHid,0,1);    load_status("SetHiddenInGame(false,true) fn=0x%lx",(unsigned long)fnHid);
+    g_loaded_once=1;                                             // enable the menu-select skin-cycle trigger
     load_status("=== do_load done (materials on, visible) ===");
 }
 static void run_load_guarded(){
@@ -938,6 +971,13 @@ static void run_load_guarded(){
     g_guard=0; sigaction(SIGSEGV,&os,0); sigaction(SIGBUS,&ob,0);
 }
 extern "C" void repl_pe(void* self,void* func,void* parms){
+    if(g_log_pe && g_resolved) pe_log_func((uintptr_t)func);     // diagnostic: capture avatar/skin/menu events
+    // skin-cycle: after the first load, when Tribe (re)applies the RPM skin from the avatar menu, advance
+    // to the next skin + arm a reload. Debounced 2s so init-time / repeated applies don't spin the cycle.
+    if(g_loaded_once && !g_in_load && g_apply_fn && func==(void*)g_apply_fn && parms){
+        long now=(long)time(0);
+        if(now-g_last_cycle>=2){ uintptr_t skin=*(uintptr_t*)parms;
+            if(is_rpm_skin(skin)){ g_last_cycle=now; advance_skin(); g_load_req=1; } } }
     if(g_load_req && !g_in_load){ g_in_load=1; g_load_req=0; run_load_guarded(); g_in_load=0; }
     orig_pe(self,func,parms);
 }
@@ -948,7 +988,8 @@ static void* dump_thread(void*){
     char cmd[600]; snprintf(cmd,sizeof cmd,"%s/dump_now",OUTDIR);
     char lcmd[600]; snprintf(lcmd,sizeof lcmd,"%s/load_avatar",OUTDIR);
     bool auto_done=false; int tick=0;
-    for(;;){ int fd=open(cmd,O_RDONLY); if(fd>=0){ close(fd); unlink(cmd); LOGI("dump_now seen; dumping...");
+    for(;;){ g_log_pe = file_present("log_pe")?1:0;               // toggle the ProcessEvent diagnostic
+        int fd=open(cmd,O_RDONLY); if(fd>=0){ close(fd); unlink(cmd); LOGI("dump_now seen; dumping...");
         install_guard(); do_dump(); remove_guard(); }
         // manual load_avatar trigger: resolve globals here (heavy scan, off the game thread), then arm the PE-drain.
         int lf=open(lcmd,O_RDONLY); if(lf>=0){ close(lf); unlink(lcmd); LOGI("load_avatar seen; arming executor...");

@@ -167,3 +167,44 @@
 09-30 06:52:57.369 21459 21515 I TRIBEMOD: [LOAD] SetVisibility(true,true) fn=0x7b6eeaac00
 09-30 06:52:57.369 21459 21515 I TRIBEMOD: [LOAD] SetHiddenInGame(false,true) fn=0x7b6eea75c0
 09-30 06:52:57.369 21459 21515 I TRIBEMOD: [LOAD] === do_load done (materials on, visible) ===
+09-30 07:17:37.841 24432 24432 I TRIBEMOD: dumper libhook constructor
+09-30 07:17:37.843 24432 24432 I TRIBEMOD: [INI] cache: already staged /sdcard/Android/data/com.TribeXR.TribeXR/files/Documents/rpmavatar-custom.glb
+09-30 07:17:37.844 24432 24432 I TRIBEMOD: [INI] ReadyPlayerMeAvatarUrl: no change (set)
+09-30 07:17:37.844 24432 24432 I TRIBEMOD: [INI] ReadyPlayerMeETag: no change (absent)
+09-30 07:17:37.844 24432 24432 I TRIBEMOD: [INI] summary: url="http://127.0.0.1:8000/custom.glb" etag=(none)
+09-30 07:17:37.848 24432 24432 I TRIBEMOD: dumper thread spawned (base=0x7bf7634000)
+09-30 07:17:37.848 24432 24469 I TRIBEMOD: dumper thread up; base=0x7bf7634000; poll /sdcard/Android/data/com.TribeXR.TribeXR/files/tribemod/dump_now
+09-30 07:17:37.848 24432 24432 I TRIBEMOD: httpd thread spawned (127.0.0.1:8787)
+09-30 07:17:37.853 24432 24432 I TRIBEMOD: ProcessEvent hook installed @0x7bf8e8cdd4 (orig=0x7c0aa98000)
+09-30 07:17:37.882 24432 24470 I TRIBEMOD: [HTTPD] asset loaded 4732412 bytes ETag=BB01368FC663411E5AD676EE268AAC4E
+09-30 07:17:37.882 24432 24470 I TRIBEMOD: [HTTPD] listening on 127.0.0.1:8787 (glb=4732412 ETag=BB01368FC663411E5AD676EE268AAC4E)
+09-30 07:17:39.856 24432 24469 I TRIBEMOD: [LOAD] resolved: np=0x7c632c0 ga=0x7cbbdd0 NumElem=27090 None='None'
+09-30 07:20:52.308 25668 25668 I TRIBEMOD: dumper libhook constructor
+09-30 07:20:52.310 25668 25668 I TRIBEMOD: [INI] cache: already staged /sdcard/Android/data/com.TribeXR.TribeXR/files/Documents/rpmavatar-custom.glb
+09-30 07:20:52.310 25668 25668 I TRIBEMOD: [INI] ReadyPlayerMeAvatarUrl: no change (set)
+09-30 07:20:52.310 25668 25668 I TRIBEMOD: [INI] ReadyPlayerMeETag: no change (absent)
+09-30 07:20:52.310 25668 25668 I TRIBEMOD: [INI] summary: url="http://127.0.0.1:8000/custom.glb" etag=(none)
+09-30 07:20:52.313 25668 25668 I TRIBEMOD: dumper thread spawned (base=0x7c0361c000)
+09-30 07:20:52.313 25668 25668 I TRIBEMOD: httpd thread spawned (127.0.0.1:8787)
+09-30 07:20:52.317 25668 25668 I TRIBEMOD: ProcessEvent hook installed @0x7c04e74dd4 (orig=0x7c0fb6f000)
+09-30 07:20:52.318 25668 25707 I TRIBEMOD: dumper thread up; base=0x7c0361c000; poll /sdcard/Android/data/com.TribeXR.TribeXR/files/tribemod/dump_now
+09-30 07:20:52.362 25668 25708 I TRIBEMOD: [HTTPD] asset loaded 4732412 bytes ETag=BB01368FC663411E5AD676EE268AAC4E
+09-30 07:20:52.362 25668 25708 I TRIBEMOD: [HTTPD] listening on 127.0.0.1:8787 (glb=4732412 ETag=BB01368FC663411E5AD676EE268AAC4E)
+09-30 07:20:53.826 25668 25707 I TRIBEMOD: [LOAD] resolved: np=0x7c632c0 ga=0x7cbbdd0 NumElem=23162 None='None'
+09-30 07:20:58.639 25668 25707 I TRIBEMOD: [LOAD] auto-load: pawn ready (body=0x7b6c269070 numel=62987) -> armed
+09-30 07:20:58.639 25668 25715 I TRIBEMOD: [LOAD] === do_load (game tid=25715) ===
+09-30 07:21:00.617 25668 25715 I TRIBEMOD: [LOAD] fnLoad=0x7b5eaf5e20 fnMesh=0x7b5eaf4d80 fnErr=0x7b5eaf06a0 fnSet=0x7b5e82a260 libCDO=0x7b724b70c0 body=0x7b6c269070
+09-30 07:21:00.649 25668 25715 I TRIBEMOD: [LOAD] asset=0x7b1ac3b060 (path=/sdcard/Android/data/com.TribeXR.TribeXR/files/tribemod/skins/default.glb)
+09-30 07:21:00.870 25668 25715 I TRIBEMOD: [LOAD] mesh(materials)=0x7b1a9c5770
+09-30 07:21:01.093 25668 25715 I TRIBEMOD: [LOAD] M_glTFRuntimeBase resident=YES
+09-30 07:21:01.093 25668 25715 I TRIBEMOD: [LOAD] SetSkeletalMeshAsset -> body=0x7b6c269070 DONE
+09-30 07:21:01.349 25668 25715 I TRIBEMOD: [LOAD] SetOwnerNoSee(false) fn=0x7b6c781ac0
+09-30 07:21:01.349 25668 25715 I TRIBEMOD: [LOAD] SetVisibility(true,true) fn=0x7b7236a960
+09-30 07:21:01.349 25668 25715 I TRIBEMOD: [LOAD] SetHiddenInGame(false,true) fn=0x7b7236ace0
+09-30 07:21:01.349 25668 25715 I TRIBEMOD: [LOAD] === do_load done (materials on, visible) ===
+logcat: Unexpected EOF!
+
+This means that either the device shut down, logd crashed, or this instance of logcat was unable to read log
+messages as quickly as they were being produced.
+
+If you have enabled significant logging, look into using the -G option to increase log buffer sizes.
