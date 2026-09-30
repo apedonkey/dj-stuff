@@ -3761,3 +3761,40 @@ Blocked on device: Meta "unofficial app" reprojected VR dialog (com.oculus.vrshe
 .UnOfficialAppDialogActivity) gates the app launch; adb keyevents don't dismiss it (needs an in-headset click).
 adb CAN wake the headset + simulate proximity (am broadcast com.oculus.vrpowermanager.prox_close) + am start,
 but not click the dialog. So a human tap on "Open" is required once per relaunch.
+
+## Session 3c — CALIBRATED + all executor layouts captured (dialog tap works!)
+
+Headset unblock: the "unofficial app" gate is com.oculus.vrshell/.systemdialog.launchcheck.UnOfficialAppDialogActivity,
+a real 480x750 2D window -> `adb shell input tap` REACHES it. Buttons (uiautomator): primary "Restore"
+[40,434][440,489] = restores to store version (NEVER tap); secondary "Close" [40,499][440,554] center (240,526).
+There is also a separate "Open" prompt on entry (user-reported). adb CAN tap these now.
+
+CALIBRATION (calib.txt, base=0x7bf7240000): uniform skew runtime = base + Ghidra_rva + 0x1000 for code.
+Confirmed by prologue (fd7bXXa9 / ffXXXXd1) appearing only at +0x1000 for dispatcher/choke/ProcessEvent/CallFunction.
+=> ProcessEvent runtime = base+0x1857dd4+0x1000 = base+0x1858dd4 (== vtable slot 78; double-confirmed).
+Executor needs ONLY ProcessEvent as a raw address; all glTF calls go through it by reflection.
+
+Executor param layouts (from sdk_gltf.txt; call via ProcessEvent(obj,fn,&parms)):
+- glTFLoadAssetFromFilename (Default__glTFRuntimeFunctionLibrary; native): ParmsSize 0x218 -- Filename FString@0x00,
+  bPathRelativeToContent bool@0x10, LoaderConfig struct@0x20 (0x1f0), ReturnValue UglTFRuntimeAsset*@0x210.
+- glTFRuntimeAsset.LoadSkeletalMesh (on asset; native): ParmsSize 0x758 -- MeshIndex int@0x00, SkinIndex int@0x04,
+  SkeletalMeshConfig struct@0x08 (0x748), ReturnValue USkeletalMesh*@0x750.  Load by index (0,0) sidesteps root-node name.
+- glTFRuntimeAsset.GetErrors (on asset; native): ParmsSize 0x10 -- TArray<FString> ReturnValue@0x00.
+- SkeletalMeshComponent.SetSkeletalMeshAsset (on AvatarBodyMesh; native): ParmsSize 0x8 -- NewMesh obj@0x00.
+
+Config structs (offsets WITHIN the struct): 
+- glTFRuntimeConfig (0x1f0): TransformBaseType Enum@0x00, SceneScale float@0x150 (default 1.0 -> MUST set, zero=invisible).
+- glTFRuntimeSkeletalMeshConfig (0x748): Skeleton obj@0x08 (null=auto-build), OverrideSkinIndex int@0x2c (default -1),
+  SkeletonConfig struct@0x30, MaterialsConfig struct@0x240, BoundsScale FVector@0x640 (default (1,1,1) -> MUST set),
+  bIgnoreEmptyMorphTargets bool@0x6ca (default true).
+- glTFRuntimeMaterialsConfig (0x3b0): bSkipLoad bool@0x220 (set true for v1 gray-mesh test).
+  => within LoadSkeletalMesh parms: SkeletalMeshConfig base = parm+0x08; bSkipLoad at parm+0x08+0x240+0x220 = +0x468;
+     BoundsScale at parm+0x648 (3 doubles =1.0); OverrideSkinIndex at parm+0x34 = -1; Skeleton at parm+0x10 = 0.
+
+Component: ReadyPlayerMeComponent.AvatarMeshComponent ObjectProperty@0x260 -> the AvatarBodyMesh SkeletalMeshComponent
+(live path DJRoomMap...TribePawnBP_C.TribeAvatar.ReadyPlayerMeComponent.AvatarBodyMesh). Also RightHand/LeftHandMeshComponent@0x268/0x270.
+
+Graft (advisor): after SetSkeletalMeshAsset, run Tribe's InitMyRPMAvatarSkin + ApplySkinToPlayer (BP_TribeVisualsManager_C
+singleton) for materials/IK/visibility -- but v1 minimal may just be SetSkeletalMeshAsset on the already-active skin's
+AvatarBodyMesh (mesh appears gray via bSkipLoad). Materials pass 2. Selfie-cam (pass 2): bOwnerNoSee/bVisibleInSceneCaptureOnly
+via Tribe's SetAvatarThirdPersonVisible/SetAvatarSceneCaptureHidden.
