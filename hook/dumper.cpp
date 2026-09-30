@@ -292,7 +292,19 @@ static void dump_ufunction(FILE* fo,const char* fnPath){
     fprintf(fo,"  FunctionFlags=0x%08x NumParms=%u ParmsSize=0x%x native=%s Func=0x%lx Func_rva=0x%lx (ghidra=0x%lx)\n",
         ff,nparm,psz,(ff&0x400)?"YES":"no",(unsigned long)func,
         (unsigned long)(func?func-g_base:0),(unsigned long)(func?func-g_base+0x100000:0));
-    if(scriptData && scriptNum){ uint32_t cap=scriptNum<0x400?scriptNum:0x400; hexdump_to(fo,"  Script bytecode[0..cap]",scriptData,cap); }
+    if(scriptData && scriptNum){ uint32_t cap=scriptNum<0x600?scriptNum:0x600; hexdump_to(fo,"  Script bytecode[0..cap]",scriptData,cap);
+        // annotate every embedded pointer that resolves to an FField (property) or UObject (fn/const)
+        fprintf(fo,"  --- bytecode pointer refs (property/function/object) ---\n");
+        for(uint32_t k=0;k+8<=scriptNum && k<0x600;k++){ uintptr_t p; if(!sr(scriptData+k,&p,8)) continue;
+            if(p<0x10000||!in_range(p,0x30)) continue;
+            uintptr_t fc=rdptr(p+FF_Class); char ty[64]={0};
+            if(fc&&in_range(fc,8)){ fname_resolve(rd32(fc),ty,sizeof ty);
+                if(strstr(ty,"Property")){ char nm[96]; fname_resolve(rd32(p+FF_Name),nm,sizeof nm);
+                    if(nm[0]&&nm[0]!='?'){ fprintf(fo,"    @%3u  FField  %-22s %s\n",k,ty,nm); k+=7; continue; } } }
+            uint32_t idx=rd32(p+OFF_Index); uintptr_t cls=rdptr(p+OFF_Class);
+            if(idx<g_numElements && cls && in_range(cls,0x20)){ char cn[96],on[96]; obj_name(cls,cn,sizeof cn); obj_name(p,on,sizeof on);
+                if(cn[0]&&cn[0]!='?'&&on[0]&&on[0]!='?'){ fprintf(fo,"    @%3u  UObj    %-22s %s\n",k,cn,on); k+=7; } } }
+    }
 }
 
 // ---- read-only ini probe: find & copy the game's *.ini (config lives in the internal files dir) ----
@@ -446,10 +458,12 @@ static void do_dump(){
       for(int s=0;s<96 && vt;s++){ uintptr_t sl=rdptr(vt+(uintptr_t)s*8);
         fprintf(fs,"  vt[%02d] rva=0x%08lx ghidra=0x%08lx\n",s,(unsigned long)(sl?sl-g_base:0),(unsigned long)(sl?sl-g_base+0x100000:0)); }
 
-      // full property layouts (AvatarId neighbors, cached RPM url/skin map)
+      // full property layouts (AvatarId neighbors, cached RPM url/skin map, skin visibility fields)
       dump_props(fs,"/Game/GameModes/TribeGameInstanceBP.TribeGameInstanceBP_C");
       dump_props(fs,"/Game/Visuals/BP_TribeVisualsManager.BP_TribeVisualsManager_C");
       dump_props(fs,"/Game/Pawn/TribePawnBP.TribePawnBP_C");
+      dump_props(fs,"/Game/Visuals/Skins/OculusAvatar/BP_ReadyPlayerMeAvatarSkin.BP_ReadyPlayerMeAvatarSkin_C");
+      dump_props(fs,"/Game/Visuals/Skins/OculusAvatar/BP_OculusAvatarSkin.BP_OculusAvatarSkin_C");
 
       // the five RPM-pipeline UFunctions (params/offsets/types, Script.Num, raw layout, bytecode)
       const char* fns[]={
@@ -462,7 +476,11 @@ static void do_dump(){
         "/Script/TribeXR.TribeBlueprintLibrary.ReadConfigString",
         "/Script/TribeXR.TribeBlueprintLibrary.WriteConfigString",
         "/Script/TribeXR.TribeBlueprintLibrary.ForceSaveConfig",
-        "/Script/TribeXR.TribeBlueprintLibrary.IsValidReadyPlayerMeAvatarUrl" };
+        "/Script/TribeXR.TribeBlueprintLibrary.IsValidReadyPlayerMeAvatarUrl",
+        // selfie-cam / third-person visibility mechanism (why the local RPM avatar is invisible in the selfie)
+        "/Game/Pawn/TribePawnBP.TribePawnBP_C.SetAvatarSceneCaptureHidden",
+        "/Game/Pawn/TribePawnBP.TribePawnBP_C.SetAvatarThirdPersonVisible",
+        "/Game/Visuals/BP_TribeVisualsManager.BP_TribeVisualsManager_C.FinishSkinsSetup" };
       for(auto fp:fns) dump_ufunction(fs,fp);
       fclose(fs);
     }
@@ -495,6 +513,22 @@ static const char* INI_PATH =
   "/data/data/com.TribeXR.TribeXR/files/UnrealGame/TribeXR/TribeXR/Saved/Config/Android/GameUserSettings.ini";
 static void ini_status(const char* msg){ char p[600]; snprintf(p,sizeof p,"%s/ini_upsert.log",OUTDIR);
     FILE* f=fopen(p,"a"); if(f){ fprintf(f,"%s\n",msg); fclose(f);} LOGI("[INI] %s",msg); }
+// Stage the avatar into the loader's cache slot so the spawn-time read is a cache HIT (local glTF load,
+// no HTTP). Cache path (from Ghidra FUN_0514ec88 + FUN_050f584c): <ext files>/Documents/rpmavatar-<clean>.
+// Only the app UID can write Documents/ (drwxr-s---), so this must run in the constructor. Copies from
+// tribemod/custom.glb (shell-pushed). basename(url) => the clean filename the game builds.
+static void stage_cache(const char* url){
+    const char* base=strrchr(url,'/'); base=base?base+1:url; if(!*base) return;
+    char src[700]; snprintf(src,sizeof src,"%s/custom.glb",OUTDIR);
+    char dstdir[600]; snprintf(dstdir,sizeof dstdir,"/sdcard/Android/data/com.TribeXR.TribeXR/files/Documents"); mkdir(dstdir,0770);
+    char dst[800]; snprintf(dst,sizeof dst,"%s/rpmavatar-%s",dstdir,base);
+    struct stat ss,ds; if(stat(src,&ss)!=0){ ini_status("cache: tribemod/custom.glb missing; skip"); return; }
+    if(stat(dst,&ds)==0 && ds.st_size==ss.st_size){ char m[900]; snprintf(m,sizeof m,"cache: already staged %s",dst); ini_status(m); return; }
+    int in=open(src,O_RDONLY); if(in<0){ ini_status("cache: src open fail"); return; }
+    int out=open(dst,O_WRONLY|O_CREAT|O_TRUNC,0644); if(out<0){ close(in); ini_status("cache: dst open fail (Documents perms?)"); return; }
+    char b[65536]; ssize_t n; long tot=0; bool ok=true; while((n=read(in,b,sizeof b))>0){ if(write(out,b,n)!=n){ ok=false; break; } tot+=n; }
+    close(in); close(out); char m[900]; snprintf(m,sizeof m,"cache %s: %s (%ld bytes)",ok?"staged":"PARTIAL",dst,tot); ini_status(m);
+}
 static void ini_upsert(){
     const char* KEY="ReadyPlayerMeAvatarUrl"; const char* SEC="[TribeAvatar]";
     int kl=(int)strlen(KEY), sl=(int)strlen(SEC);
@@ -506,6 +540,7 @@ static void ini_upsert(){
           while(e>s&&(t[e-1]==' '||t[e-1]=='\t'||t[e-1]=='\r'||t[e-1]=='\n'))e--;
           if(e>s){ int L=e-s; if(L>1023)L=1023; memcpy(url,t+s,L); url[L]=0; have=true; } } } }
     if(have && (url[0]=='+'||url[0]=='-'||url[0]=='.'||url[0]=='!')){ ini_status("WARN: url starts with ini operator char; treating as unset"); have=false; }
+    if(have) stage_cache(url);         // put the .glb in the loader's cache slot => cache HIT, local load, no HTTP
     // 2) read ini
     static char buf[65536]; int n=0;
     { int fd=open(INI_PATH,O_RDONLY); if(fd<0){ ini_status("ini not readable (UE creates at PreInit); skip"); return; }

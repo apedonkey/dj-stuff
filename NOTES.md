@@ -3484,3 +3484,35 @@ Open: "invisible in selfie cam" — likely local avatar OwnerNoSee + the selfie 
 
 STOP — pipeline proven with a known-good half-body rig. Next: user supplies their real RPM .glb (full-body
 if arms/legs wanted); drop as tribemod/custom.glb (same name -> no ini change); relaunch.
+
+## Session 3b rendering investigation — mesh does NOT build; RPM service is DEAD
+
+Config injection is fully proven (avatar selectable; downloads over HTTP). But the RPM avatar renders
+nothing (only Tribe's own SK_TribeAvatarHand hand-tracking meshes show; body invisible). Findings:
+
+- Native renderer = /Script/TribeXR.ReadyPlayerMeComponent (AvatarBodyMesh + AvatarLeftHand/RightHand
+  SkeletalMeshComponents), a sibling of MetaAvatar2Component under TribeAvatarComponent on the pawn.
+  Live instance confirmed: DJRoomMap.PersistentLevel.TribePawnBP_C.TribeAvatar.ReadyPlayerMeComponent.
+- Cache dir (Ghidra FUN_0514ec88) = <ext files>/Documents/ ; cache file = Documents/rpmavatar-<clean>.
+  Constructor now stages it (app UID; Documents is drwxr-s---, shell can't write). Staging succeeded.
+- Load gate FUN_050f584c returns the cached ETag only if URL present AND ETag present in config AND cache
+  file exists; without ETag it reports cache-miss -> download.
+- HTTP path WORKS: served custom.glb over `adb reverse tcp:8000` (USB); server log shows GET /custom.glb 200
+  (full 4.7MB). So the download step succeeds with an http://127.0.0.1:8000 URL.
+- BUT after both cache-present AND http-download: NO glTFRuntimeAsset instance (only the CDO), NO runtime
+  USkeletalMesh created (all SkeletalMesh instances are packaged assets). So glTFRuntime builds NO mesh from
+  DefaultAvatar.glb regardless of how the bytes arrive. AvatarBodyMesh has no mesh -> invisible body.
+- Shipping build suppresses UE_LOG: no glTFRuntime/avatar error surfaces in logcat.
+- **ReadyPlayerMe service is GONE**: models.readyplayer.me = NXDOMAIN (readyplayer.me root unreachable;
+  google.com 200). So no real RPM .glb is obtainable; DefaultAvatar.glb (Wolf3D half-body, Tribe's own
+  replay avatar) is the best-possible RPM-format test file — yet the RPM glTFRuntime path won't build it.
+
+Interpretation: the RPM avatar path is likely defunct/bit-rotted post-RPM-shutdown (Tribe removed the RPM
+creator UI; the backend glTFRuntime load no longer completes). Meta avatars render via a SEPARATE path
+(MetaAvatar2 / libovravatar2.so), and DefaultAvatar.glb renders via the REPLAY system — neither is glTFRuntime.
+
+Kill switch unchanged: adb rm tribemod/avatar_url.txt + relaunch -> constructor deletes the key -> Meta avatar.
+
+STOP — config-injection mod works + RPM load pipeline downloads, but glTFRuntime builds no mesh (RPM path
+appears defunct; RPM servers dead). Decision needed: (a) deep-RE the glTFRuntime load call to find the
+build failure, or (b) pivot to a known-working render path (Meta SDK / replay), or (c) accept selection-only.
