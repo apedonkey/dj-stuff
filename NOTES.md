@@ -3980,3 +3980,46 @@ Advisor route A, in his order: manifest -> ini -> permission -> start -> verify.
 Next (A2, advisor Q4): PoseableMesh retarget -- calibration pose (user roughly in the avatar's A-pose) captures C_j and
 R_b; per frame bone world rot = (M_j * C_j^-1) * R_b; rotations + hips position only; wrists pinned (two-bone IK,
 Meta elbow as pole); keep Tribe's tracked hands. Tracking -> world via the VROrigin transform (verify: Head vs Camera).
+
+## Session 3c — *** ROUTE A2: skullbuck ARTICULATED by Meta body tracking *** (user: "its moving with me! thats awesome!")
+
+Advisor A2 plan (T-pose offsets, head from HMD, attach to the Camera's parent), with two corrections of mine:
+- R_align: O_b = M_j(T)^-1 * R_z(you - avatar facing) * A_b(T). The advisor's O_b = M_j(T)^-1 * A_b(T) silently assumes
+  you face the avatar's own forward (-X) during capture; any other facing bakes a constant twist into every bone.
+- Head offset needs no capture: O_head = R_z(-avatarFacing) * restHeadCS; per frame Head = CameraRelRot * O_head.
+- skullbuck's material is doubleSided (read from the .glb) -> a camera inside its head would see the skull's inner
+  faces. So TWO PoseableMeshComponents: A = full body, bOwnerNoSee (selfie cam/others); B = HideBoneByName(Head),
+  bOnlyOwnerSee (you, looking down). Our actor SetOwner(pawn) so the owner flags apply. Model hands hidden on both.
+How it runs (hook/dumper.cpp "Route A2"):
+- Per frame from the pawn's ReceiveTick: TryGetBodyState (same pre-sized Joints storage) -> 22 bones mapped by name
+  (Hips<-BodyHips(1), Spine<-SpineMiddle(3), Spine1<-SpineUpper(4), Spine2<-Chest(5), Neck(6), Head(7)->HMD,
+  Shoulder<-BodyShoulder(8/13), Arm<-ArmUpper(10/15), ForeArm<-ArmLower(11/16), Hand<-HandWrist(19/45),
+  UpLeg<-UpperLeg(70/77), Leg<-LowerLeg(71/78), Foot<-FootAnkle(73/80), ToeBase<-FootBall(76/83)).
+  A_b = M_j * O_b in component space; hips translation = Meta hips / s; neck takes half the HMD-vs-Meta head seam;
+  two-bone IK pins the wrists to Meta's wrist joints (Meta elbow = pole); own FK (ref pose via GetRefPoseTransform +
+  GetParentBone) -> SetBoneTransformByName(ComponentSpace) parent-first on both meshes (44 PE calls/frame).
+- Meshes: Actor.AddComponentByClass(PoseableMeshComponent) -> SetSkinnedAssetAndUpdate -> K2_AttachToComponent(Camera's
+  GetAttachParent = VROrigin, SnapToTarget) -> SetRelativeScale3D(s) -> NoCollision, no shadow, SetTickGroup(PostUpdateWork).
+- Calibration saved per rig: tribemod/skins/<skin>.bt.txt (offset quats + scale); touch tribemod/bt_recalibrate to redo.
+  Crash-loop guard: tribemod/a2_inflight exists from go-live until 120 good frames; a launch that finds it skips A2.
+Verified on device:
+- Resolve: all 16 UFunctions + PoseableMeshComponent class; SceneComponent RelativeLocation@0x128 RelativeRotation@0x140;
+  EAttachmentRule SnapToTarget=2 KeepRelative=0; EBoneSpaces ComponentSpace=1; WorldSettings.WorldToMeters=100.
+  SetBoneTransformByName psz 0x71: BoneName@0 InTransform@16 BoneSpace@112.
+- Rest: 54 bones (root Hips), 22/22 mapped, avatar faces 180 deg, eyes 162.1 cm above soles. A-pose arm elevation
+  L -70/-65/-62 deg -> constructed T-pose 0.0/0.0/0.0 (swing construction exact).
+- Advisor Q2: 150/150 frames had a new sample -> the runtime predicts joints every frame; no smoothing needed.
+- rot2q (FRotator -> FQuat) verified offline as the exact inverse of UE's FQuat::Rotator (20000 random, err 1e-14).
+- Calibration: user first held an A-pose (tilt -65..-73 deg, knees L22-31) which the T-pose detector rejected; then a
+  T-pose -> "CALIBRATED: you face -48 deg, avatar 180 deg; scale 1.006 (eyes 163 / 162 cm)". Meshes A+B attached to
+  VROrigin; 120 frames OK (guard cleared); dt 10-16 ms (unchanged).
+- Advisor's frame check: eyes vs Meta head joint in the HMD frame = fwd +5..8, right ~0, up +7..10 cm -> tracking
+  space == VROrigin space (no UE base offset). Wrist IK corrects 5-25 cm per frame. WasRecentlyRendered A=1, B=1 when
+  looking down.
+Not yet verified by eye: that A is hidden from the user's own view (head not blocking), selfie-cam look, foot contact.
+SOURCE vs DEPLOYED: the deployed build uses the T-pose detector above. The source now also has the A-or-T
+"measured-pose" calibration (the avatar's arm/leg segments are swung onto YOUR measured segment directions before the
+offsets are taken, so any still straight-armed pose works; knee limit 40, stillness < 12 cm/s, manual trigger
+tribemod/bt_calibrate_now). Compiled (144,368 B) but NOT yet run on device.
+Next: deploy + verify the measured-pose build; skin cycle must rebuild rest skeleton/meshes + load that skin's
+calibration; remove the obsolete Tribe-slot keeper/blocker; foot planting; first-person/selfie visual check.

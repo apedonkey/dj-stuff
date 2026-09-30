@@ -81,11 +81,26 @@ If the avatar doesn't appear at all, the mesh probably isn't skinned to the arma
 
 ---
 
+## Moving with you (body tracking)
+
+The mod drives the avatar with the Quest 3's own full-body tracking (Meta Movement SDK): arms, spine, legs and head
+follow you. Tribe's tracked hands replace the model's hands (the model's hand bones are hidden).
+
+For a new skin to animate, its armature needs these bone names (the RPM/Mixamo names above):
+`Hips, Spine, Spine1, Spine2, Neck, Head, LeftShoulder, LeftArm, LeftForeArm, LeftHand, LeftHandMiddle1,
+LeftUpLeg, LeftLeg, LeftFoot, LeftToeBase` plus the `Right…` mirrors. `LeftEye`/`RightEye` are optional; with them the
+mod matches the avatar's eye height to yours. A missing bone just doesn't animate.
+
+**One-time calibration per skin:** the first time a skin is used, stand still with your arms straight out (T-pose)
+for about a second. The result is saved as `tribemod/skins/<skin>.glb.bt.txt`, and after that it's automatic. To redo
+it, delete that file (or create `tribemod/bt_recalibrate`).
+
+Two copies of the body are drawn: the full one (with head) for the selfie cam and others, and a headless one that only
+you see, so the avatar's head never blocks your view.
+
 ## Current limitations (honest)
 
-- **Appearance works now; articulation doesn't yet.** The body loads and shows your look, but it sits in its
-  bind pose — it follows your position but arms/torso don't bend with you. Tribe's own **hand meshes still
-  track** separately, so your hands move. Making the *body* move with you (IK/animation) means binding the
-  mesh to Tribe's avatar skeleton instead of an auto-built one — a planned follow-up.
-- **Legs:** a full-body export **shows** legs. Legs that move (IK) are part of that same articulation follow-up.
+- **Feet aren't planted:** legs follow the tracking, so feet can float or sink a few cm.
+- **Hands are Tribe's**, not the model's.
+- **Switching skins in-headset doesn't re-rig the moving body yet.**
 - **One material / one mesh** for now (matches how the loader reads index 0).

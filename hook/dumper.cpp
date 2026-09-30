@@ -1362,6 +1362,291 @@ static void bt_start(){
         perm,sup,(long long)g_btFullBody,ss,s0,s0==-9?"(not tried)":"",(long long)g_btHigh,fid,en);
     g_bt_started=1; bt_poll();
 }
+
+// ================= Route A2: retarget Meta body tracking onto the avatar (PoseableMesh; advisor A2 Q1-Q3) =================
+// Offsets: O_b = M_j(T)^-1 * R_align * A_b(T); per frame A_b = M_j * O_b. The meshes are attached at identity to the
+// Camera's own parent, so tracking-space joints ARE component-space poses; the component's uniform scale s maps avatar cm
+// to your cm. A_b(T) = the avatar's T-pose, built by swinging its A-pose arm chain onto horizontal (FindBetween,
+// parent-first). R_align = yaw(your facing at capture - avatar facing): the advisor's formula omits it, and without it any
+// facing other than the avatar's own forward during the T-pose bakes a constant twist into every bone. Head = the HMD's
+// rotation every frame; the neck takes half of the HMD-vs-Meta head disagreement. Wrists are pinned to Meta's wrist joints
+// by two-bone IK (Meta elbow = pole). The T-pose is auto-detected (hold ~1 s) and saved next to the .glb -> once per rig.
+// Two meshes (skullbuck's material is double-sided, so a camera inside its head would see the skull's inner faces):
+// A = full body, bOwnerNoSee (selfie cam / others); B = head hidden, bOnlyOwnerSee (you, looking down). Model hands are
+// hidden on both; Tribe's tracked hands stay. Flag tribemod/bt_nosplit = one mesh visible to everyone (debug).
+struct V3{ double x,y,z; };
+struct Q4{ double x,y,z,w; };                                   // FQuat memory order
+static inline V3 V(double x,double y,double z){ V3 r={x,y,z}; return r; }
+static inline V3 vadd(V3 a,V3 b){ return V(a.x+b.x,a.y+b.y,a.z+b.z); }
+static inline V3 vsub(V3 a,V3 b){ return V(a.x-b.x,a.y-b.y,a.z-b.z); }
+static inline V3 vmul(V3 a,double s){ return V(a.x*s,a.y*s,a.z*s); }
+static inline double vdot(V3 a,V3 b){ return a.x*b.x+a.y*b.y+a.z*b.z; }
+static inline V3 vcross(V3 a,V3 b){ return V(a.y*b.z-a.z*b.y,a.z*b.x-a.x*b.z,a.x*b.y-a.y*b.x); }
+static inline double vlen(V3 a){ return sqrt(vdot(a,a)); }
+static inline V3 vnorm(V3 a){ double l=vlen(a); return l>1e-9?vmul(a,1.0/l):V(0,0,0); }
+static inline Q4 Qm(double x,double y,double z,double w){ Q4 q={x,y,z,w}; return q; }
+static const Q4 QI={0,0,0,1};
+static inline Q4 qmul(Q4 a,Q4 b){ return Qm(a.w*b.x+a.x*b.w+a.y*b.z-a.z*b.y, a.w*b.y-a.x*b.z+a.y*b.w+a.z*b.x,     // Hamilton: b then a
+                                            a.w*b.z+a.x*b.y-a.y*b.x+a.z*b.w, a.w*b.w-a.x*b.x-a.y*b.y-a.z*b.z); }
+static inline Q4 qinv(Q4 q){ return Qm(-q.x,-q.y,-q.z,q.w); }
+static inline Q4 qnorm(Q4 q){ double l=sqrt(q.x*q.x+q.y*q.y+q.z*q.z+q.w*q.w); return l>1e-12?Qm(q.x/l,q.y/l,q.z/l,q.w/l):QI; }
+static inline V3 qrot(Q4 q,V3 v){ V3 u=V(q.x,q.y,q.z), t=vmul(vcross(u,v),2.0); return vadd(vadd(v,vmul(t,q.w)),vcross(u,t)); }  // FQuat::RotateVector
+static Q4 qbetween(V3 a,V3 b){ a=vnorm(a); b=vnorm(b); double w=1.0+vdot(a,b);              // FQuat::FindBetweenNormals
+    Q4 r= w>=1e-6 ? Qm(a.y*b.z-a.z*b.y,a.z*b.x-a.x*b.z,a.x*b.y-a.y*b.x,w) : (fabs(a.x)>fabs(a.y)?Qm(-a.z,0,a.x,0):Qm(0,-a.z,a.y,0));
+    return qnorm(r); }
+static Q4 qslerp(Q4 a,Q4 b,double t){ double c=a.x*b.x+a.y*b.y+a.z*b.z+a.w*b.w; if(c<0){ b=Qm(-b.x,-b.y,-b.z,-b.w); c=-c; }
+    if(c>0.9995) return qnorm(Qm(a.x+(b.x-a.x)*t,a.y+(b.y-a.y)*t,a.z+(b.z-a.z)*t,a.w+(b.w-a.w)*t));
+    double th=acos(c), s=sin(th), k0=sin((1-t)*th)/s, k1=sin(t*th)/s; return Qm(a.x*k0+b.x*k1,a.y*k0+b.y*k1,a.z*k0+b.z*k1,a.w*k0+b.w*k1); }
+static Q4 qyaw(double deg){ double h=deg*M_PI/360.0; return Qm(0,0,sin(h),cos(h)); }
+static Q4 rot2q(const double* r){                                // FRotator(Pitch,Yaw,Roll)::Quaternion(), UE5
+    double k=M_PI/360.0, SP=sin(fmod(r[0],360.0)*k), CP=cos(fmod(r[0],360.0)*k), SY=sin(fmod(r[1],360.0)*k), CY=cos(fmod(r[1],360.0)*k),
+           SR=sin(fmod(r[2],360.0)*k), CR=cos(fmod(r[2],360.0)*k);
+    return Qm(CR*SP*SY-SR*CP*CY, -CR*SP*CY-SR*CP*SY, CR*CP*SY-SR*SP*CY, CR*CP*CY+SR*SP*SY); }
+static double yaw_of_left(V3 l){ return atan2(l.x,-l.y)*180.0/M_PI; }      // facing yaw whose left vector is l (UE: left=(sin y,-cos y))
+static double ang_deg(V3 a,V3 b){ double c=vdot(vnorm(a),vnorm(b)); c=c>1?1:(c<-1?-1:c); return acos(c)*180.0/M_PI; }
+static double elev_deg(V3 d){ double l=vlen(d); return l>1e-9?asin(d.z/l)*180.0/M_PI:0; }
+
+// the avatar's rest skeleton (local ref pose + FK'd component space), read once from our SkeletalMeshComponent
+static const int RB_MAX=160;
+static int g_rb_n=0, g_rb_par[RB_MAX]; static uint64_t g_rb_fn[RB_MAX]; static char g_rb_nm[RB_MAX][40];
+static Q4 g_rb_lq[RB_MAX], g_rb_cq[RB_MAX]; static V3 g_rb_lt[RB_MAX], g_rb_ct[RB_MAX];
+static int rb_find(const char* n){ for(int i=0;i<g_rb_n;i++) if(!strcmp(g_rb_nm[i],n)) return i; return -1; }
+static void rb_fk(const Q4* lq,Q4* cq,V3* ct){
+    for(int i=0;i<g_rb_n;i++){ int p=g_rb_par[i];
+        if(p<0){ cq[i]=lq[i]; ct[i]=g_rb_lt[i]; } else { cq[i]=qnorm(qmul(cq[p],lq[i])); ct[i]=vadd(ct[p],qrot(cq[p],g_rb_lt[i])); } } }
+// bone -> Meta joint (EOculusXRBoneID). Meta's clavicle root is BodyLeftShoulder (8); its scapula (9) sits at the arm root.
+struct BtMap{ const char* bone; int joint; int bi; Q4 off; Q4 cur; bool haveOff; };
+static BtMap g_bm[]={ {"Hips",1},{"Spine",3},{"Spine1",4},{"Spine2",5},{"Neck",6},{"Head",7},
+    {"LeftShoulder",8},{"LeftArm",10},{"LeftForeArm",11},{"LeftHand",19},{"RightShoulder",13},{"RightArm",15},{"RightForeArm",16},{"RightHand",45},
+    {"LeftUpLeg",70},{"LeftLeg",71},{"LeftFoot",73},{"LeftToeBase",76},{"RightUpLeg",77},{"RightLeg",78},{"RightFoot",80},{"RightToeBase",83} };
+static const int BM_N=(int)(sizeof(g_bm)/sizeof(g_bm[0]));
+static bool g_rbOK=false, g_rbTried=false, g_calOK=false, g_calLoaded=false, g_a2Live=false, g_a2Fail=false, g_a2Init=false, g_smooth=false, g_noSplit=false;
+static volatile sig_atomic_t g_a2Recal=0, g_a2CalNow=0;
+static double g_btScale=1.0, g_thM=180.0, g_avEyeH=0, g_tposeHold=0; static Q4 g_offHeadCam={0,0,0,1}; static V3 g_hipsCur={0,0,0};
+static int iHead=-1,iNeck=-1,iLA=-1,iLF=-1,iLH=-1,iRA=-1,iRF=-1,iRH=-1;
+static uintptr_t g_pmA=0, g_pmB=0, g_trackParent=0;
+static uintptr_t g_fnNumBones=0,g_fnBoneName=0,g_fnParentBone=0,g_fnRefPose=0,g_fnHideBone=0,g_fnSetSkinned=0,g_fnAddComp=0,g_fnSetOwner=0,
+                 g_fnAttach=0,g_fnRelScale=0,g_fnAttachParent=0,g_fnSetBoneXf=0,g_poseCls=0,g_fnOnlyOwnerSee=0,g_fnTickGroup=0,g_fnColl2=0,g_fnShad2=0;
+static int g_offRelLoc=-1, g_offRelRot=-1; static float g_w2m=100.0f;
+static int64_t g_attSnap=2, g_attKeepRel=0, g_boneCS=1;
+static char g_calPath[600]="";
+
+static bool a2_load_cal(){
+    FILE* f=fopen(g_calPath,"r"); if(!f) return false; char line[256]; int nb=0; double sc=0;
+    while(fgets(line,sizeof line,f)){ char nm[64]; double x,y,z,w;
+        if(sscanf(line,"scale %lf",&sc)==1) continue;
+        if(sscanf(line,"bone %63s %lf %lf %lf %lf",nm,&x,&y,&z,&w)==5)
+            for(int k=0;k<BM_N;k++) if(!strcmp(g_bm[k].bone,nm)){ g_bm[k].off=qnorm(Qm(x,y,z,w)); g_bm[k].haveOff=true; nb++; } }
+    fclose(f); if(sc>0.4&&sc<2.5) g_btScale=sc; else return false;
+    return nb>0; }
+static void a2_save_cal(){
+    FILE* f=fopen(g_calPath,"w"); if(!f){ load_status("A2: cannot write %s",g_calPath); return; }
+    fprintf(f,"# tribemod body-tracking retarget calibration for this rig (T-pose capture). Delete this file, or touch\n"
+              "# tribemod/bt_recalibrate, to redo it. bone = offset quat O_b (x y z w), scale = your eyes / avatar eyes.\nversion 1\nscale %.6f\n",g_btScale);
+    for(int k=0;k<BM_N;k++) if(g_bm[k].haveOff) fprintf(f,"bone %s %.9f %.9f %.9f %.9f\n",g_bm[k].bone,g_bm[k].off.x,g_bm[k].off.y,g_bm[k].off.z,g_bm[k].off.w);
+    fclose(f); }
+// avatar T-pose: swing Arm->ForeArm, ForeArm->Hand, Hand->HandMiddle1 onto horizontal-lateral, parent-first (advisor Q1);
+// clavicles, spine, legs and head keep the rest pose (skullbuck's clavicles are already level: -2.7 deg).
+static void a2_avatar_tpose(Q4* cq,V3* ct){
+    static Q4 lq[RB_MAX]; memcpy(lq,g_rb_lq,sizeof(Q4)*g_rb_n); rb_fk(lq,cq,ct);
+    V3 left=vnorm(V(g_rb_ct[iLA].x-g_rb_ct[iRA].x,g_rb_ct[iLA].y-g_rb_ct[iRA].y,0));
+    const char* ch[2][4]={{"LeftArm","LeftForeArm","LeftHand","LeftHandMiddle1"},{"RightArm","RightForeArm","RightHand","RightHandMiddle1"}};
+    for(int sd=0;sd<2;sd++){ V3 tgt=sd?vmul(left,-1):left;
+        for(int k=0;k<3;k++){ int b=rb_find(ch[sd][k]), c=rb_find(ch[sd][k+1]); if(b<0||c<0) break;
+            Q4 sw=qbetween(vsub(ct[c],ct[b]),tgt); int p=g_rb_par[b]; Q4 pq=p>=0?cq[p]:QI;
+            lq[b]=qnorm(qmul(qinv(pq),qmul(sw,cq[b]))); rb_fk(lq,cq,ct); } } }
+static bool a2_build_rest(){
+    uintptr_t comp=g_isoComp;
+    if(!comp||!g_fnNumBones||!g_fnBoneName||!g_fnParentBone||!g_fnRefPose){ load_status("A2: rest skeleton: functions missing"); return false; }
+    int oBI=prop_offset(g_fnBoneName,"BoneIndex",0), oBR=prop_offset(g_fnBoneName,"ReturnValue",0);
+    int oPN=prop_offset(g_fnParentBone,"BoneName",0), oPR=prop_offset(g_fnParentBone,"ReturnValue",0);
+    int oRI=prop_offset(g_fnRefPose,"BoneIndex",0), oRR=prop_offset(g_fnRefPose,"ReturnValue",0);
+    uint16_t p1=rd16(g_fnBoneName+0xB6), p2=rd16(g_fnParentBone+0xB6), p3=rd16(g_fnRefPose+0xB6);
+    static uint8_t b[512] __attribute__((aligned(16)));
+    if(oBI<0||oBR<0||oPN<0||oPR<0||oRI<0||oRR<0||p1>sizeof b||p2>sizeof b||p3>sizeof b||oRR+96>(int)p3){ load_status("A2: rest skeleton: bad layout"); return false; }
+    uint8_t* r=call_ret(comp,g_fnNumBones,0,0); int n=r?*(int32_t*)r:0; if(n<=0||n>RB_MAX){ load_status("A2: rest skeleton: %d bones",n); return false; }
+    for(int i=0;i<n;i++){ memset(b,0,sizeof b); *(int32_t*)(b+oBI)=i; call_uf(comp,g_fnBoneName,b); memcpy(&g_rb_fn[i],b+oBR,8);
+        fname_resolve((uint32_t)g_rb_fn[i],g_rb_nm[i],sizeof g_rb_nm[i]);
+        memset(b,0,sizeof b); *(int32_t*)(b+oRI)=i; call_uf(comp,g_fnRefPose,b); double* x=(double*)(b+oRR);
+        g_rb_lq[i]=qnorm(Qm(x[0],x[1],x[2],x[3])); g_rb_lt[i]=V(x[4],x[5],x[6]); }
+    for(int i=0;i<n;i++){ memset(b,0,sizeof b); memcpy(b+oPN,&g_rb_fn[i],8); call_uf(comp,g_fnParentBone,b); uint64_t pn; memcpy(&pn,b+oPR,8);
+        g_rb_par[i]=-1; for(int k=0;k<n;k++) if(g_rb_fn[k]==pn){ g_rb_par[i]=k; break; }
+        if(g_rb_par[i]>=i){ load_status("A2: bone %d (%s) parent %d not before it",i,g_rb_nm[i],g_rb_par[i]); return false; } }
+    g_rb_n=n; rb_fk(g_rb_lq,g_rb_cq,g_rb_ct);
+    int mapped=0; for(int k=0;k<BM_N;k++){ g_bm[k].bi=rb_find(g_bm[k].bone); if(g_bm[k].bi>=0) mapped++; }
+    iHead=rb_find("Head"); iNeck=rb_find("Neck"); iLA=rb_find("LeftArm"); iLF=rb_find("LeftForeArm"); iLH=rb_find("LeftHand");
+    iRA=rb_find("RightArm"); iRF=rb_find("RightForeArm"); iRH=rb_find("RightHand");
+    if(iLA<0||iRA<0||iHead<0||g_rb_par[0]>=0){ load_status("A2: rig lacks LeftArm/RightArm/Head -> no retarget"); return false; }
+    g_thM=yaw_of_left(V(g_rb_ct[iLA].x-g_rb_ct[iRA].x,g_rb_ct[iLA].y-g_rb_ct[iRA].y,0));
+    g_offHeadCam=qnorm(qmul(qyaw(-g_thM),g_rb_cq[iHead]));        // head frame with the avatar's facing removed -> follows the HMD
+    double sole=1e9; for(int i=0;i<n;i++) if(g_rb_ct[i].z<sole) sole=g_rb_ct[i].z; sole-=2.0;   // lowest joint (toe) minus ~2 cm of sole
+    int le=rb_find("LeftEye"), re=rb_find("RightEye"); double eye=(le>=0&&re>=0)?0.5*(g_rb_ct[le].z+g_rb_ct[re].z):g_rb_ct[iHead].z+8.0;
+    g_avEyeH=eye-sole;
+    static Q4 aq[RB_MAX]; static V3 at[RB_MAX]; a2_avatar_tpose(aq,at);
+    load_status("A2: rest skeleton %d bones (root %s), mapped %d/%d; avatar faces %.0f deg; eyes %.1f cm above soles; %s",
+        n,g_rb_nm[0],mapped,BM_N,g_thM,g_avEyeH,g_calLoaded?"saved calibration found":"no saved calibration yet");
+    load_status("A2: A-pose arm elevation L %.0f/%.0f/%.0f deg -> T-pose %.1f/%.1f/%.1f (want ~0)",
+        elev_deg(vsub(g_rb_ct[iLF],g_rb_ct[iLA])),elev_deg(vsub(g_rb_ct[iLH],g_rb_ct[iLF])),iLH>=0&&rb_find("LeftHandMiddle1")>=0?elev_deg(vsub(g_rb_ct[rb_find("LeftHandMiddle1")],g_rb_ct[iLH])):0.0,
+        elev_deg(vsub(at[iLF],at[iLA])),elev_deg(vsub(at[iLH],at[iLF])),rb_find("LeftHandMiddle1")>=0?elev_deg(vsub(at[rb_find("LeftHandMiddle1")],at[iLH])):0.0);
+    if(g_calLoaded){ bool all=true; for(int k=0;k<BM_N;k++) if(g_bm[k].bi>=0&&!g_bm[k].haveOff) all=false;
+        g_calOK=all; load_status("A2: saved calibration %s (scale %.3f)",all?"applied":"incomplete -> T-pose needed",g_btScale); }
+    return true; }
+// calibration-pose detector on Meta joints (tracking space): standing still with straight arms -- T-pose OR A-pose.
+// The pose itself doesn't matter: a2_avatar_calpose poses the avatar to YOUR measured limb directions before the offsets
+// are taken, so nothing depends on reproducing the avatar's rest angles (the advisor's worry about A-pose capture).
+static bool a2_pose_check(const V3* p,double spd,char* why,int cap){
+    double bL=ang_deg(vsub(p[11],p[10]),vsub(p[19],p[11])), bR=ang_deg(vsub(p[16],p[15]),vsub(p[45],p[16]));
+    double tL=elev_deg(vsub(p[19],p[10])), tR=elev_deg(vsub(p[45],p[15]));
+    double kL=ang_deg(vsub(p[71],p[70]),vsub(p[73],p[71])), kR=ang_deg(vsub(p[78],p[77]),vsub(p[80],p[78]));
+    const char* kind=(fabs(tL)<25&&fabs(tR)<25)?"T-pose":((tL<-40&&tR<-40)?"A-pose":"mixed");
+    snprintf(why,cap,"%s | elbow bend L%.0f R%.0f (<30) | arm tilt L%.0f R%.0f | knee bend L%.0f R%.0f (<40) | head %.0f cm (>120) | motion %.0f cm/s (<12)",
+        kind,bL,bR,tL,tR,kL,kR,p[7].z,spd);
+    return bL<30&&bR<30&&kL<40&&kR<40&&p[7].z>120&&spd<12; }
+// the avatar in YOUR calibration pose: swing each arm/leg segment (parent-first) onto your measured segment direction,
+// rotated from your facing into the avatar's; clavicles, spine and head keep the rest pose (you're standing upright).
+static void a2_avatar_calpose(const V3* mp,double thU,Q4* cq,V3* ct){
+    static Q4 lq[RB_MAX]; memcpy(lq,g_rb_lq,sizeof(Q4)*g_rb_n); rb_fk(lq,cq,ct);
+    Q4 rin=qyaw(g_thM-thU);
+    static const struct { const char* b; const char* c; int j0, j1; } seg[]={
+        {"LeftArm","LeftForeArm",10,11},{"LeftForeArm","LeftHand",11,19},{"LeftHand","LeftHandMiddle1",19,30},
+        {"RightArm","RightForeArm",15,16},{"RightForeArm","RightHand",16,45},{"RightHand","RightHandMiddle1",45,56},
+        {"LeftUpLeg","LeftLeg",70,71},{"LeftLeg","LeftFoot",71,73},{"LeftFoot","LeftToeBase",73,76},
+        {"RightUpLeg","RightLeg",77,78},{"RightLeg","RightFoot",78,80},{"RightFoot","RightToeBase",80,83} };
+    for(unsigned k=0;k<sizeof seg/sizeof seg[0];k++){ int b=rb_find(seg[k].b), c=rb_find(seg[k].c); if(b<0||c<0) continue;
+        V3 tgt=qrot(rin,vsub(mp[seg[k].j1],mp[seg[k].j0])); if(vlen(tgt)<1e-3) continue;
+        Q4 sw=qbetween(vsub(ct[c],ct[b]),tgt); int p=g_rb_par[b]; Q4 pq=p>=0?cq[p]:QI;
+        lq[b]=qnorm(qmul(qinv(pq),qmul(sw,cq[b]))); rb_fk(lq,cq,ct); } }
+static void a2_calibrate(const Q4* mq,const V3* mp,V3 camP){
+    static Q4 aq[RB_MAX]; static V3 at[RB_MAX];
+    V3 lu=vsub(mp[10],mp[15]); double thU=yaw_of_left(V(lu.x,lu.y,0));
+    a2_avatar_calpose(mp,thU,aq,at);
+    load_status("A2: calibration pose: arm tilt L%.0f R%.0f, knee bend L%.0f R%.0f; avatar posed to match (L arm %.0f/%.0f deg)",
+        elev_deg(vsub(mp[19],mp[10])),elev_deg(vsub(mp[45],mp[15])),ang_deg(vsub(mp[71],mp[70]),vsub(mp[73],mp[71])),
+        ang_deg(vsub(mp[78],mp[77]),vsub(mp[80],mp[78])),elev_deg(vsub(at[iLF],at[iLA])),elev_deg(vsub(at[iLH],at[iLF])));
+    Q4 ral=qyaw(thU-g_thM);
+    for(int k=0;k<BM_N;k++){ BtMap& m=g_bm[k]; if(m.bi<0) continue; m.off=qnorm(qmul(qinv(mq[m.joint]),qmul(ral,aq[m.bi]))); m.haveOff=true; }
+    double s=(g_avEyeH>50)?camP.z/g_avEyeH:1.0; if(s<0.6) s=0.6; if(s>1.4) s=1.4; g_btScale=s;
+    a2_save_cal(); g_calOK=true;
+    load_status("A2 CALIBRATED: you face %.0f deg, avatar faces %.0f deg; scale %.3f (your eyes %.0f cm / avatar eyes %.0f cm); saved %s",
+        thU,g_thM,s,camP.z,g_avEyeH,g_calPath); }
+static void a2_hide_bone(uintptr_t c,int i){ if(!g_fnHideBone||i<0) return; int oN=prop_offset(g_fnHideBone,"BoneName",0); if(oN<0) return;
+    static uint8_t b[64]; memset(b,0,sizeof b); memcpy(b+oN,&g_rb_fn[i],8); call_uf(c,g_fnHideBone,b); }
+static void a2_set_scale(uintptr_t c,double s){ if(!c||!g_fnRelScale) return; int o=prop_offset(g_fnRelScale,"NewScale3D",0); if(o<0) return;
+    static uint8_t b[64]; memset(b,0,sizeof b); double* v=(double*)(b+o); v[0]=v[1]=v[2]=s; call_uf(c,g_fnRelScale,b); }
+static uintptr_t a2_add_mesh(bool firstPerson){
+    uintptr_t fn=g_fnAddComp; if(!fn||!g_isoActor||!g_poseCls||!g_mymesh||!g_trackParent) return 0;
+    int oC=prop_offset(fn,"Class",0), oM=prop_offset(fn,"bManualAttachment",0), oX=prop_offset(fn,"RelativeTransform",0),
+        oD=prop_offset(fn,"bDeferredFinish",0), oR=prop_offset(fn,"ReturnValue",0);
+    uint16_t psz=rd16(fn+0xB6); static uint8_t b[512] __attribute__((aligned(16)));
+    if(oC<0||oX<0||oR<0||psz>sizeof b){ load_status("A2: AddComponentByClass layout bad"); return 0; }
+    memset(b,0,sizeof b); *(uintptr_t*)(b+oC)=g_poseCls; if(oM>=0) b[oM]=1; if(oD>=0) b[oD]=0;
+    double* x=(double*)(b+oX); x[3]=1; x[8]=x[9]=x[10]=1;             // identity FTransform (quat w=1, scale 1)
+    call_uf(g_isoActor,fn,b); uintptr_t c=*(uintptr_t*)(b+oR); if(!c) return 0;
+    refresh_numelements(); root_object(c);
+    { int oA=-1,oB=prop_offset(g_fnSetSkinned,"bReinitPose",0);
+      for(uintptr_t f=rdptr(g_fnSetSkinned+OFF_ChildProps); f; f=rdptr(f+FF_Next)) if(ffield_is(f,"ObjectProperty")){ oA=(int)rd32(f+FP_Offset); break; }
+      memset(b,0,sizeof b); if(oA>=0){ *(uintptr_t*)(b+oA)=g_mymesh; if(oB>=0) b[oB]=1; call_uf(c,g_fnSetSkinned,b); } }
+    { int oP=prop_offset(g_fnAttach,"Parent",0), oL=prop_offset(g_fnAttach,"LocationRule",0), oRr=prop_offset(g_fnAttach,"RotationRule",0),
+          oSc=prop_offset(g_fnAttach,"ScaleRule",0), oW=prop_offset(g_fnAttach,"bWeldSimulatedBodies",0);
+      memset(b,0,sizeof b); if(oP>=0){ *(uintptr_t*)(b+oP)=g_trackParent; if(oL>=0) b[oL]=(uint8_t)g_attSnap; if(oRr>=0) b[oRr]=(uint8_t)g_attSnap;
+          if(oSc>=0) b[oSc]=(uint8_t)g_attKeepRel; if(oW>=0) b[oW]=0; call_uf(c,g_fnAttach,b); } }
+    a2_set_scale(c,g_btScale);
+    call_bool2(c,g_fnColl2,0,0); call_bool2(c,g_fnShad2,0,0);
+    if(g_fnTickGroup) call_bool2(c,g_fnTickGroup,5,0);                 // refresh bones after the pawn tick that sets them
+    if(!g_noSplit){ if(firstPerson){ call_bool2(c,g_fnOnlyOwnerSee,1,0); a2_hide_bone(c,iHead); } else call_bool2(c,g_fnOwner,1,0); }
+    a2_hide_bone(c,iLH); a2_hide_bone(c,iRH);                          // Tribe's tracked hands take their place
+    call_bool2(c,g_fnVis,1,1); call_bool2(c,g_fnHid,0,1);
+    return c; }
+static bool g_a2Marker=false;                                          // crash-loop guard: tribemod/a2_inflight
+static void a2_marker(bool on){ char p[600]; snprintf(p,sizeof p,"%s/a2_inflight",OUTDIR);
+    if(on){ int fd=open(p,O_WRONLY|O_CREAT|O_TRUNC,0644); if(fd>=0){ fsync(fd); close(fd); } } else unlink(p); g_a2Marker=on; }
+static void a2_go_live(){
+    if(!g_a2Marker) a2_marker(true);                                   // removed after 120 good frames (a2_drive)
+    if(!g_pmA){
+        if(!g_trackParent){ uint8_t* r=call_ret(g_camComp,g_fnAttachParent,0,0); g_trackParent=r?*(uintptr_t*)r:0; if(!g_trackParent) g_trackParent=g_vrOrigin; }
+        char pn[64]="?"; if(g_trackParent) obj_name(g_trackParent,pn,sizeof pn);
+        if(g_fnSetOwner&&g_pawn){ int o=prop_offset(g_fnSetOwner,"NewOwner",0); static uint8_t b[32]; memset(b,0,sizeof b); if(o>=0){ *(uintptr_t*)(b+o)=g_pawn; call_uf(g_isoActor,g_fnSetOwner,b); } }
+        g_pmA=a2_add_mesh(false); if(!g_noSplit) g_pmB=a2_add_mesh(true);
+        load_status("A2: meshes A(full, owner-no-see)=0x%lx B(headless, only-owner-see)=0x%lx attached to %s (0x%lx) scale %.3f%s",
+            (unsigned long)g_pmA,(unsigned long)g_pmB,pn,(unsigned long)g_trackParent,g_btScale,g_noSplit?" [nosplit]":"");
+        if(!g_pmA){ g_a2Fail=true; load_status("A2: mesh creation FAILED -> staying in follow mode"); return; } }
+    else { a2_set_scale(g_pmA,g_btScale); a2_set_scale(g_pmB,g_btScale); call_bool2(g_pmA,g_fnVis,1,1); if(g_pmB) call_bool2(g_pmB,g_fnVis,1,1); }
+    call_bool2(g_isoComp,g_fnVis,0,1);                                  // retire the static follow mesh
+    g_a2Live=true; g_a2Init=true; }
+// two-bone IK (advisor): bend Arm/ForeArm so the wrist lands on W, elbow in the plane of pole P; keeps bone lengths
+static void a2_ik_arm(int a,int f,int h,V3 W,V3 P,Q4* tq,const Q4* cq,const V3* ct,double* err){
+    V3 S=ct[a]; double l1=vlen(g_rb_lt[f]), l2=vlen(g_rb_lt[h]); V3 dv=vsub(W,S); double d=vlen(dv); if(d<1e-3||l1<1||l2<1) return;
+    V3 dir=vmul(dv,1.0/d); *err=vlen(vsub(ct[h],W));
+    double dmin=fabs(l1-l2)+0.5, dmax=l1+l2-0.5; if(d>dmax) d=dmax; if(d<dmin) d=dmin;
+    double x=(l1*l1-l2*l2+d*d)/(2*d), hh=sqrt(fmax(0.0,l1*l1-x*x));
+    V3 pv=vsub(P,S), pp=vsub(pv,vmul(dir,vdot(pv,dir))); if(vlen(pp)<1e-3){ pv=vsub(ct[f],S); pp=vsub(pv,vmul(dir,vdot(pv,dir))); }
+    V3 E=vadd(S,vadd(vmul(dir,x),vmul(vnorm(pp),hh))), Wc=vadd(S,vmul(dir,d));
+    tq[a]=qnorm(qmul(qbetween(vsub(ct[f],S),vsub(E,S)),cq[a]));
+    tq[f]=qnorm(qmul(qbetween(qrot(tq[f],g_rb_lt[h]),vsub(Wc,E)),tq[f])); }
+static void a2_fk(const Q4* tq,const bool* dv,Q4* cq,V3* ct){
+    for(int i=0;i<g_rb_n;i++){ int p=g_rb_par[i];
+        if(p<0){ cq[i]=dv[i]?tq[i]:g_rb_lq[i]; ct[i]=dv[i]?g_hipsCur:g_rb_lt[i]; }
+        else { cq[i]=dv[i]?tq[i]:qnorm(qmul(cq[p],g_rb_lq[i])); ct[i]=vadd(ct[p],qrot(cq[p],g_rb_lt[i])); } } }
+static void a2_set_bone(uintptr_t comp,int i,Q4 q,V3 t){
+    static int oN=-2,oX=-1,oS=-1; static uint16_t psz=0;
+    if(oN==-2){ oN=prop_offset(g_fnSetBoneXf,"BoneName",0); oX=prop_offset(g_fnSetBoneXf,"InTransform",0); oS=prop_offset(g_fnSetBoneXf,"BoneSpace",0); psz=rd16(g_fnSetBoneXf+0xB6);
+        load_status("A2: SetBoneTransformByName psz=0x%x BoneName@%d InTransform@%d BoneSpace@%d (ComponentSpace=%lld)",psz,oN,oX,oS,(long long)g_boneCS); }
+    static uint8_t b[256] __attribute__((aligned(16))); if(oN<0||oX<0||psz>sizeof b) return;
+    memset(b,0,psz); memcpy(b+oN,&g_rb_fn[i],8); double* x=(double*)(b+oX);
+    x[0]=q.x; x[1]=q.y; x[2]=q.z; x[3]=q.w; x[4]=t.x; x[5]=t.y; x[6]=t.z; x[8]=x[9]=x[10]=1; if(oS>=0) b[oS]=(uint8_t)g_boneCS;
+    call_uf(comp,g_fnSetBoneXf,b); }
+static void a2_drive(const Q4* mq,const V3* mp,Q4 camQ,V3 camP,float dt){
+    static Q4 tq[RB_MAX], cq[RB_MAX]; static V3 ct[RB_MAX]; static bool dv[RB_MAX]; static double logT=0;
+    double a=g_smooth?1.0-exp(-dt/0.030):1.0, is=1.0/g_btScale; bool init=g_a2Init; g_a2Init=false;
+    for(int i=0;i<g_rb_n;i++) dv[i]=false;
+    for(int k=0;k<BM_N;k++){ BtMap& m=g_bm[k]; if(m.bi<0||!m.haveOff) continue;
+        Q4 t=qnorm(qmul(mq[m.joint],m.off)); m.cur=init?t:qslerp(m.cur,t,a); tq[m.bi]=m.cur; dv[m.bi]=true; }
+    V3 hipT=vmul(mp[1],is); g_hipsCur=init?hipT:vadd(g_hipsCur,vmul(vsub(hipT,g_hipsCur),a));
+    if(iHead>=0){ Q4 hc=qnorm(qmul(camQ,g_offHeadCam)); Q4 dH=dv[iHead]?qmul(hc,qinv(tq[iHead])):QI;       // head = HMD
+        tq[iHead]=hc; dv[iHead]=true; if(iNeck>=0&&dv[iNeck]) tq[iNeck]=qnorm(qmul(qslerp(QI,dH,0.5),tq[iNeck])); }   // neck: half the seam
+    a2_fk(tq,dv,cq,ct);
+    double eL=-1,eR=-1;
+    if(iLA>=0&&iLF>=0&&iLH>=0&&dv[iLA]&&dv[iLF]) a2_ik_arm(iLA,iLF,iLH,vmul(mp[19],is),vmul(mp[11],is),tq,cq,ct,&eL);
+    if(iRA>=0&&iRF>=0&&iRH>=0&&dv[iRA]&&dv[iRF]) a2_ik_arm(iRA,iRF,iRH,vmul(mp[45],is),vmul(mp[16],is),tq,cq,ct,&eR);
+    a2_fk(tq,dv,cq,ct);
+    for(int i=0;i<g_rb_n;i++) if(dv[i]){ a2_set_bone(g_pmA,i,cq[i],ct[i]); if(g_pmB) a2_set_bone(g_pmB,i,cq[i],ct[i]); }
+    { static int good=0; if(g_a2Marker && ++good>=120){ a2_marker(false); load_status("A2: 120 frames driven OK (crash guard cleared)"); } }
+    logT+=dt; if(logT>=2.0||init){ logT=0;
+        V3 d=qrot(qinv(camQ),vsub(camP,mp[7]));                         // eyes relative to Meta's head joint, in the HMD's frame
+        int rA=-1,rB=-1; uint8_t* r=call_ret(g_pmA,g_fnRendered,1,0.5f); if(r) rA=*r; if(g_pmB){ r=call_ret(g_pmB,g_fnRendered,1,0.5f); if(r) rB=*r; }
+        load_status("A2 live: dt=%.4f hips=(%.0f,%.0f,%.0f) eyes-vs-MetaHead fwd/right/up=(%.1f,%.1f,%.1f) wristIK err L%.1f R%.1f cm | rendered A=%d B=%d",
+            dt,mp[1].x,mp[1].y,mp[1].z,d.x,d.y,d.z,eL*g_btScale,eR*g_btScale,rA,rB); } }
+// per frame (pawn tick): fetch body state, then calibrate or drive
+static void bt_frame(float dt){
+    if(!g_bt_started||!g_btLayoutOK||!g_isoComp||!g_camComp||g_a2Fail) return;
+    if(g_a2Recal){ g_a2Recal=0; g_calOK=false; g_a2Live=false; g_tposeHold=0;
+        if(g_pmA) call_bool2(g_pmA,g_fnVis,0,1); if(g_pmB) call_bool2(g_pmB,g_fnVis,0,1); call_bool2(g_isoComp,g_fnVis,1,1);
+        load_status("A2: recalibrating -> follow mode until the next T-pose"); }
+    memset(g_btParms,0,sizeof g_btParms); uint8_t* s=g_btParms+bt_oState;
+    *(uintptr_t*)(s+0x10)=(uintptr_t)g_btJoints; *(int32_t*)(s+0x18)=BT_NJ; *(int32_t*)(s+0x1C)=BT_NJ;
+    if(bt_oW2M>=0) *(float*)(g_btParms+bt_oW2M)=g_w2m;
+    call_uf(g_btLib,g_fnBtState,g_btParms);
+    if(!g_btParms[bt_oRet]||!s[0]) return;                            // tracking inactive: hold the last pose
+    static Q4 mq[BT_NJ]; static V3 mp[BT_NJ];
+    for(int i=0;i<BT_NJ;i++){ uint8_t* j=g_btJoints+i*BT_JSZ; mq[i]=rot2q((double*)(j+0x10)); double* p=(double*)(j+0x28); mp[i]=V(p[0],p[1],p[2]); }
+    { static int fr=0,nw=0; static float lt=-1; float tm=*(float*)(s+12);  // advisor Q2: fresh every frame, or 30 Hz steps?
+      if(fr<150){ fr++; if(tm!=lt){ nw++; lt=tm; }
+        if(fr==150){ g_smooth=(nw<105); load_status("A2 rate: %d frames, %d new samples -> %s",fr,nw,g_smooth?"stepping: smoothing ON (tau 30 ms)":"fresh every frame: no smoothing"); } } }
+    if(!g_rbOK){ if(g_rbTried) return; g_rbTried=true; g_rbOK=a2_build_rest(); if(!g_rbOK){ g_a2Fail=true; return; } }
+    double cr[3]={0,0,0}, cl[3]={0,0,0}; if(g_offRelRot<0||g_offRelLoc<0||!sr(g_camComp+g_offRelRot,cr,24)||!sr(g_camComp+g_offRelLoc,cl,24)) return;
+    Q4 camQ=rot2q(cr); V3 camP=V(cl[0],cl[1],cl[2]);
+    if(!g_calOK){
+        static V3 pWL,pWR,pH; static double spd=100; static bool have=false;          // motion: fastest of wrists/head, smoothed 0.3 s
+        double inst=(have&&dt>1e-4)?fmax(vlen(vsub(mp[19],pWL)),fmax(vlen(vsub(mp[45],pWR)),vlen(vsub(mp[7],pH))))/dt:100;
+        pWL=mp[19]; pWR=mp[45]; pH=mp[7]; have=true; double k=dt/0.3; if(k>1) k=1; spd+=(inst-spd)*k;
+        char why[260]; bool ok=a2_pose_check(mp,spd,why,sizeof why);
+        if(g_a2CalNow){ g_a2CalNow=0; ok=true; g_tposeHold=1.0; load_status("A2: bt_calibrate_now -> capturing the current pose"); }
+        g_tposeHold=ok?g_tposeHold+dt:0;
+        static double logT=0; logT+=dt; if(logT>=3.0){ logT=0; load_status("A2 waiting for a still calibration pose (stand; arms straight, T or A; ~1 s): %s -> %s",why,ok?"GOOD, hold":"not yet"); }
+        if(g_tposeHold<1.0) return;
+        a2_calibrate(mq,mp,camP); }
+    if(!g_a2Live){ a2_go_live(); if(!g_a2Live) return; }
+    a2_drive(mq,mp,camQ,camP,dt); }
 extern "C" void repl_pe(void* self,void* func,void* parms){
     // BLOCK Blueprint-level resets of our body while the keeper is on (Tribe setting AvatarBodyMesh to null/other).
     if(g_keep && !g_in_load && g_fnSet && func==(void*)g_fnSet && (uintptr_t)self==g_body && parms && *(uintptr_t*)parms!=g_mymesh){
@@ -1372,8 +1657,8 @@ extern "C" void repl_pe(void* self,void* func,void* parms){
     // ReceiveTick through ProcessEvent even with no Blueprint implementation. Fallback: the pawn's tick, only while ours is silent.
     if(g_isoActor && !g_in_load && parms){
         uintptr_t s=(uintptr_t)self;
-        if(s==g_isoActor && func==(void*)g_fnReceiveTick){ g_isoTicks++; g_in_load=1; follow_update(*(float*)parms); g_in_load=0; }
-        else if(g_isoTicks==0 && s && s==g_fallbackTicker && is_receive_tick(func)){ g_camTicks++; g_in_load=1; follow_update(*(float*)parms); g_in_load=0; }
+        if(s==g_isoActor && func==(void*)g_fnReceiveTick){ g_isoTicks++; g_in_load=1; follow_update(*(float*)parms); bt_frame(*(float*)parms); g_in_load=0; }
+        else if(g_isoTicks==0 && s && s==g_fallbackTicker && is_receive_tick(func)){ g_camTicks++; g_in_load=1; follow_update(*(float*)parms); bt_frame(*(float*)parms); g_in_load=0; }
     }
     // keeper: poll thread saw a NATIVE reset -> re-attach our (rooted) mesh here on the game thread
     if(g_reattach_req && g_keep && !g_in_load){ g_reattach_req=0; g_in_load=1; attach_mesh(g_body,g_mymesh); g_in_load=0; }
@@ -1394,6 +1679,46 @@ extern "C" void repl_pe(void* self,void* func,void* parms){
 }
 
 static bool file_present(const char* name){ char p[600]; snprintf(p,sizeof p,"%s/%s",OUTDIR,name); int fd=open(p,O_RDONLY); if(fd>=0){ close(fd); return true; } return false; }
+// poll thread: resolve A2 (retarget) functions/offsets/enums + load this rig's saved calibration
+static void a2_resolve(){
+    g_fnNumBones  =find_by_path("/Script/Engine.SkinnedMeshComponent.GetNumBones",0);
+    g_fnBoneName  =find_by_path("/Script/Engine.SkinnedMeshComponent.GetBoneName",0);
+    g_fnParentBone=find_by_path("/Script/Engine.SkinnedMeshComponent.GetParentBone",0);
+    g_fnRefPose   =find_by_path("/Script/Engine.SkinnedMeshComponent.GetRefPoseTransform",0);
+    g_fnHideBone  =find_by_path("/Script/Engine.SkinnedMeshComponent.HideBoneByName",0);
+    g_fnSetSkinned=find_by_path("/Script/Engine.SkinnedMeshComponent.SetSkinnedAssetAndUpdate",0);
+    g_fnAddComp   =find_by_path("/Script/Engine.Actor.AddComponentByClass",0);
+    g_fnSetOwner  =find_by_path("/Script/Engine.Actor.SetOwner",0);
+    g_fnAttach    =find_by_path("/Script/Engine.SceneComponent.K2_AttachToComponent",0);
+    g_fnRelScale  =find_by_path("/Script/Engine.SceneComponent.SetRelativeScale3D",0);
+    g_fnAttachParent=find_by_path("/Script/Engine.SceneComponent.GetAttachParent",0);
+    g_fnSetBoneXf =find_by_path("/Script/Engine.PoseableMeshComponent.SetBoneTransformByName",0);
+    g_fnOnlyOwnerSee=find_by_path("/Script/Engine.PrimitiveComponent.SetOnlyOwnerSee",0);
+    g_fnTickGroup =find_by_path("/Script/Engine.ActorComponent.SetTickGroup",0);
+    g_fnColl2     =find_by_path("/Script/Engine.PrimitiveComponent.SetCollisionEnabled",0);
+    g_fnShad2     =find_by_path("/Script/Engine.PrimitiveComponent.SetCastShadow",0);
+    g_poseCls     =find_by_path("/Script/Engine.PoseableMeshComponent",1);
+    uintptr_t sc=find_by_path("/Script/Engine.SceneComponent",1);
+    g_offRelLoc=sc?prop_offset(sc,"RelativeLocation",0):-1; g_offRelRot=sc?prop_offset(sc,"RelativeRotation",0):-1;
+    g_attSnap   =enum_value("/Script/Engine.EAttachmentRule","SnapToTarget",2);
+    g_attKeepRel=enum_value("/Script/Engine.EAttachmentRule","KeepRelative",0);
+    g_boneCS    =enum_value("/Script/Engine.EBoneSpaces","ComponentSpace",1);
+    uintptr_t ws=find_live_class_sub("WorldSettings"); float w2m=-1;               // advisor: pass the world's WorldToMeters
+    if(ws){ int o=prop_offset(rdptr(ws+OFF_Class),"WorldToMeters",0); if(o>=0) sr(ws+o,&w2m,4); if(w2m>=10&&w2m<=1000) g_w2m=w2m; }
+    g_noSplit=file_present("bt_nosplit");
+    if(file_present("a2_inflight")){ char p[600]; snprintf(p,sizeof p,"%s/a2_inflight",OUTDIR); unlink(p); g_a2Fail=true;
+        load_status("A2: the previous launch died while going live -> retarget DISABLED this launch (auto-retries next launch)"); }
+    char skin[256]; if(read_trim_file("active_skin.txt",skin,sizeof skin)) snprintf(g_calPath,sizeof g_calPath,"%s/skins/%s.bt.txt",OUTDIR,skin);
+    else snprintf(g_calPath,sizeof g_calPath,"%s/custom.glb.bt.txt",OUTDIR);
+    g_calLoaded=a2_load_cal();
+    load_status("A2 resolve: bones(num=0x%lx name=0x%lx parent=0x%lx refpose=0x%lx hide=0x%lx) setSkinned=0x%lx addComp=0x%lx setOwner=0x%lx attach=0x%lx relScale=0x%lx attachParent=0x%lx",
+        (unsigned long)g_fnNumBones,(unsigned long)g_fnBoneName,(unsigned long)g_fnParentBone,(unsigned long)g_fnRefPose,(unsigned long)g_fnHideBone,
+        (unsigned long)g_fnSetSkinned,(unsigned long)g_fnAddComp,(unsigned long)g_fnSetOwner,(unsigned long)g_fnAttach,(unsigned long)g_fnRelScale,(unsigned long)g_fnAttachParent);
+    load_status("A2 resolve: setBoneXf=0x%lx poseCls=0x%lx onlyOwnerSee=0x%lx tickGroup=0x%lx coll=0x%lx shadow=0x%lx RelLoc@0x%x RelRot@0x%x Snap=%lld KeepRel=%lld CompSpace=%lld WorldToMeters=%.1f (using %.1f) nosplit=%d",
+        (unsigned long)g_fnSetBoneXf,(unsigned long)g_poseCls,(unsigned long)g_fnOnlyOwnerSee,(unsigned long)g_fnTickGroup,(unsigned long)g_fnColl2,(unsigned long)g_fnShad2,
+        g_offRelLoc,g_offRelRot,(long long)g_attSnap,(long long)g_attKeepRel,(long long)g_boneCS,w2m,g_w2m,(int)g_noSplit);
+    load_status("A2 resolve: calibration %s -> %s",g_calPath,g_calLoaded?"LOADED (no T-pose needed)":"none yet (hold a T-pose once)");
+}
 static void* dump_thread(void*){
     LOGI("dumper thread up; base=0x%lx; poll %s/dump_now",(unsigned long)g_base,OUTDIR);
     char cmd[600]; snprintf(cmd,sizeof cmd,"%s/dump_now",OUTDIR);
@@ -1422,7 +1747,10 @@ static void* dump_thread(void*){
         // the game thread), then start + poll on the game thread: +1 s, +3 s, +10 s, then every 30 s (24 polls max).
         { static int bt=-1, pt=0;
           if(bt==-1 && orig_pe && (g_loaded_once||auto_done) && file_present("body_tracking")) bt=6;
-          if(bt>0 && --bt==0){ if(bt_resolve()){ g_bt_req=1; load_status("BT: armed; starting on the game thread"); } else load_status("BT: resolve failed; not started"); }
+          if(bt>0 && --bt==0){ if(bt_resolve()){ a2_resolve(); g_bt_req=1; load_status("BT: armed; starting on the game thread"); } else load_status("BT: resolve failed; not started"); }
+          { char rp[600]; snprintf(rp,sizeof rp,"%s/bt_recalibrate",OUTDIR); int fr=open(rp,O_RDONLY);     // one-shot: redo the T-pose
+            if(fr>=0){ close(fr); unlink(rp); if(g_calPath[0]) unlink(g_calPath); g_a2Recal=1; load_status("A2: bt_recalibrate seen -> calibration deleted; hold a T-pose"); } }
+          if(file_present("bt_calibrate_now")){ char cp[600]; snprintf(cp,sizeof cp,"%s/bt_calibrate_now",OUTDIR); unlink(cp); g_a2CalNow=1; }  // manual capture
           if(g_bt_started && g_btPolls<24){ pt++; if(pt==2||pt==6||pt==20||(pt>=60&&pt%60==0)) g_bt_poll_req=1; } }
         // RENDER report schedule: first at ~3s after attach, then every ~10s, up to 8 reports (drained on the game thread).
         if(g_report_ticks>0 && --g_report_ticks==0){ if(g_reports<8){ g_report_req=1; g_report_ticks=20; } }
