@@ -21,6 +21,7 @@
 #include <errno.h>
 #include <dirent.h>
 #include <cstdarg>
+#include "vendor/And64InlineHook.hpp"
 static inline pid_t my_tid(){ return (pid_t)syscall(SYS_gettid); }
 
 #define TAG "TRIBEMOD"
@@ -815,11 +816,110 @@ static void* httpd_thread(void*){
     close(s); return nullptr;
 }
 
+// ================= Phase 3: direct-glTFRuntime executor (the fix) =================
+// Loads tribemod/custom.glb via glTFRuntime's own Blueprint UFunctions (called through UObject::ProcessEvent
+// on the GAME THREAD, drained from a ProcessEvent hook) and puts the USkeletalMesh on the live avatar body
+// SkeletalMeshComponent -- bypassing Tribe's dead readyplayer.me metadata path. v1: MaterialsConfig.bSkipLoad
+// => a gray mesh proves geometry/skeleton/placement/visibility. Gated on tribemod/load_avatar.
+// ProcessEvent runtime = base + 0x1857dd4 + 0x1000 (calibrated skew) = base + 0x1858dd4 (== Default__Object vtable[78]).
+static const uintptr_t RVA_PE_GHIDRA = 0x1857dd4; static const uintptr_t PE_SKEW = 0x1000;
+typedef void(*pe_t)(void*,void*,void*); static pe_t orig_pe=0; static void* g_pe_addr=0;
+static volatile sig_atomic_t g_load_req=0, g_in_load=0; static bool g_resolved=0;
+
+struct FStr { uint16_t* data; int32_t num; int32_t max; };
+static uint16_t g_fpath[600];
+static void build_fstr(FStr* s,const char* a){ int i=0; for(;a[i]&&i<599;i++) g_fpath[i]=(uint16_t)(uint8_t)a[i]; g_fpath[i]=0; s->data=g_fpath; s->num=i+1; s->max=i+1; }
+static void load_status(const char* fmt,...){ char m[512]; va_list ap; va_start(ap,fmt); vsnprintf(m,sizeof m,fmt,ap); va_end(ap);
+    LOGI("[LOAD] %s",m); char p[600]; snprintf(p,sizeof p,"%s/load_result.txt",OUTDIR); FILE* f=fopen(p,"a"); if(f){ fprintf(f,"%s\n",m); fclose(f);} }
+
+// resolve name pool + object array + UStruct offsets from params.txt (heavy scan; run off the game thread)
+static void ensure_resolved(){
+    if(g_resolved) return; load_maps(); read_params();
+    if(P_np){ g_namepool=g_base+P_np; g_blocks_off=(P_bo>=0)?(uint32_t)P_bo:0x40; } else scan_namepool();
+    if(!(P_ga && try_objarray(g_base+P_ga))){ if(!scan_objarray()){ load_status("resolve: objarray FAIL"); return; } }
+    OFF_Super=0x40; OFF_Children=0x48; OFF_ChildProps=0x50; OFF_PropSize=0x58;   // R3-locked for this build
+    char t[32]; fname_resolve(0,t,sizeof t);
+    load_status("resolved: np=0x%lx ga=0x%lx NumElem=%u None='%s'",(unsigned long)(g_namepool-g_base),(unsigned long)(g_objarray-g_base),g_numElements,t);
+    g_resolved=(g_numElements>1000);
+}
+static void call_uf(uintptr_t obj,uintptr_t fn,void* parms){ if(orig_pe&&obj&&fn) orig_pe((void*)obj,(void*)fn,parms); }
+// find a live (non-CDO) object by name + class-name whose full path contains 'inpath'
+static uintptr_t find_live(const char* name,const char* cls,const char* inpath){
+    char nm[96],cn[96],fp[400];
+    for(uint32_t i=0;i<g_numElements;i++){ uintptr_t o=obj_at(i); if(!o) continue;
+        obj_name(o,nm,sizeof nm); if(strcmp(nm,name)) continue;
+        class_name(o,cn,sizeof cn); if(strcmp(cn,cls)) continue;
+        if(rd32(o+OFF_Flags)&RF_ClassDefaultObject) continue;
+        if(inpath){ full_path(o,fp,sizeof fp); if(!strstr(fp,inpath)) continue; }
+        return o; }
+    return 0;
+}
+static void decode_errors(uintptr_t asset,uintptr_t fnErr){
+    if(!asset||!fnErr) return; static uint8_t ep[0x10]; memset(ep,0,sizeof ep); call_uf(asset,fnErr,ep);
+    uintptr_t data=*(uintptr_t*)ep; int num=*(int32_t*)(ep+8); load_status("GetErrors: Num=%d",num);
+    for(int i=0;i<num&&i<20;i++){ char b[256]; read_fstring(data+(uintptr_t)i*16,b,sizeof b); load_status("  err[%d]=%s",i,b); }
+}
+static void do_load(){
+    load_status("=== do_load (game tid=%d) ===",my_tid());
+    uintptr_t fnLoad=find_by_path("/Script/glTFRuntime.glTFRuntimeFunctionLibrary.glTFLoadAssetFromFilename",0);
+    uintptr_t fnMesh=find_by_path("/Script/glTFRuntime.glTFRuntimeAsset.LoadSkeletalMesh",0);
+    uintptr_t fnErr =find_by_path("/Script/glTFRuntime.glTFRuntimeAsset.GetErrors",0);
+    uintptr_t fnSet =find_by_path("/Script/Engine.SkeletalMeshComponent.SetSkeletalMeshAsset",0);
+    uintptr_t libCDO=find_by_path("/Script/glTFRuntime.Default__glTFRuntimeFunctionLibrary",0);
+    if(!libCDO) libCDO=find_obj("glTFRuntimeFunctionLibrary",1);
+    uintptr_t body=find_live("AvatarBodyMesh","SkeletalMeshComponent","ReadyPlayerMeComponent");
+    load_status("fnLoad=0x%lx fnMesh=0x%lx fnErr=0x%lx fnSet=0x%lx libCDO=0x%lx body=0x%lx",
+        (unsigned long)fnLoad,(unsigned long)fnMesh,(unsigned long)fnErr,(unsigned long)fnSet,(unsigned long)libCDO,(unsigned long)body);
+    if(!fnLoad||!fnMesh||!fnSet||!libCDO){ load_status("missing UFunction/CDO; abort"); return; }
+    char path[512]; if(!read_trim_file("glb_path.txt",path,sizeof path)) snprintf(path,sizeof path,"%s/custom.glb",OUTDIR);
+    // 1) glTFLoadAssetFromFilename(path,false,LoaderConfig)
+    static uint8_t lp[0x218]; memset(lp,0,sizeof lp);
+    FStr fs; build_fstr(&fs,path); *(FStr*)(lp+0x00)=fs;          // Filename@0x00
+    *(uint8_t*)(lp+0x10)=0;                                       // bPathRelativeToContent=false
+    *(float*)(lp+0x20+0x150)=1.0f;                               // LoaderConfig.SceneScale=1.0
+    *(uint8_t*)(lp+0x20+0x168)=1;                                // LoaderConfig.bAllowExternalFiles=true
+    *(uint8_t*)(lp+0x20+0x00)=0;                                 // LoaderConfig.TransformBaseType=Default(0)
+    call_uf(libCDO,fnLoad,lp); uintptr_t asset=*(uintptr_t*)(lp+0x210);
+    load_status("asset=0x%lx (path=%s)",(unsigned long)asset,path);
+    if(!asset){ load_status("asset NULL -> glb parse/file-access failed (check bAllowExternalFiles/path)"); return; }
+    // 2) asset.LoadSkeletalMesh(0,0,SkeletalMeshConfig)  [by index -> ignores AvatarRoot/Armature]
+    static uint8_t mp[0x758]; memset(mp,0,sizeof mp);
+    *(int32_t*)(mp+0x00)=0; *(int32_t*)(mp+0x04)=0;              // MeshIndex,SkinIndex
+    *(uintptr_t*)(mp+0x08+0x08)=0;                              // Skeleton=null(auto-build)
+    *(int32_t*)(mp+0x08+0x2c)=-1;                              // OverrideSkinIndex=-1
+    *(double*)(mp+0x08+0x640)=1.0; *(double*)(mp+0x08+0x648)=1.0; *(double*)(mp+0x08+0x650)=1.0; // BoundsScale=(1,1,1)
+    *(uint8_t*)(mp+0x08+0x240+0x220)=1;                        // MaterialsConfig.bSkipLoad=true (gray v1)
+    *(uint8_t*)(mp+0x08+0x6ca)=1;                              // bIgnoreEmptyMorphTargets=true
+    call_uf(asset,fnMesh,mp); uintptr_t mesh=*(uintptr_t*)(mp+0x750);
+    load_status("mesh=0x%lx",(unsigned long)mesh);
+    if(!mesh){ load_status("mesh NULL -> LoadSkeletalMesh failed:"); decode_errors(asset,fnErr); return; }
+    // 3) AvatarBodyMesh.SetSkeletalMeshAsset(mesh)
+    if(body){ static uint8_t sp[0x10]; memset(sp,0,sizeof sp); *(uintptr_t*)(sp+0x00)=mesh; call_uf(body,fnSet,sp);
+        load_status("SetSkeletalMeshAsset -> body=0x%lx DONE (mesh should be visible if RPM skin active)",(unsigned long)body); }
+    else load_status("mesh loaded (0x%lx) but no live AvatarBodyMesh found -- select the RPM avatar, then retry",(unsigned long)mesh);
+    load_status("=== do_load done ===");
+}
+static void run_load_guarded(){
+    g_dump_tid=my_tid(); struct sigaction sa,os,ob; memset(&sa,0,sizeof sa); sa.sa_sigaction=segv_handler; sa.sa_flags=SA_SIGINFO;
+    sigaction(SIGSEGV,&sa,&os); sigaction(SIGBUS,&sa,&ob); g_old_segv=os; g_old_bus=ob;
+    if(!sigsetjmp(g_jmp,1)){ g_guard=1; do_load(); } else load_status("SIGSEGV/BUS during load; recovered");
+    g_guard=0; sigaction(SIGSEGV,&os,0); sigaction(SIGBUS,&ob,0);
+}
+extern "C" void repl_pe(void* self,void* func,void* parms){
+    if(g_load_req && !g_in_load){ g_in_load=1; g_load_req=0; run_load_guarded(); g_in_load=0; }
+    orig_pe(self,func,parms);
+}
+
 static void* dump_thread(void*){
     LOGI("dumper thread up; base=0x%lx; poll %s/dump_now",(unsigned long)g_base,OUTDIR);
     char cmd[600]; snprintf(cmd,sizeof cmd,"%s/dump_now",OUTDIR);
+    char lcmd[600]; snprintf(lcmd,sizeof lcmd,"%s/load_avatar",OUTDIR);
     for(;;){ int fd=open(cmd,O_RDONLY); if(fd>=0){ close(fd); unlink(cmd); LOGI("dump_now seen; dumping...");
         install_guard(); do_dump(); remove_guard(); }
+        // load_avatar trigger: resolve globals here (heavy scan, off the game thread), then arm the PE-drain.
+        int lf=open(lcmd,O_RDONLY); if(lf>=0){ close(lf); unlink(lcmd); LOGI("load_avatar seen; arming executor...");
+            ensure_resolved(); if(g_resolved && orig_pe){ g_load_req=1; load_status("armed; waiting for next ProcessEvent on game thread"); }
+            else load_status("NOT armed (resolved=%d pe=%p)",(int)g_resolved,g_pe_addr); }
         usleep(500*1000); }
     return nullptr;
 }
@@ -839,4 +939,14 @@ static void on_load(){
     pthread_attr_t sa; pthread_attr_init(&sa); pthread_attr_setstacksize(&sa,256*1024); pthread_attr_setdetachstate(&sa,PTHREAD_CREATE_DETACHED);
     pthread_t sh; pthread_create(&sh,&sa,httpd_thread,nullptr); pthread_attr_destroy(&sa);
     LOGI("httpd thread spawned (127.0.0.1:%d)",HTTP_PORT);
+    // Phase 3: install the ProcessEvent hook (game-thread drain point for the direct-load executor).
+    // Runtime PE = base + Ghidra_rva + skew (calibrated 0x1000). Installed but INERT until load_avatar arms g_load_req.
+    // SAFETY: only install if tribemod/executor_on exists (PE is a hot path); remove the flag + relaunch = clean/no-hook.
+    { char ef[600]; snprintf(ef,sizeof ef,"%s/executor_on",OUTDIR); int e=open(ef,O_RDONLY);
+      if(e>=0){ close(e); uintptr_t pe=g_base+RVA_PE_GHIDRA+PE_SKEW; uint32_t w0;
+        bool prol=sr(pe,&w0,4) && ((w0&0xFF000000)==0xA9000000 || (w0&0xFFC00000)==0xD1000000); // stp/sub-sp prologue guard
+        if(prol){ g_pe_addr=(void*)pe; A64HookFunction(g_pe_addr,(void*)repl_pe,(void**)&orig_pe);
+            LOGI("ProcessEvent hook installed @%p (orig=%p)",g_pe_addr,(void*)orig_pe); }
+        else LOGI("ProcessEvent @%p NOT a prologue (w=0x%08x); hook SKIPPED",(void*)pe,w0); }
+      else LOGI("executor_on absent; PE hook not installed (safe mode)"); }
 }
