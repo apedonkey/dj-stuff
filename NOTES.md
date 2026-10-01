@@ -4147,3 +4147,25 @@ every account-gated operation. NOT fixable on the modded build: valid identity n
 is exactly what "Restore" reinstalls (and removes the mod). The two are mutually exclusive. Not a patchable bug.
 Workaround for streaming the custom avatar: OS-level capture (Quest record/cast, oculus.com/casting) -- bypasses Tribe's
 backend entirely. New scripts: scripts/StringXrefDecomp.java (string-xref decompiler), scripts/FindNativeThunk.java.
+
+## Session 3c — Go Live/Lounge: DEFINITIVE — it's the re-sign (signature), proven by pristine test; NOT our code
+
+Follow-up after "logged in + subscribed" (which weakened the earlier re-sign conclusion). User reports Go Live AND
+LOUNGE both fail -> it's the whole real-time video subsystem (TribeVideoCallManager: lounge + stages + go-live), not
+streaming alone. Go Live worked reliably on stock before the mod (user confirmed).
+DECISIVE TEST: installed pulled/base.apk re-signed with our key, ZERO other changes (original libUnreal.so, NO libhook,
+original manifest). Result: lounge + Go Live STILL fail identically.
+=> PROVEN: the signature alone breaks Tribe's real-time video backend. Not our hook, not the ini overrides, not libhook
+loading, not the libUnreal DT_NEEDED edit, not a version issue. Re-signing with a non-Meta key invalidates the Meta
+platform entitlement that the live video session auth requires. General login/profile/subscription still work (cached/
+persistent TribeAccounts token); only the per-session Meta-backed video auth fails.
+CONSEQUENCE: custom-avatar mod (requires re-sign) and Tribe online features (lounge/streaming) are MUTUALLY EXCLUSIVE on
+one install. Not fixable in our code. Switching = full APK reinstall (modded <-> store). Quest 3 has no public root, so
+runtime injection into the untouched store app (which would allow both) isn't available.
+Standalone/email login path (TribeAccountsManager): BeginStandaloneManualLogin is hard-stubbed ("Login unavailable
+code 24"); SendMagicLinkEmail is live but moot (user already logged in + subscribed; the gap is per-session video auth,
+not account login). Dead end.
+SILVER LINING for streaming the avatar: Tribe's LOCAL selfie/spectator cam renders the avatar in 3rd person with NO
+backend (confirmed earlier: skullbuck_selfie_cam_following.jpg on the modded build). So OS-level capture (Quest
+record/cast of that view) can stream the avatar without Tribe's dead backend. Unverified which view Quest cast grabs;
+next step if user wants it. User build restored (work.aligned.apk) + flags + calibration intact.
