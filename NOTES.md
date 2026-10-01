@@ -4191,3 +4191,24 @@ Backup of avatar data (skins + bt_user_calib.txt + params) at backup/tribemod_20
 STORE version. To restore avatar: install out/hookA/work.aligned.apk, push backup/tribemod_*/tribemod/* back.
 Only "both" option = modded build (avatar in Tribe's LOCAL selfie cam, no backend) + Quest SYSTEM-level cast/record
 (OS feature, works regardless of app auth) -- but that captures the HMD view, not Tribe's 3rd-person stream cam.
+
+## Session 3c — CORRECTION (advisor review): tighten overclaims on the Go Live conclusion
+
+Advisor flagged three overstatements in the prior "DEFINITIVE: signing identity is the gate" entry. Corrected:
+1. CONFOUND NOT RESOLVED: the working genuine build was STORE-installed; the failing builds were our-cert + SIDELOADED.
+   Two variables (certificate AND install provenance) changed together. The genuine pulled/base.apk sideloaded via adb
+   did NOT start cleanly (user: "the fresh one you installed isnt starting" -> uninstalled -> user installed store
+   version manually), so genuine+sideload streaming was never tested. "Only the cert differs" was WRONG. Cert-vs-
+   provenance remains unseparated.
+2. MECHANISM IS INFERENCE: observed = Tribe requests Meta token+proof (binary symbols) and gets code 190 on ours / 0 on
+   genuine. NOT observed = that Meta checks the signing cert specifically (190 = "invalid token", no stated reason),
+   that the user-proof attests the whole APK (it's user verification; app/cert check is a separate inferred mechanism),
+   or that both token AND proof generation failed. Signing identity = strong inference, not measured.
+3. "NO WORKAROUND" -> "no fix within our current re-sign+sideload method". Not universal impossibility; a Tribe-
+   sanctioned signing/integration or future firmware/root could change it.
+DEFENSIBLE BOTTOM LINE: avatar code is NOT the cause (proven); re-signing+sideloading an otherwise-unchanged Tribe
+reproduces a Meta-auth failure blocking real-time video while the genuine store build works (same version+account);
+changed signing identity is the LEADING cause with install provenance still a confound; no fix within our approach.
+Full hedged writeup: claudedocs/golive_findings.md. Open gap-closing test (optional, disrupts the working store install):
+sideload genuine base.apk, clear the dialog, try to stream -> streams = cert is the gate; runs-but-no-stream = provenance
+also matters.
