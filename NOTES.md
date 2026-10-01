@@ -4121,3 +4121,29 @@ harmless-on-legit-installs (no baseline obtainable without Restore, which revert
 Only remaining in-house proof = native-hook GetBackendLiveURL/GetAccessTokenFromBackend impls (Ghidra, hours). Deferred
 pending user interest. Next step chosen by user: ask the advisor (domain knowledge may resolve it). OS-level capture
 (Quest record/cast, oculus.com/casting) is the clean workaround -- bypasses Tribe's backend, shows the custom avatar.
+
+## Session 3c — Go Live ROOT CAUSE PROVEN (native RE): Meta identity, broken by the re-sign; not fixable while modded
+
+User asked for certainty (not just "high confidence") -> native disassembly of Tribe's backend/auth path. CERTAIN now:
+- Backend hosts are HARDCODED at TribeGameInstance init (Ghidra FUN_0518b35c rva 0x508b35c):
+  GameInstance+0x478 = "https://mixreality.tribexr.com" (API), +0x488 = "https://live.tribexr.com" (live base).
+  So GetBackendLiveURL (FUN_0518d844, pure getter of +0x488/+0x490) returns the CONSTANT base, never empty --
+  my earlier "field never filled" read was WRONG. The UI "URL pending" is the PER-SESSION link, which needs the
+  backend to create a live session FOR THE AUTHENTICATED USER.
+- Backend identity auth = Oculus/Meta user proof: binary uses ovr_User_GetUserProof, ovr_Message_GetUserProof,
+  ovr_UserProof_GetNonce, ovr_User_GetAccessToken, ovr_User_GetLoggedInUser, ovr_Entitlement_GetIsViewerEntitled;
+  HTTP auth = Authorization: Bearer + nonce. Classic Oculus platform proof pattern.
+- OBSERVED (logcat): ovr_User_GetAccessToken / users.get fail continuously (code 190 Invalid OAuth 2.0 Access Token,
+  HTTP 400), ~1/sec baseline -- the re-signed APK's signature no longer matches the hash Meta registered for Tribe's
+  Oculus app ID (real app id in binary: 14737832452345234664), so the platform SDK won't mint a user token/proof.
+  Same reason the "unofficial app" dialog gates every launch.
+- Twitch path (GetIngestUrl -> FUN_0522b4b8): returns rtmp://sfo.contribute.live-video.net/app/<key@+0x380> ONLY if
+  auth-state@+0x388 >= 2; the key comes from a Tribe-backend OAuth exchange (id.twitch.tv/oauth2 client in binary)
+  that itself needs the Oculus identity. So "Tribe says live, Twitch isn't" = local optimistic flag, no real ingest.
+- Tribe also has subscription tiers (ETribeSubscriptionGroup, bPremiumAccess, GetTribeLifetimeSubscriptionSKU) -- a
+  possible SECOND gate, but it's verified through the same backend auth, so the broken Oculus identity is upstream of it.
+CONCLUSION: streaming fails because the re-sign invalidates the Meta platform identity that Tribe's backend requires for
+every account-gated operation. NOT fixable on the modded build: valid identity needs the original app signature, which
+is exactly what "Restore" reinstalls (and removes the mod). The two are mutually exclusive. Not a patchable bug.
+Workaround for streaming the custom avatar: OS-level capture (Quest record/cast, oculus.com/casting) -- bypasses Tribe's
+backend entirely. New scripts: scripts/StringXrefDecomp.java (string-xref decompiler), scripts/FindNativeThunk.java.
