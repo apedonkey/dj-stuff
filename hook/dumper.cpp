@@ -725,6 +725,13 @@ static void ini_upsert(){
     char m[1400]; snprintf(m,sizeof m,"summary: url=%s etag=%s",hu?qurl:"(none)",he?etag:"(none)"); ini_status(m);
     char bp[600]; snprintf(bp,sizeof bp,"%s/body_tracking",OUTDIR); int bf=open(bp,O_RDONLY); if(bf>=0) close(bf);
     upsert_ini(ENGINE_INI_PATH,"[/Script/OculusXRHMD.OculusXRHMDRuntimeSettings]","bBodyTrackingEnabled",bf>=0?"True":0,true);
+    // diagnostic (flag tribemod/http_log): raise HTTP/Online log verbosity so Tribe's backend requests + status codes show
+    // in logcat (Shipping compiles LogHttp Verbose out of the macro, but the category still honors ini verbosity at runtime
+    // for any UE_LOG that survived). Absent -> keys deleted (clean).
+    char hp[600]; snprintf(hp,sizeof hp,"%s/http_log",OUTDIR); int hf=open(hp,O_RDONLY); bool hl=(hf>=0); if(hf>=0) close(hf);
+    const char* cats[]={"LogHttp","LogOnline","LogOnlineHttp","LogHttpCurl","LogInternetAddr"};
+    for(unsigned i=0;i<sizeof cats/sizeof cats[0];i++) upsert_ini(ENGINE_INI_PATH,"[Core.Log]",cats[i],hl?"Verbose":0,true);
+    ini_status(hl?"http_log: LogHttp/LogOnline set Verbose":"http_log: off (keys removed)");
 }
 
 // ================= Phase 1: in-libhook loopback HTTP server =================
@@ -843,7 +850,7 @@ static volatile sig_atomic_t g_load_req=0, g_in_load=0; static bool g_resolved=0
 static uintptr_t g_apply_fn=0; static volatile sig_atomic_t g_loaded_once=0; static long g_last_cycle=0;
 // diagnostic (flag tribemod/log_pe): log each UNIQUE ProcessEvent func whose name looks avatar/skin/menu-ish,
 // so an in-headset avatar-select reveals which event actually goes through ProcessEvent (the real cycle trigger).
-static volatile sig_atomic_t g_log_pe=0; static uintptr_t g_seen[1024]; static int g_nseen=0;
+static volatile sig_atomic_t g_log_pe=0;
 // keeper: Tribe actively resets ReadyPlayerMeComponent.AvatarBodyMesh back to null (verified: set -> null
 // within ~40s, and the orphaned mesh then gets GC'd). So: root our mesh (no GC), block BP-level resets in
 // the PE hook, and have the poll thread re-attach if a native reset slips through.
@@ -907,15 +914,19 @@ static uintptr_t find_live(const char* name,const char* cls,const char* inpath){
 }
 static bool is_rpm_skin(uintptr_t skin){ if(!skin||!in_range(skin,0x30)) return false;
     char cn[96]; class_name(skin,cn,sizeof cn); return strcmp(cn,"BP_ReadyPlayerMeAvatarSkin_C")==0; }
+// O(1) dedupe: open-addressing set of function pointers; when nearly full, unseen funcs are simply not logged (no spam)
+static uintptr_t g_seenH[8192]; static int g_seenN=0;
+static bool seen_add(uintptr_t f){ uint32_t h=(uint32_t)((f>>4)*2654435761u)&8191u;
+    for(int k=0;k<64;k++){ uint32_t i=(h+k)&8191u; if(g_seenH[i]==f) return false; if(!g_seenH[i]){ if(g_seenN>=7000) return false; g_seenH[i]=f; g_seenN++; return true; } }
+    return false; }
 static void pe_log_func(uintptr_t func){
-    if(!func||!in_range(func,0x30)) return;
-    for(int i=0;i<g_nseen;i++) if(g_seen[i]==func) return;      // log each unique func once
-    if(g_nseen<1024) g_seen[g_nseen++]=func;
+    if(!func||!seen_add(func)||!in_range(func,0x30)) return;   // each unique func once, O(1)
     char nm[96]; obj_name(func,nm,sizeof nm);
     if(strstr(nm,"Skin")||strstr(nm,"Avatar")||strstr(nm,"Apply")||strstr(nm,"Select")||strstr(nm,"RPM")||strstr(nm,"Clicked")||strstr(nm,"Button")
        ||strstr(nm,"Live")||strstr(nm,"Stream")||strstr(nm,"Twitch")||strstr(nm,"VideoCall")||strstr(nm,"Channel")||strstr(nm,"Rtmp")){  // + go-live path
         char fp[400]; full_path(func,fp,sizeof fp); char p[600]; snprintf(p,sizeof p,"%s/pe_funcs.txt",OUTDIR);
-        FILE* f=fopen(p,"a"); if(f){ fprintf(f,"%s\n",fp); fclose(f); } }
+        struct timespec ts; clock_gettime(CLOCK_MONOTONIC,&ts);
+        FILE* f=fopen(p,"a"); if(f){ fprintf(f,"%ld.%03ld %s\n",(long)ts.tv_sec,(long)(ts.tv_nsec/1000000),fp); fclose(f); } }
 }
 // advance active_skin.txt to the next *.glb in tribemod/skins/ (sorted, wrapping). Writes the new name.
 static void advance_skin(){

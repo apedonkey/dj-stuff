@@ -4091,3 +4091,33 @@ http://127.0.0.1:8000/custom.glb from the old RPM path, still written each launc
 (4) sideload/entitlement breaking backend auth. Prepared: log_pe now also records Live/Stream/Twitch/VideoCall/
 Channel/Rtmp functions -> one press shows where the flow stops. A/B plan: link Twitch and retry; then retry with
 tribemod/executor_on and avatar_url.txt removed (mod inert) to rule the mod in or out.
+
+## Session 3c — Go Live investigation (streaming broken on the re-signed build)
+
+User: Go Live does nothing. live.tribexr.com = "URL pending" forever; Twitch shows "live" in-app but channel isn't;
+also newer Tribe shows a second screen on Go Live, ours doesn't. RTMP not a concern.
+
+Evidence gathered (no deep-dive; streaming is a nice-to-have):
+- CONFIRMED: Meta Platform identity is failing continuously on the re-signed APK -- 123x users.get + 2x
+  users.get_access_token + 13x "forwarding", ~1/sec over 2 min (code 190 Invalid OAuth 2.0 Access Token, HTTP 400,
+  com.oculus.platform.util.Util / MakeEvoRequest). Rate => BASELINE, not button-triggered. Expected from re-signing
+  (app signature no longer matches Meta's registered hash -> platform entitlement/identity dead).
+- CONFIRMED: our build HAS the full streaming UI (W_VideoCallMenu + confirm screens, W_ChannelDeviceSelection,
+  W_VideoCallStageQueue, W_LiveList, etc.) -- streaming isn't missing from this version.
+- ProcessEvent button-logger (tribemod/log_pe, now O(1) hash-set + ms timestamps) during a Go Live press: BP flow runs
+  W_VideoCallMenu (RefreshChannelsAndRooms, UpdateStageButton, NetworkSettings StreamSelection changed) but NO
+  stream-start UFunction (SetChannelStreaming / GetBackendLiveURL / GetIngestUrl) routes through PE -> they're native
+  C++ calls, or never reached. Flow reaches the menu and doesn't advance (matches "no second screen").
+- HTTP visibility: added Engine.ini [Core.Log] LogHttp/LogOnline/LogOnlineHttp/LogHttpCurl=Verbose via the constructor
+  upsert (flag tribemod/http_log). ini verified written. RESULT: zero real UE LogHttp/LogOnline output from any pid ->
+  LogHttp is COMPILED OUT in this Shipping build; ini verbosity can't restore it. No tribexr/twitch/ivs host appears
+  anywhere in logcat (HTTPS, opaque). Dead end for passive logging.
+  LESSON: my first grep "count=5 LogHttp lines" was all my own TRIBEMOD status lines -- verify by reading content, not
+  counting matches.
+
+CERTAIN: Meta identity is broken on this build. NOT CERTAIN (can't prove cheaply): that this is the direct gate on
+Tribe streaming vs. (a) a separate Tribe-backend token, (b) a newer-version UI screen, (c) these Meta errors being
+harmless-on-legit-installs (no baseline obtainable without Restore, which reverts the mod).
+Only remaining in-house proof = native-hook GetBackendLiveURL/GetAccessTokenFromBackend impls (Ghidra, hours). Deferred
+pending user interest. Next step chosen by user: ask the advisor (domain knowledge may resolve it). OS-level capture
+(Quest record/cast, oculus.com/casting) is the clean workaround -- bypasses Tribe's backend, shows the custom avatar.
