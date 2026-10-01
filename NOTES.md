@@ -4169,3 +4169,25 @@ SILVER LINING for streaming the avatar: Tribe's LOCAL selfie/spectator cam rende
 backend (confirmed earlier: skullbuck_selfie_cam_following.jpg on the modded build). So OS-level capture (Quest
 record/cast of that view) can stream the avatar without Tribe's dead backend. Unverified which view Quest cast grabs;
 next step if user wants it. User build restored (work.aligned.apk) + flags + calibration intact.
+
+## Session 3c — Go Live: PROVEN by genuine-vs-re-signed control (advisor-guided clean-state A/B)
+
+Advisor pushed back (rightly): pristine test was signing-only (confirmed: cp+zipalign+apksigner, no apktool rebuild),
+but I lacked a current genuine-signed control, and uninstall resets state so comparisons must be clean-state both sides.
+Genuine signer confirmed: CN=Kevin Lowe, O=TribeXR Inc. (SHA-256 af43cac3...); our re-sign: CN=Tribe Mod, O=Personal.
+CLEAN-STATE A/B (version held constant -- store ships the SAME 0.12.5.1, installer com.oculus.ocms):
+  | build | version | signature | install | Meta auth errs | Go Live/Lounge |
+  | modded        | 0.12.5.1 | ours    | sideload | ~1/sec | FAIL |
+  | pristine re-signed | 0.12.5.1 | ours | sideload | ~1/sec | FAIL |
+  | genuine store | 0.12.5.1 | Tribe's | store    | 0      | WORKS (user streamed Twitch + live.tribexr.com) |
+On genuine: 0 code-190/users.get errors + Agora RTC active (8 refs) = video backend authed and streamed. On re-signed:
+constant auth failure, never reaches Agora. Everything else identical.
+=> DEFINITIVE: the signing identity is the gate. Re-signing with a non-Meta key breaks the Meta platform auth Tribe's
+Agora-based video backend (lounge/stages/go-live) needs per session. Ruled out: version (same 0.12.5.1), account/service
+(works now), our avatar code (pristine re-signed fails identically). Custom avatar (needs re-sign) and Tribe online video
+are MUTUALLY EXCLUSIVE per install. No fix: can't reproduce Tribe's signature (their key only), no Quest 3 root for
+runtime injection into the untouched store app.
+Backup of avatar data (skins + bt_user_calib.txt + params) at backup/tribemod_20261001/. User currently on the working
+STORE version. To restore avatar: install out/hookA/work.aligned.apk, push backup/tribemod_*/tribemod/* back.
+Only "both" option = modded build (avatar in Tribe's LOCAL selfie cam, no backend) + Quest SYSTEM-level cast/record
+(OS feature, works regardless of app auth) -- but that captures the HMD view, not Tribe's 3rd-person stream cam.
