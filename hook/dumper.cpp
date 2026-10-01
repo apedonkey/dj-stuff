@@ -912,7 +912,8 @@ static void pe_log_func(uintptr_t func){
     for(int i=0;i<g_nseen;i++) if(g_seen[i]==func) return;      // log each unique func once
     if(g_nseen<1024) g_seen[g_nseen++]=func;
     char nm[96]; obj_name(func,nm,sizeof nm);
-    if(strstr(nm,"Skin")||strstr(nm,"Avatar")||strstr(nm,"Apply")||strstr(nm,"Select")||strstr(nm,"RPM")||strstr(nm,"Clicked")||strstr(nm,"Button")){
+    if(strstr(nm,"Skin")||strstr(nm,"Avatar")||strstr(nm,"Apply")||strstr(nm,"Select")||strstr(nm,"RPM")||strstr(nm,"Clicked")||strstr(nm,"Button")
+       ||strstr(nm,"Live")||strstr(nm,"Stream")||strstr(nm,"Twitch")||strstr(nm,"VideoCall")||strstr(nm,"Channel")||strstr(nm,"Rtmp")){  // + go-live path
         char fp[400]; full_path(func,fp,sizeof fp); char p[600]; snprintf(p,sizeof p,"%s/pe_funcs.txt",OUTDIR);
         FILE* f=fopen(p,"a"); if(f){ fprintf(f,"%s\n",fp); fclose(f); } }
 }
@@ -1646,6 +1647,23 @@ static void a2_update_hand_modes(){
         for(int m=0;m<2;m++) if(ms[m]){ if(want) a2_unhide_bone(ms[m],h); else a2_hide_bone(ms[m],h); }
         load_status("A2 hands: %s -> %s (hand tracking valid=%d confidence=%d)",s?"right":"left",
             want?"MODEL hand shown (controller)":"Tribe's tracked hand (model hand hidden)",valid,conf); } }
+// ---- space alignment (advisor: "make sure the body and HMD stay aligned after a recenter"). The camera's pose is
+// base-corrected by the plugin (BaseOrientation^-1 * (P - BaseOffset)); TryGetBodyState's joints are NOT. After a UE-level
+// recenter the body sits beside you (measured: eyes-vs-MetaHead 17/17 cm instead of 7.5/0). Apply the same correction to
+// the joints -- self-verifying: each frame, score both raw and corrected by how far Meta's head joint is from where it
+// belongs behind your eyes (EYES_FROM_HEAD, measured in an aligned session), and use the better one.
+static uintptr_t g_hmdLib=0, g_fnGetBase=0; static Q4 g_baseQ={0,0,0,1}; static V3 g_baseOff={0,0,0};
+static int g_align=0; static double g_errRaw=0, g_errAl=0;          // g_align 1 = use the base-corrected joints
+static const V3 EYES_FROM_HEAD={7.5,0.0,8.0};                        // eyes relative to Meta's head joint, HMD frame (cm)
+static void a2_read_base(){                                          // UOculusXRFunctionLibrary::GetBaseRotationAndBaseOffsetInMeters
+    if(!g_hmdLib||!g_fnGetBase) return; uint16_t psz=rd16(g_fnGetBase+0xB6); static uint8_t b[128] __attribute__((aligned(16)));
+    int oR=prop_offset(g_fnGetBase,"OutRotation",0), oO=prop_offset(g_fnGetBase,"OutBaseOffsetInMeters",0);
+    if(psz>sizeof b||oR<0||oO<0) return; memset(b,0,sizeof b); call_uf(g_hmdLib,g_fnGetBase,b);
+    Q4 q=rot2q((double*)(b+oR)); double* o=(double*)(b+oO); V3 off=V(o[0]*g_w2m,o[1]*g_w2m,o[2]*g_w2m);
+    if(fabs(q.x-g_baseQ.x)+fabs(q.y-g_baseQ.y)+fabs(q.z-g_baseQ.z)+fabs(q.w-g_baseQ.w)>1e-4||vlen(vsub(off,g_baseOff))>0.5){
+        double* r=(double*)(b+oR); load_status("A2 align: plugin base rotation (P%.1f Y%.1f R%.1f) offset (%.1f,%.1f,%.1f) cm",r[0],r[1],r[2],off.x,off.y,off.z); }
+    g_baseQ=q; g_baseOff=off; }
+static double a2_head_err(V3 head,Q4 camQ,V3 camP){ V3 d=vsub(qrot(qinv(camQ),vsub(camP,head)),EYES_FROM_HEAD); return sqrt(d.x*d.x+d.y*d.y); }
 // two-bone IK (advisor): bend Arm/ForeArm so the wrist lands on W, elbow in the plane of pole P; keeps bone lengths
 static void a2_ik_arm(int a,int f,int h,V3 W,V3 P,Q4* tq,const Q4* cq,const V3* ct,double* err){
     V3 S=ct[a]; double l1=vlen(g_rb_lt[f]), l2=vlen(g_rb_lt[h]); V3 dv=vsub(W,S); double d=vlen(dv); if(d<1e-3||l1<1||l2<1) return;
@@ -1702,9 +1720,11 @@ static void a2_drive(const Q4* mq,const V3* mp,Q4 camQ,V3 camP,float dt){
     logT+=dt; if(logT>=2.0||init){ logT=0;
         V3 d=qrot(qinv(camQ),vsub(camP,mp[7]));                         // eyes relative to Meta's head joint, in the HMD's frame
         int rA=-1,rB=-1; uint8_t* r=call_ret(g_pmA,g_fnRendered,1,0.5f); if(r) rA=*r; if(g_pmB){ r=call_ret(g_pmB,g_fnRendered,1,0.5f); if(r) rB=*r; }
-        load_status("A2 live: dt=%.4f drive=%.0f us (%d bones/mesh) hands L%s R%s | hips=(%.0f,%.0f,%.0f) eyes-vs-MetaHead fwd/right/up=(%.1f,%.1f,%.1f) wristIK err L%.1f R%.1f cm | rendered A=%d B=%d",
+        double wc[2]={-1,-1}; uintptr_t mc[2]={g_mcL,g_mcR}; int wj[2]={19,45};
+        for(int s2=0;s2<2;s2++){ double l[3]; if(mc[s2]&&sr(mc[s2]+g_offRelLoc,l,24)) wc[s2]=vlen(vsub(V(l[0],l[1],l[2]),mp[wj[s2]])); }
+        load_status("A2 live: dt=%.4f drive=%.0f us (%d bones/mesh) hands L%s R%s | align=%s (head err raw %.1f / corrected %.1f) eyes-vs-MetaHead fwd/right/up=(%.1f,%.1f,%.1f) | Meta wrist-to-controller L%.0f R%.0f cm | wristIK L%.1f R%.1f | rendered A=%d B=%d",
             dt,usN?usSum/usN:0.0,nset,g_handShown[0]?"=model":"=tribe",g_handShown[1]?"=model":"=tribe",
-            mp[1].x,mp[1].y,mp[1].z,d.x,d.y,d.z,eL*g_btScale,eR*g_btScale,rA,rB); usSum=0; usN=0; } }
+            g_align?"base":"raw",g_errRaw,g_errAl,d.x,d.y,d.z,wc[0],wc[1],eL*g_btScale,eR*g_btScale,rA,rB); usSum=0; usN=0; } }
 // skin changed (do_load put the new mesh on our actor's component): drop the old tracked meshes and rebuild for the new
 // rig. Fresh components (not an asset swap) because a same-bone-count asset swap keeps the old rig's hidden-bone indices.
 static void a2_drop_meshes(){
@@ -1732,12 +1752,18 @@ static void bt_frame(float dt){
     if(!g_btParms[bt_oRet]||!s[0]) return;                            // tracking inactive: hold the last pose
     static Q4 mq[BT_NJ]; static V3 mp[BT_NJ];
     for(int i=0;i<BT_NJ;i++){ uint8_t* j=g_btJoints+i*BT_JSZ; mq[i]=rot2q((double*)(j+0x10)); double* p=(double*)(j+0x28); mp[i]=V(p[0],p[1],p[2]); g_mv[i]=j[8]!=0; }
+    double cr[3]={0,0,0}, cl[3]={0,0,0}; if(g_offRelRot<0||g_offRelLoc<0||!sr(g_camComp+g_offRelRot,cr,24)||!sr(g_camComp+g_offRelLoc,cl,24)) return;
+    Q4 camQ=rot2q(cr); V3 camP=V(cl[0],cl[1],cl[2]);
+    { static int bc=0; if(bc++%30==0) a2_read_base();
+      Q4 bi=qinv(g_baseQ); V3 hAl=qrot(bi,vsub(mp[7],g_baseOff));
+      double k=dt/0.5; if(k>1) k=1; g_errRaw+=(a2_head_err(mp[7],camQ,camP)-g_errRaw)*k; g_errAl+=(a2_head_err(hAl,camQ,camP)-g_errAl)*k;
+      int want=g_align; if(g_errAl<g_errRaw-3.0) want=1; else if(g_errRaw<g_errAl-3.0) want=0;
+      if(want!=g_align){ g_align=want; load_status("A2 align: using %s joints (head error raw %.1f cm vs base-corrected %.1f cm)",want?"BASE-CORRECTED":"raw",g_errRaw,g_errAl); }
+      if(g_align) for(int i=0;i<BT_NJ;i++){ mp[i]=qrot(bi,vsub(mp[i],g_baseOff)); mq[i]=qnorm(qmul(bi,mq[i])); } }
     { static int fr=0,nw=0; static float lt=-1; float tm=*(float*)(s+12);  // advisor Q2: fresh every frame, or 30 Hz steps?
       if(fr<150){ fr++; if(tm!=lt){ nw++; lt=tm; }
         if(fr==150){ g_smooth=(nw<105); load_status("A2 rate: %d frames, %d new samples -> %s",fr,nw,g_smooth?"stepping: smoothing ON (tau 30 ms)":"fresh every frame: no smoothing"); } } }
     if(!g_rbTried){ g_rbTried=true; g_rbOK=a2_build_rest(); }          // a rig that can't be tracked keeps following, stiff
-    double cr[3]={0,0,0}, cl[3]={0,0,0}; if(g_offRelRot<0||g_offRelLoc<0||!sr(g_camComp+g_offRelRot,cr,24)||!sr(g_camComp+g_offRelLoc,cl,24)) return;
-    Q4 camQ=rot2q(cr); V3 camP=V(cl[0],cl[1],cl[2]);
     if(!g_ucal){                                                       // your pose is captured once, whatever skin is on
         static V3 pWL,pWR,pH; static double spd=100; static bool have=false;          // motion: fastest of wrists/head, smoothed 0.3 s
         double inst=(have&&dt>1e-4)?fmax(vlen(vsub(mp[19],pWL)),fmax(vlen(vsub(mp[45],pWR)),vlen(vsub(mp[7],pH))))/dt:100;
@@ -1814,6 +1840,9 @@ static void a2_resolve(){
         load_status("A2: the previous launch died while going live -> retarget DISABLED this launch (auto-retries next launch)"); }
     g_fnDestroyComp=find_by_path("/Script/Engine.ActorComponent.K2_DestroyComponent",0);
     g_fnUnhideBone=find_by_path("/Script/Engine.SkinnedMeshComponent.UnHideBoneByName",0);
+    g_hmdLib    =find_by_path("/Script/OculusXRHMD.Default__OculusXRFunctionLibrary",0);
+    g_fnGetBase =find_by_path("/Script/OculusXRHMD.OculusXRFunctionLibrary.GetBaseRotationAndBaseOffsetInMeters",0);
+    load_status("A2 resolve: align hmdLib=0x%lx getBase=0x%lx",(unsigned long)g_hmdLib,(unsigned long)g_fnGetBase);
     g_inLib     =find_by_path("/Script/OculusXRInput.Default__OculusXRInputFunctionLibrary",0);
     g_fnHandValid=find_by_path("/Script/OculusXRInput.OculusXRInputFunctionLibrary.IsHandPositionValid",0);
     g_fnHandConf =find_by_path("/Script/OculusXRInput.OculusXRInputFunctionLibrary.GetTrackingConfidence",0);

@@ -4066,3 +4066,28 @@ hand joints (reported with controllers too):
 - log: "A2 hands: left -> MODEL hand shown (controller)" on every switch; live line adds drive time (us/frame), bones
   per mesh, hand modes. Cost with both model hands shown: 52 bones x 2 meshes = 104 SetBoneTransformByName/frame.
 check_skin.py reports the 30 finger bones; Blender guide updated. Built 155,360 B; NOT yet run on device.
+
+## Session 3c — controller hands VERIFIED on device; body-vs-head alignment fix (built, installed, unverified)
+
+Device log (2026-09-30 ~19:47): per-person calibration in a T-pose (faced -2 deg, eyes 172 cm, arm tilt -3/-9) ->
+skullbuck scale 1.060; hand modes switched live per hand: controller -> "MODEL hand shown" (IsHandPositionValid=0),
+hand tracking -> "Tribe's tracked hand" (valid=1 confidence=High), incl. mixed (L model / R tribe). Drive cost
+119-279 us/frame (22-52 bones per mesh x 2 meshes); frame dt unchanged.
+PROBLEM: the advisor's head check read eyes-vs-MetaHead fwd/right/up ~(17,17,9) cm all session vs ~(7.5,0,8) in the
+earlier session (404 samples) -> body ~24 cm off the user. Likely a UE-level recenter (HMD BaseOffset/BaseOrientation):
+the camera pose gets BaseOri^-1*(P-BaseOffset), TryGetBodyState's joints don't. FIX (installed, 158,872 B, NOT yet
+verified because the next launch sat behind Meta's unofficial-app dialog): read
+OculusXRFunctionLibrary.GetBaseRotationAndBaseOffsetInMeters every 30 frames and, self-verifying, apply the same
+correction to all joints only when it brings Meta's head joint closer to EYES_FROM_HEAD=(7.5,0,8) behind the eyes
+(smoothed errors, 3 cm hysteresis; logs "A2 align: using BASE-CORRECTED/raw"). The saved per-person calibration stays
+valid (base rotation is a pure yaw composed on the left; calibration uses only relative directions + camera eye height).
+Live line now also logs Meta wrist-to-controller distance (MotionController RelativeLocation, same space).
+
+Go Live "does nothing" (user, not investigated deeply yet): Tribe streams through TribeVideoCallManager
+(SetChannelStreaming; RTMP url/enable settings; Twitch-stream setting) and TribeTwitchManager (OAuth login, ingest URL).
+Hypotheses, ranked: (1) no destination configured (Twitch not linked / no RTMP URL) -> nothing to stream to;
+(2) Tribe account/plan requirement; (3) mod interference (PE hook / ReadyPlayerMeAvatarUrl ini override to
+http://127.0.0.1:8000/custom.glb from the old RPM path, still written each launch because avatar_url.txt exists);
+(4) sideload/entitlement breaking backend auth. Prepared: log_pe now also records Live/Stream/Twitch/VideoCall/
+Channel/Rtmp functions -> one press shows where the flow stops. A/B plan: link Twitch and retry; then retry with
+tribemod/executor_on and avatar_url.txt removed (mod inert) to rule the mod in or out.
