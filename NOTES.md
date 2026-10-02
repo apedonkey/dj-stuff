@@ -3,7 +3,7 @@
 Read-only static analysis of Tribe XR as installed on my own Quest 3. (CONSTRAINT LIFTED 2026-09-29:
 the read-only / no-reinstall rule below held through the analysis phases; the re-sign gate has since
 passed [verdict a — a re-signed stock build launches, logs in past Meta entitlement, renders — burner
-account] and the injected-hook route is authorized. Keystore: tribe.keystore, pass tribexr. See the
+account] and the injected-hook route is authorized. Keystore: tribe.keystore (password kept locally; gitignored, not committed). See the
 "Phase 1 (injected-hook route)" section at the end of this file.)
 Original rule: nothing on the headset is modified, re-signed or re-installed; all analysis runs on
 copies pulled to this PC.
@@ -4212,3 +4212,252 @@ changed signing identity is the LEADING cause with install provenance still a co
 Full hedged writeup: claudedocs/golive_findings.md. Open gap-closing test (optional, disrupts the working store install):
 sideload genuine base.apk, clear the dialog, try to stream -> streams = cert is the gate; runs-but-no-stream = provenance
 also matters.
+
+## Session 3e — Mod wouldn't launch -> signup fail: OBB wipe + Meta token loss. RECOVERY PROCEDURE + cert-vs-provenance RESOLVED
+
+Trigger: after the prior session uninstalled the store build and reinstalled the mod (for the capture probe), Tribe
+would not start ("not starting" after Open App), then after being fixed showed "network issue preventing signup".
+NONE of this was the capture probe (hook loaded clean, zero crashes).
+
+Three independent breakages, each proven by observation:
+1. STUCK ON DOWNLOADER = OBB MISSING. `adb uninstall` wipes /sdcard/Android/obb/<pkg>/. Without main.2304.obb, UE launches
+   its DownloaderActivity (resumed activity = .DownloaderActivity) and can't download (sideloaded) -> never reaches game.
+   Fix: push pulled/main.2304.com.TribeXR.TribeXR.obb back (2,034,318,982 bytes).
+2. errno 13 READING tribemod. adb-pushed files land shell-owned; the tribemod DIR gets o=--- (no search bit for the app
+   uid), so the app can't traverse it -> "executor_on absent" (PE hook skipped), "custom.glb errno 13". Fix: chmod the
+   dir tree world-rwx. (The app uid also changes on reinstall: u0_a176 -> u0_a178.)
+3. "NETWORK ISSUE PREVENTING SIGNUP" = Meta app-auth rejects the modified APK. DIRECTLY OBSERVED this time (http_log on):
+     POST https://graph.oculus.com/authenticate_application -> HTTP 400, retried ~1/sec, never succeeds:
+     {"error":{"message":"Application does not have permission for this action","code":27,"error_subcode":1891543,
+      "is_transient":false,"error_user_title":"Unofficial Application",
+      "error_user_msg":"This app has been modified from it's original version... please uninstall and use the Store version"}}
+   The mod NEVER passes authenticate_application. It only ran all session because a genuine login had cached a Meta token
+   on the headset; uninstalling the mod evicted it, and the mod can't mint a new one.
+
+RESOLVES the prior entry's open confound (cert vs install-provenance): we sideloaded GENUINE pulled/base.apk via adb and
+logged in -> 0 "Unofficial Application" errors, full login. So a genuine SIGNATURE authenticates even when SIDELOADED ->
+install provenance is NOT the gate; the signing identity is. And the mechanism is no longer inference: the 400 body
+literally says "modified from its original version" / code 27 "Unofficial Application". (Streaming itself still not
+re-tested on genuine-sideload, but authenticate_application is the app-level gate everything rides on.)
+NEW scope correction: the Meta wall blocks ALL login on a fresh mod install, not just streaming. The mod depends on a
+genuine-seeded token and is inherently temporary (token expires -> re-seed).
+
+================ RECOVERY PROCEDURE (copy-paste) ================
+Vars:  A=./tools/platform-tools/adb.exe   S=2G0YC1ZF96072F
+       D=/sdcard/Android/data/com.TribeXR.TribeXR/files/tribemod
+       OBB=/sdcard/Android/obb/com.TribeXR.TribeXR/main.2304.com.TribeXR.TribeXR.obb
+
+PART A - re-seed the Meta token with the GENUINE build (CN=Kevin Lowe, SHA-256 af43cac3...):
+  "$A" -s $S uninstall com.TribeXR.TribeXR
+  "$A" -s $S install pulled/base.apk
+  "$A" -s $S shell "mkdir -p /sdcard/Android/obb/com.TribeXR.TribeXR"
+  "$A" -s $S push pulled/main.2304.com.TribeXR.TribeXR.obb $OBB
+  -> Headset: launch -> OPEN APP (never Restore) -> log in fully (into a room).
+  -> Verify:  "$A" -s $S logcat -d | grep -c "Unofficial Application"   # must be 0
+
+PART B - swap the MOD back (reuses the just-seeded token):
+  "$A" -s $S uninstall com.TribeXR.TribeXR
+  "$A" -s $S install out/hookA/work.aligned.apk        # modded, CN=Tribe Mod
+  "$A" -s $S shell "mkdir -p /sdcard/Android/obb/com.TribeXR.TribeXR $D $D/skins"
+  "$A" -s $S push pulled/main.2304.com.TribeXR.TribeXR.obb $OBB
+  # avatar data (from backups):
+  "$A" -s $S push backup/reseed_20261001/custom.glb        $D/custom.glb
+  "$A" -s $S push backup/reseed_20261001/bt_user_calib.txt $D/bt_user_calib.txt
+  "$A" -s $S push backup/reseed_20261001/params.txt        $D/params.txt
+  "$A" -s $S push backup/reseed_20261001/active_skin.txt   $D/active_skin.txt
+  "$A" -s $S push backup/tribemod_20261001/tribemod/avatar_url.txt $D/avatar_url.txt
+  "$A" -s $S push backup/tribemod_20261001/tribemod/skins/default.glb   $D/skins/default.glb
+  "$A" -s $S push backup/tribemod_20261001/tribemod/skins/mentor.glb    $D/skins/mentor.glb
+  "$A" -s $S push backup/tribemod_20261001/tribemod/skins/skullbuck.glb $D/skins/skullbuck.glb
+  "$A" -s $S shell "touch $D/executor_on $D/auto_load $D/auto_actor $D/body_tracking"
+  # PERMISSIONS (critical - app must read tribemod):
+  "$A" -s $S shell "chmod 666 $D/* 2>/dev/null; chmod 777 /sdcard/Android/data/com.TribeXR.TribeXR/files $D $D/skins; chmod 666 $D/skins/* 2>/dev/null"
+  -> Headset: launch -> OPEN APP -> into a room. Avatar injects under VR focus.
+
+RULES / gotchas:
+- NEVER `adb uninstall` the mod unless deliberately re-seeding -- uninstall wipes OBB + Meta token + tribemod together.
+- The seeded token EXPIRES eventually -> login breaks again -> rerun PART A + PART B.
+- First launch right after install may pass through the one-time OBB-downloader handoff and not carry the hook (no
+  TRIBEMOD logs / no httpd.log). Just relaunch once; the hook loads on the 2nd launch.
+- `objarray FAIL` when launched via `adb am start` is EXPECTED (no VR focus -> engine doesn't tick). Avatar only injects
+  on a real headset launch. Don't diagnose avatar load from am start.
+- Genuine APK: pulled/base.apk. Modded APK: out/hookA/work.aligned.apk (libhook.so 163448 B, DT_NEEDED of libUnreal).
+
+## Session 3f — Capture probe RESULT: eglSwapBuffers is NOT the frame path (OpenXR compositor)
+
+Armed the disabled-by-default GLES probe on a LIVE VR session (avatar loaded, user "following fine"):
+- capture_probe flag -> probe_try_install hooked eglSwapBuffers @0x74c767d400 (orig captured, all GL fn ptrs resolved).
+  App stayed alive (pid 29930) through install -> live inline hook did NOT destabilize Tribe.
+- capture_now flag -> "arming a 4-frame burst" (flag consumed by poll, so g_probe_armed=1, left=4).
+- Over ~45s armed: seq captures=0, baseline=0. Baseline needs only 120 swaps (~1.7s) and never triggered.
+  => eglSwapBuffers is essentially NEVER called for the VR view.
+- Mechanism is sound (same A64HookFunction drives the WORKING ProcessEvent hook), so repl_eglSwap WOULD fire if the
+  function were called. Zero fires = not called. Cleaned up both flags after.
+
+CONCLUSION: Tribe (UE5.4 + OculusXR; libUnreal DT_NEEDED includes libGLESv3/libEGL + libxrtracking/libovrplugin*) renders
+eyes into OpenXR XrSwapchain GL textures submitted via xrEndFrame to the compositor. eglSwapBuffers is bypassed ->
+capturing there = DEAD END. Probe milestone met with a clean NEGATIVE (identified the swap path is empty w/o destabilizing).
+
+NEXT capture-point candidates (harder than eglSwapBuffers):
+- eye-render FBO: hook glBindFramebuffer/glBlitFramebuffer, log FBO + attached texture dims to locate the eye targets.
+- XR swapchain submit: hook xrEndFrame / the swapchain image, GPU readback of the submitted texture.
+- VrApi submit (if used): vrapi_SubmitFrame2.
+Planned next probe = read-only GL framebuffer logger (dims/FBO/texture IDs) to find the eye render targets. Low risk.
+
+ITERATION NOTE (important): all modded builds share tribe.keystore, so `adb install -r <new-modded>.aligned.apk` should
+replace IN PLACE with no uninstall -> preserves OBB + tribemod data + the Meta token (no genuine re-seed per iteration).
+To CONFIRM on first rebuild. (A full `adb uninstall` still wipes OBB+token+data per Session 3e; avoid it for iteration.)
+
+## Session 3g — Offline research (user away): XR frame path + Go Live UI map. Goal confirmed: stream THROUGH Tribe's Go Live button.
+
+User confirmed (2026-10-02): streaming through Tribe's own Go Live button is ESSENTIAL (OS casting is not acceptable).
+Plan: capture frames -> capture game audio -> MediaCodec H.264/AAC -> RTMP to Twitch -> wire to Go Live toggle + status.
+
+### FBO locator probe (built + installed, awaiting one headset session)
+- hook/dumper.cpp: flag tribemod/fbo_probe -> hooks glBindFramebuffer + glViewport, logs DISTINCT fbo ids and viewport
+  sizes (+which fbo) to logcat as [FBO]. Read-only, no GL state change. Built libhook.so 165784 B.
+- Packaged out/hookA/fbo.aligned.apk (7z in-place libhook update -> zipalign -p 4 -> apksigner tribe.keystore).
+- `adb install -r` over work.aligned.apk: SUCCESS, OBB + tribemod data preserved (CONFIRMED cheap iteration path).
+  Meta token survival through install -r not yet confirmed (app hasn't run past the dialog since).
+
+### Frame path (offline, verified from binaries)
+- APK ships its own libopenxr_loader.so (exports xrGetInstanceProcAddr/xrEndFrame/xrEnumerateSwapchainImages/...) and
+  libOVRPlugin.so (5.3MB). libOVRPlugin has ZERO static xr* imports -> loads OpenXR dynamically.
+- libUnreal resolves 322 ovrp_* names, incl. ovrp_BeginFrame4/ovrp_EndFrame4 (v4 in use), ovrp_GetLayerTexture2,
+  ovrp_SetupLayer, ovrp_GetLayerTextureStageCount. It ALSO references xrEndFrame/xrEnumerateSwapchainImages (UE5.4
+  compiles both OculusXR and OpenXR paths) -> next probe should count both to see which is live (~72/s).
+- CORRECTION: an earlier claim "libUnreal names no frame functions" was a false negative -- `strings` is not installed
+  in this Git Bash (failed silently). Use NDK llvm-strings.exe instead.
+- Ghidra (headless, new scripts/DecompByName.java) on libOVRPlugin.so:
+    ovrp_EndFrame4(int frameIndex, void** layerSubmitPtrs, uint layerCount, u64 p4)  -- per-frame submit
+    ovrp_GetLayerTexture2(int layerId, int stage, int eye, u64* outColorTex, u64* outDepthTex) -- returns 0xfffffc17
+      if both out ptrs null; param 4 = color texture handle out. This is how UE gets each eye's swapchain texture.
+- GL multiview signatures verified from NDK headers (gl2ext.h): glFramebufferTextureMultiviewOVR(target,attachment,
+  texture,level,baseViewIndex,numViews) and glFramebufferTextureMultisampleMultiviewOVR(+samples). Eye images likely
+  live in a 2-layer texture array (one pass for both eyes).
+- NOTE: sr() uses one global sigsetjmp buffer + re-reads /proc/self/maps -> do NOT call it from render-thread hooks.
+
+### Go Live UI map (from objects.txt dump, backup/tribemod_20261001)
+- All Go Live controls are in /Game/VideoCall/VideoCallMenu/W_VideoCallMenu (W_VideoCallMenu_C):
+    TwitchStreamEnabledSlider  -> BndEvt__..._34_OnToggleStateChanged   (Twitch Go Live toggle)
+    RtmpStreamEnabledSlider    -> BndEvt__..._39_OnToggleStateChanged   (RTMP Go Live toggle)
+    RtmpUrlTextBox             -> BndEvt__..._19_OnEditableTextBoxCommittedEvent (user-entered RTMP URL)
+    RTMPSettings / TwitchSettings(Button) / ShowTwitchChatButton -> OnButtonClickedEvent
+    GetRtmpUrls, GetVideoCallRTMPURL, GetVideoCallTwitchIngestURL (where Tribe computes the stream target)
+    UpdateRtmpEnabledSetting, UpdateTwitchEnabledSetting, UpdateRtmpStreamSettingsWidgets,
+    ShowRtmpSettingsPanel, ShowTwitchLoginPanel, ShowTwitchSetupPanel, OnTwitchLoginSuccess, ShowRoomStreamingNotice
+- Status/feedback: BP_AchievementsManager.OnStreamingStatusChanged / GetLivestreamMinutes;
+  W_TwitchChat.OnStreamInfoUpdated / SetChannelName / SetChannelViewerCount; W_MainMenu.ToggleStreamingPanel.
+- Twitch login is backend-mediated (W_AltTwitchLogin.OnGetAccessTokenFromBackendRepeat) -> depends on Tribe backend auth
+  (broken on the mod). The RTMP option (user types a URL) needs NO backend.
+- Integration idea: our existing ProcessEvent hook can see these BndEvt toggles fire -> start/stop our own pipeline.
+  Stream target options: (A) Tribe's RTMP option with rtmp://live.twitch.tv/app/<key> typed into Tribe's own URL box;
+  (B) make the Twitch toggle itself drive our engine using a stream key stored in tribemod config.
+- Existing flag tribemod/log_pe logs distinct ProcessEvent function names (deduped) -> use it during the next headset
+  session while flipping the Go Live toggles to confirm exactly which UFunctions fire.
+
+### Decision (2026-10-02): Tribe's TWITCH switch starts the stream
+- User chose the Twitch toggle (W_VideoCallMenu TwitchStreamEnabledSlider) over the RTMP toggle. Tribe's own UI already
+  shows "live" on the mod; our pipeline makes that real. Mod supplies the stream key from its own config.
+- CREDENTIAL RULE: the Twitch stream key is a password. Keep it on-device only (tribemod config), never in logcat,
+  NOTES.md, or git; redact it in any log line.
+- Transport: prefer our own small, self-contained streaming module + Android MediaCodec (hardware H.264/AAC) rather than
+  building on a third-party SDK's internals (Agora's bundled FFmpeg is only partially exported; not relied on).
+- Next headset session: (1) FBO probe check, (2) with tribemod/log_pe on, flip the Twitch Go Live toggle on/off once to
+  capture exactly which UFunctions fire.
+
+### Requirement (2026-10-02): stream Tribe's SELECTED CAMERA, not the headset view
+- User: Tribe has multiple camera angles incl. a selfie cam; the official stream sends the chosen camera, not the eye view.
+- So the capture target is the selected stream camera's render target, NOT the eye swapchain textures.
+- Earlier sessions: the selfie cam renders the avatar locally on the modded build (no backend needed) -> the camera feed
+  is likely still drawn on the mod; we only need to locate it and send it ourselves.
+- Next headset session addition: while fbo_probe runs, switch through camera angles (incl. selfie). Expect a distinct
+  framebuffer at a video-like size (e.g. 1280x720/1920x1080) that appears/changes with the camera choice.
+
+### Session 3g cont. — Camera system found: capture target is a RENDER TARGET, not the eye swapchain (big simplification)
+From objects.txt (backup/tribemod_20261001), Tribe's spectator/stream camera system:
+- /Game/Environment/SpectatorRenderTarget  = TextureRenderTarget2D  <-- prime capture target (what Go Live sends out).
+- /Game/Equipment/Table/BP_SelfieStick (BP_SelfieStick_C): CaptureComponent2D (SceneCaptureComponent2D) + M_SelfiePreview
+  + DisplayPlane; funcs ResetSelfieCamera/LoadCameraPosition/SaveCameraPosition. The selfie cam renders scene->RT.
+- TribePlayerControllerBP_C camera selection: SetActiveSpectatorCamera, SetSpectatorCamByIndex, SetSpectatorCameras,
+  AutoInitSpectatorCameras, ToggleSpectatorCamera, IsSpectatorCameraEnabled, UpdateSpectatorHiddenActors,
+  Add/RemoveSpectatorHiddenLabel, OnSpectatorCameraToggled.
+- TribeGameInstanceBP_C: SetThirdPersonSpectatorActive / ThirdPersonSpectatorActive / ToggleSpectatorScreenMode.
+- Live class counts in the dump: 13 SceneCaptureComponent2D, 8 SceneCapture2D, 25 TextureRenderTarget2D.
+
+WHY THIS HELPS:
+- The stream shows Tribe's SELECTED CAMERA (user), i.e. the spectator/selfie SceneCaptureComponent2D -> its TextureTarget
+  (a UTextureRenderTarget2D). That is a normal GPU texture we can read -- far easier + more stable than the XR eye
+  swapchain. And scene-capture is LOCAL (no Meta/Tribe backend) -> it still renders on the mod.
+- Capture routes: (1) GL-FBO -- when the SceneCapture renders, GLES RHI binds an FBO whose color attachment is the RT's
+  GL texture; the fbo_probe will show it as a distinct FBO at the RT's (video-ish) resolution when the camera is active.
+  (2) UObject -- resolve SpectatorRenderTarget via reflection, read SizeX/SizeY, walk resource->RHI->GL tex id.
+  Efficient streaming path later: bind that texture, draw into MediaCodec's input Surface (GPU, no CPU readback stall).
+- Offsets come at runtime via the hook's reflection (prop_offset: UTextureRenderTarget2D.SizeX/SizeY/RenderTargetFormat,
+  USceneCaptureComponent2D.TextureTarget); sdk.txt doesn't include these classes and no RT size is dumped offline.
+
+NEXT HEADSET SESSION (refined): with fbo_probe on, switch camera angles incl. selfie -> watch for the FBO at the stream
+resolution that changes with the camera. With log_pe on, flip the Twitch Go Live toggle -> capture which UFunctions fire.
+Both pin down exactly what to capture and what signal to hook, before any encoder work.
+
+### Camera probe built + installed (user: stream camera is most likely the SELFIE STICK)
+- hook/dumper.cpp: flag tribemod/cam_probe -> cam_probe_tick() on the POLL thread every ~10 ticks (~5s), read-only:
+  find_live_class_sub("BP_SelfieStick_C") -> prop "CaptureComponent2D" -> prop "TextureTarget" (UTextureRenderTarget2D);
+  logs [CAM] RT full path/class/addr + SizeX/SizeY/RenderTargetFormat, and the capture comp's bCaptureEveryFrame /
+  bCaptureOnMovement raw bytes + CaptureSource. Also logs /Game/Environment/SpectatorRenderTarget once found.
+  Property names resolve by reflection at runtime (wrong name -> -1, never a bad read). Logs only on change.
+- Built libhook.so 168184 B (no new warnings under -Wall -Wformat=2). Packaged out/hookA/cam.aligned.apk (from work.apk,
+  7z -> zipalign -p 4 -> apksigner tribe.keystore). `adb install -r`: Success; OBB + custom.glb/bt_user_calib/executor_on
+  intact. Armed flags: fbo_probe, cam_probe, log_pe.
+- Next headset session reads: [CAM] (selfie RT name + resolution), [FBO] (which framebuffer renders it), and log_pe's
+  ProcessEvent names while flipping the Twitch Go Live toggle.
+
+## Session 3h — MAJOR REVERSAL: custom avatar + Tribe Go Live/lounges WORK TOGETHER on a FRESH Meta token
+User (2026-10-02, in-headset): Twitch Go Live AND room/lounge streaming AND the character mod are ALL working
+simultaneously on the modded build right now. This DIRECTLY CONTRADICTS the prior "mutually exclusive / Go Live
+impossible on the mod" conclusion (Sessions 3c).
+
+OBSERVED (logcat, this session):
+- "Unofficial Application" errors: 0.  code 190 / Invalid OAuth: 0.  (Were ~1/sec in every prior failing test.)
+- Meta OBTAIN_TOKEN succeeding continuously.
+
+MECHANISM (strong inference, matches the findings' own note that video needs a fresh per-session Meta proof):
+- The recovery I did = genuine login (pulled/base.apk) MINTED A FRESH Meta token, then `install -r` of the mod kept it
+  (no uninstall -> no token eviction). Tribe's Agora video backend (lounge/stages/go-live) rides that token.
+- Fresh token -> Meta stops rejecting -> official Go Live + lounges come alive WHILE the custom-avatar mod is active.
+- The earlier failures were a STALE/absent token, NOT the re-sign per se. The re-sign's real limitation: it cannot
+  REFRESH the token itself (authenticate_application rejects the modified app), so the token only lasts until it expires.
+
+=> CORRECTION to golive_findings.md and Sessions 3c/3e: avatar and Tribe online video are NOT mutually exclusive. They
+coexist as long as the Meta token is fresh. "Impossible on the mod" was true only for a stale token.
+
+IMPLICATION FOR THE PLAN:
+- The custom capture->encode->RTMP engine is likely UNNECESSARY. Official Go Live already does Twitch + avatar.
+- New "solution" = keep the token fresh; re-seed (genuine login -> install -r swap, ~10 min) when it expires.
+- OPEN QUESTION (durability): how long does the seeded token stay valid (hours? days?) and does the mod keep working
+  that whole time? Determines whether this is a real fix or needs re-seed automation. Watch for the auth errors to
+  return (~1/sec) = token expired = streaming will drop.
+- PENDING VERIFICATION: confirm the REAL twitch.tv/<channel> is broadcasting (in-app "live" badge gave a false positive
+  before). Lounge-with-real-people working is itself strong real-backend evidence.
+- Probe work (fbo_probe/cam_probe/log_pe in cam.aligned.apk) retained as fallback if the token path proves too fragile.
+
+### Session 3h — CONFIRMED REAL (not the in-app false positive)
+User verified on their phone: twitch.tv/<channel> is ACTUALLY broadcasting while the custom avatar is active via Tribe's
+own Go Live button. So the project goal (Twitch + custom avatar through Tribe's button) is ACHIEVED on a fresh Meta token.
+Probe flags (fbo_probe/cam_probe/log_pe/capture_*) removed from device -> clean normal-use streaming. Probe CODE stays in
+the build as fallback. Only maintenance item = Meta token freshness. KEY RULE: never `adb uninstall` the mod (wipes token
++ OBB); use `install -r` for updates (preserves both). Durability of the token = open; waiting to see when it expires.
+
+### Session 3h — 360 videos missing on the mod = storage permission reset by the reinstall (FIXED)
+- Symptom: user's 360 videos (room visuals) don't appear on the mod; do on genuine. Files present in /sdcard/Download/
+  (ashen_abyss_360.mp4, mainstage_360.mp4, horizon_calib_360.mp4), owned by another app (u0_a80 media_rw, 0660).
+- Tribe loads 360 video via /Game/VideoSphere/VideoSphere_MediaPlayer + StereoLayerShapeEquirect, listed by
+  BP_TribeVisualsManager. Needs media read access to enumerate/open the files.
+- CAUSE: reinstall gave the app a new UID (u0_a176->a178) and RESET runtime perms -> READ_EXTERNAL_STORAGE granted=false
+  (USER_FIXED), all READ_MEDIA_* denied, appops ignore. gids=[3003 inet only], not in a media group -> no file access ->
+  empty 360 list. Manifest perms/features were verified IDENTICAL to genuine (not the cause).
+- FIX (adb): pm grant READ_EXTERNAL_STORAGE / WRITE_EXTERNAL_STORAGE / READ_MEDIA_VIDEO|AUDIO|IMAGES, and
+  appops set ... READ_EXTERNAL_STORAGE/LEGACY_STORAGE/READ_MEDIA_VIDEO allow. Verified granted=true. Needs a Tribe
+  RELAUNCH to take effect (storage view is set at process start; the grant may also force-stop the app).
+- Alt (in-headset): Quest Settings -> Apps -> Tribe XR -> Permissions -> Files/Storage -> Allow.
+- ADD TO RE-SEED CHECKLIST: after any uninstall/reinstall, re-grant storage perms or 360 videos / media break again.

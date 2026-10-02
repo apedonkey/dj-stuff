@@ -1,50 +1,55 @@
 # Tribe XR "Go Live" on the modded build — findings
 
-Why Tribe's Go Live / lounge / streaming fail on our custom-avatar build but work on the official one.
-Claims are labeled **[observed]** (measured this session) or **[inferred]** (best explanation, not directly measured).
+**UPDATED 2026-10-02 — the earlier conclusion was WRONG and is corrected below.** We previously concluded the custom
+avatar and Tribe's online video (lounge / Go Live) were mutually exclusive and that streaming was impossible on the mod.
+In fact the modded build streams to the user's real Twitch channel through Tribe's own Go Live button, with the custom
+avatar active, lounges working, and 360-video visuals — all at once (verified live). The real variable was never the
+mod; it was the freshness of the Meta platform token on the headset.
 
-## The builds compared
+Claims are labeled **[observed]** (measured) or **[inferred]** (best explanation, not directly measured).
 
-| | Official | Ours |
-|---|---|---|
-| Package / version | com.TribeXR.TribeXR 0.12.5.1 (code 2304) | same |
-| App code / resources | — | identical (pristine test was signing-only: `cp` → `zipalign` → `apksigner`, no rebuild) |
-| Signing cert | `CN=Kevin Lowe, O=TribeXR Inc.` (SHA-256 `af43cac3…`) | `CN=Tribe Mod, O=Personal` |
-| Install source | Meta store (`com.oculus.ocms`) | adb sideload |
+## What actually gates Tribe's online video
 
-## What was tested (clean state each time)
+- **[observed]** Tribe's real-time video (lounge / stages / Go Live, via the Agora backend) requires a valid Meta
+  platform token. The system auth service (`com.oculus.horizon`) obtains an app-scoped token for Tribe's app id
+  (2055718171162796) from `graph.oculus.com/authenticate_application`.
+- **[observed]** With a **fresh** token on the device, the modded (re-signed) build streams fine: 0 auth errors, Twitch
+  channel genuinely live, lounges connect, 360 visuals load. With a **stale/absent** token it fails with HTTP 400
+  code 27 "Unofficial Application — this app has been modified from its original version", retried ~1/sec, and video
+  never starts.
+- **[observed]** The re-signed app cannot itself REFRESH the token: `authenticate_application` rejects the modified app
+  (that is the "Unofficial Application" 400). But it will happily RIDE a valid token that a genuine login already cached
+  on the device — until that token expires.
+- **[observed]** A **genuine-signed** build authenticates even when **sideloaded** (0 errors), which resolves the old
+  cert-vs-install-provenance confound: the gate is the signing identity for *minting/refreshing*, not the install
+  source. Genuine signer `CN=Kevin Lowe, O=TribeXR Inc.` (SHA-256 af43cac3…); our re-sign `CN=Tribe Mod, O=Personal`.
 
-| Build | Version | Signature | Install | Meta auth errors | Agora (video) | Go Live / Lounge |
-|---|---|---|---|---|---|---|
-| Modded (full mod) | 0.12.5.1 | ours | sideload | ~1/sec | never starts | fail |
-| Pristine re-signed (no mod code) | 0.12.5.1 | ours | sideload | ~1/sec | never starts | fail |
-| Genuine | 0.12.5.1 | Tribe's | **store** | 0 | active | **works** (streamed to Twitch + live.tribexr.com) |
-| Genuine sideloaded | 0.12.5.1 | Tribe's | adb | — | — | **not tested** (build didn't start cleanly; likely the unofficial-app dialog) |
+## Why the earlier "impossible / mutually exclusive" conclusion was wrong
 
-## What this establishes
+- The failing A/B tests (Session 3c) were all run with a **stale or absent** token, so every re-signed build failed
+  identically and it looked like the signature permanently blocked video. The pristine-re-sign test correctly proved
+  our avatar code wasn't the cause — but the remaining failure was a dead token, not a hard incompatibility.
+- Once we re-seeded a fresh token (genuine login) and kept it through an in-place `install -r` of the mod, the whole
+  official path came back to life with the avatar still active.
 
-- **[observed]** The avatar/mod code is not the cause: the pristine re-signed build (zero of our code) fails identically to the full mod.
-- **[observed]** Version is not the cause: the store ships the same 0.12.5.1.
-- **[observed]** Account/service is not the cause: streaming works right now on the same account.
-- **[observed]** The genuine store build produces **0** Meta auth errors and reaches Agora (the real-time video engine); both re-signed/sideloaded builds produce ~1/sec `code 190` auth errors and never reach Agora.
+## The working model (current)
 
-## What is NOT yet isolated
+- The mod runs everything as long as the Meta token is fresh. Maintenance = keep the token fresh.
+- **Never `adb uninstall` the mod** — that evicts the token (and wipes the ~1.9GB OBB and the tribemod data). Use
+  `adb install -r` for updates; it preserves token + OBB + data (proven).
+- A reinstall also resets runtime permissions, so after any re-seed, re-grant storage (READ_EXTERNAL_STORAGE /
+  READ_MEDIA_VIDEO) or the 360 videos disappear.
+- Recovery when it expires: `scripts/reseed.sh` (genuine login to mint a token → swap the mod back → restore data +
+  permissions). Full manual steps in NOTES.md "Session 3e".
 
-- **Certificate vs install provenance.** The working build was genuine-cert **and** store-installed; the failing builds were our-cert **and** sideloaded. Two variables changed together. A genuine *sideloaded* build was not successfully tested, so we cannot yet separate "the signing identity" from "installed outside the store."
+## Open question
 
-## Mechanism (inference, from client disassembly + logs)
+- **Token lifetime** — how long a seeded token stays valid (hours? days?) is not yet measured. We learn it by how long
+  each session keeps working before the ~1/sec auth errors return. That determines whether re-seeding is a rare chore or
+  needs automating.
 
-- **[observed]** Tribe requests a Meta user access token + user-proof nonce (`ovr_User_GetAccessToken`, `ovr_User_GetUserProof`, `ovr_UserProof_GetNonce` in the binary) and sends `Authorization: Bearer <token>` + nonce to its backend (`mixreality.tribexr.com`; live base `live.tribexr.com`, both hardcoded at init). Streaming video runs over **Agora**.
-- **[observed]** On our build, the access-token/`users.get` calls fail with `code 190` (invalid OAuth token). On genuine, they don't.
-- **[inferred]** The most likely reason the token is invalid is the changed signing identity (the main registered attribute we altered). `code 190` itself only says "invalid token" — it does not state cert vs app-ID vs other. Meta's server-side registered configuration and validation rules were not directly observed.
-- **[inferred]** The user-proof supports server-side **user** verification; it should not be described as attestation that the whole APK is genuine — any app/cert integrity check is a separate mechanism not directly observed here.
-- **[observed]** General login (profile, subscription) persists on the broken build because it rides a saved token; **[inferred]** real-time video sessions need a fresh Meta-backed proof per session, which is what fails.
+## Not claimed
 
-## Fix status
-
-- **[observed/established]** No fix within our current method: modifying the APK forces a new signature, and we cannot reproduce Tribe's signature without its private key.
-- **[not claimed]** Universal impossibility. A Tribe-sanctioned customization/signing arrangement, or future device/firmware changes enabling runtime injection into the untouched store app, would change the constraints. Quest 3 has no public root method at time of writing.
-
-## Practical upshot
-
-Within our re-sign-and-sideload approach, the custom avatar and Tribe's online video (lounge / Go Live) are mutually exclusive per install. Switching = reinstalling (modded ↔ store). The only "both" path explored is the modded build's **local** selfie/spectator cam (renders the avatar with no backend) captured via Quest's own system record/cast — but that is the first-person headset view, not Tribe's third-person stream camera. Not yet tested.
+- That this is officially supported or permanent. It depends on Meta's current token behavior and Tribe's current
+  backend; either could change. This is a personal mod on a burner account with accepted ToS risk; no entitlement/DRM is
+  circumvented and the stream uses the user's own Twitch channel.

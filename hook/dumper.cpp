@@ -23,6 +23,7 @@
 #include <time.h>
 #include <math.h>
 #include <cstdarg>
+#include <dlfcn.h>
 #include "vendor/And64InlineHook.hpp"
 static inline pid_t my_tid(){ return (pid_t)syscall(SYS_gettid); }
 
@@ -1820,6 +1821,153 @@ extern "C" void repl_pe(void* self,void* func,void* parms){
 }
 
 static bool file_present(const char* name){ char p[600]; snprintf(p,sizeof p,"%s/%s",OUTDIR,name); int fd=open(p,O_RDONLY); if(fd>=0){ close(fd); return true; } return false; }
+
+// ================= GLES capture probe (advisor milestone; flags tribemod/capture_probe + capture_now) =================
+// DISABLED by default. Purpose: find out what eglSwapBuffers actually sees on this Quest build -- the avatar/spectator
+// view, an eye image, a mirror, or nothing -- BEFORE any encoder/audio/network work. On Quest the real frames go to XR
+// swapchain textures submitted to the compositor, so the swap surface may NOT hold the avatar view; the probe measures
+// rather than assumes. One-shot burst: logs the GL context (surface dims, viewport, draw/read FBO), reads back the bound
+// READ framebuffer BEFORE forwarding the original swap, into an owned heap buffer written off the render thread. Restores
+// pixel-pack state; forwards orig exactly once. No encoder, no audio, no networking.
+typedef void* EGLDisplay_; typedef void* EGLSurface_; typedef unsigned int EGLBoolean_; typedef int EGLint_;
+typedef unsigned int GLenum_; typedef int GLint_; typedef int GLsizei_;
+static EGLBoolean_ (*orig_eglSwap)(EGLDisplay_,EGLSurface_)=0;
+static EGLBoolean_ (*p_eglQuerySurface)(EGLDisplay_,EGLSurface_,EGLint_,EGLint_*)=0;
+static void (*p_glGetIntegerv)(GLenum_,GLint_*)=0;
+static void (*p_glReadPixels)(GLint_,GLint_,GLsizei_,GLsizei_,GLenum_,GLenum_,void*)=0;
+static void (*p_glPixelStorei)(GLenum_,GLint_)=0;
+static GLenum_ (*p_glGetError)(void)=0;
+static const EGLint_ EGL_WIDTH_=0x3057, EGL_HEIGHT_=0x3056;
+static const GLenum_ GL_VIEWPORT_=0x0BA2, GL_FRAMEBUFFER_BINDING_=0x8CA6, GL_READ_FRAMEBUFFER_BINDING_=0x8CAA,
+    GL_PACK_ALIGNMENT_=0x0D05, GL_RGBA_=0x1908, GL_UNSIGNED_BYTE_=0x1401;
+static volatile sig_atomic_t g_probe_armed=0; static int g_probe_left=0, g_probe_seq=0; static bool g_probe_hooked=false;
+static double g_probe_lastT=0, g_probe_dtSum=0; static int g_probe_dtN=0; static bool g_probe_baselined=false;
+static void probe_log(const char* fmt,...){ char m[512]; va_list ap; va_start(ap,fmt); vsnprintf(m,sizeof m,fmt,ap); va_end(ap);
+    LOGI("[PROBE] %s",m); char p[600]; snprintf(p,sizeof p,"%s/probe/probe.log",OUTDIR); FILE* f=fopen(p,"a"); if(f){ fprintf(f,"%s\n",m); fclose(f);} }
+struct FrameJob{ uint8_t* buf; int w,h,fbo,seq; };
+static void* probe_writer(void* arg){ FrameJob* j=(FrameJob*)arg; char p[700];       // write off the render thread
+    snprintf(p,sizeof p,"%s/probe/frame_%d_%dx%d_fbo%d.rgba",OUTDIR,j->seq,j->w,j->h,j->fbo);
+    FILE* f=fopen(p,"wb"); if(f){ fwrite(j->buf,1,(size_t)j->w*j->h*4,f); fclose(f);} free(j->buf); free(j); return 0; }
+static void probe_capture(EGLDisplay_ dpy, EGLSurface_ surf){
+    int sw=0,sh=0; if(p_eglQuerySurface){ p_eglQuerySurface(dpy,surf,EGL_WIDTH_,&sw); p_eglQuerySurface(dpy,surf,EGL_HEIGHT_,&sh); }
+    GLint_ vp[4]={0,0,0,0}, fbo=0, rfbo=0;
+    if(p_glGetIntegerv){ p_glGetIntegerv(GL_VIEWPORT_,vp); p_glGetIntegerv(GL_FRAMEBUFFER_BINDING_,&fbo); p_glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING_,&rfbo); }
+    int w=sw>0?sw:vp[2], h=sh>0?sh:vp[3];
+    if(w<=0||h<=0||w>4096||h>4096){ probe_log("seq%d: surf=%dx%d viewport=(%d,%d,%d,%d) drawFBO=%d readFBO=%d -> unusable dims, no readback",
+        g_probe_seq,sw,sh,vp[0],vp[1],vp[2],vp[3],fbo,rfbo); g_probe_seq++; g_probe_left--; return; }
+    probe_log("seq%d: surf=%dx%d viewport=(%d,%d,%d,%d) drawFBO=%d readFBO=%d -> reading %dx%d RGBA from readFBO",
+        g_probe_seq,sw,sh,vp[0],vp[1],vp[2],vp[3],fbo,rfbo,w,h);
+    uint8_t* buf=(uint8_t*)malloc((size_t)w*h*4); if(!buf){ g_probe_seq++; g_probe_left--; return; }
+    GLint_ oldAlign=4; if(p_glGetIntegerv) p_glGetIntegerv(GL_PACK_ALIGNMENT_,&oldAlign);
+    if(p_glPixelStorei) p_glPixelStorei(GL_PACK_ALIGNMENT_,1);
+    if(p_glGetError) p_glGetError();                                               // clear prior error
+    if(p_glReadPixels) p_glReadPixels(0,0,w,h,GL_RGBA_,GL_UNSIGNED_BYTE_,buf);
+    GLenum_ err=p_glGetError?p_glGetError():0;
+    if(p_glPixelStorei) p_glPixelStorei(GL_PACK_ALIGNMENT_,oldAlign);              // restore state we touched
+    if(err){ probe_log("seq%d: glReadPixels GL error 0x%x (readFBO=%d may be unreadable)",g_probe_seq,err,rfbo); free(buf); g_probe_seq++; g_probe_left--; return; }
+    FrameJob* j=(FrameJob*)malloc(sizeof(FrameJob)); if(!j){ free(buf); g_probe_seq++; g_probe_left--; return; }
+    j->buf=buf; j->w=w; j->h=h; j->fbo=rfbo; j->seq=g_probe_seq;
+    pthread_t th; pthread_attr_t a; pthread_attr_init(&a); pthread_attr_setdetachstate(&a,PTHREAD_CREATE_DETACHED);
+    pthread_create(&th,&a,probe_writer,j); pthread_attr_destroy(&a);
+    g_probe_seq++; g_probe_left--;
+    if(g_probe_left<=0){ g_probe_armed=0; probe_log("burst done: %d frames captured; probe disarmed",g_probe_seq); }
+}
+static EGLBoolean_ repl_eglSwap(EGLDisplay_ dpy, EGLSurface_ surf){
+    struct timespec ts; clock_gettime(CLOCK_MONOTONIC,&ts); double now=ts.tv_sec*1000.0+ts.tv_nsec/1e6;
+    if(g_probe_lastT>0 && !g_probe_baselined && !(g_probe_armed&&g_probe_left>0)){ g_probe_dtSum+=now-g_probe_lastT; g_probe_dtN++;
+        if(g_probe_dtN==120){ g_probe_baselined=true; probe_log("baseline: %.2f ms/swap (%.1f fps) over 120 swaps",g_probe_dtSum/120.0,1000.0/(g_probe_dtSum/120.0)); } }
+    g_probe_lastT=now;
+    if(g_probe_armed && g_probe_left>0){ probe_capture(dpy,surf);
+        clock_gettime(CLOCK_MONOTONIC,&ts); double t1=ts.tv_sec*1000.0+ts.tv_nsec/1e6;
+        probe_log("seq%d: capture cost %.2f ms on the render thread (CPU readback; NOT the eventual GPU->encoder path)",g_probe_seq-1,t1-now); }
+    return orig_eglSwap(dpy,surf);
+}
+static void probe_try_install(){
+    if(g_probe_hooked) return;
+    void* f=dlsym(RTLD_DEFAULT,"eglSwapBuffers"); if(!f){ probe_log("eglSwapBuffers not resolvable yet; will retry"); return; }
+    p_eglQuerySurface=(EGLBoolean_(*)(EGLDisplay_,EGLSurface_,EGLint_,EGLint_*))dlsym(RTLD_DEFAULT,"eglQuerySurface");
+    p_glGetIntegerv=(void(*)(GLenum_,GLint_*))dlsym(RTLD_DEFAULT,"glGetIntegerv");
+    p_glReadPixels=(void(*)(GLint_,GLint_,GLsizei_,GLsizei_,GLenum_,GLenum_,void*))dlsym(RTLD_DEFAULT,"glReadPixels");
+    p_glPixelStorei=(void(*)(GLenum_,GLint_))dlsym(RTLD_DEFAULT,"glPixelStorei");
+    p_glGetError=(GLenum_(*)(void))dlsym(RTLD_DEFAULT,"glGetError");
+    char dir[600]; snprintf(dir,sizeof dir,"%s/probe",OUTDIR); mkdir(dir,0777);
+    A64HookFunction(f,(void*)repl_eglSwap,(void**)&orig_eglSwap); g_probe_hooked=true;
+    probe_log("eglSwapBuffers hooked @%p (orig=%p); gl: query=%p getiv=%p read=%p store=%p err=%p -- touch tribemod/capture_now to grab 4 frames",
+        f,(void*)orig_eglSwap,(void*)p_eglQuerySurface,(void*)p_glGetIntegerv,(void*)p_glReadPixels,(void*)p_glPixelStorei,(void*)p_glGetError);
+}
+// ============ GL FBO/viewport locator probe (flag tribemod/fbo_probe) -- READ-ONLY, logcat only ============
+// eglSwapBuffers carries nothing (frames go to the OpenXR swapchain), so locate the eye render targets directly:
+// hook glBindFramebuffer + glViewport and log DISTINCT fbo ids and render sizes with counts. No GL state change,
+// no texture binding, no readback -- only records the args. The eye target is the fbo that gets eye-res viewports.
+static void (*orig_glBindFramebuffer)(GLenum_,GLenum_)=0;
+static void (*orig_glViewport)(GLint_,GLint_,GLsizei_,GLsizei_)=0;
+static bool g_fbo_hooked=false;
+static int  g_fboIds[48], g_fboCnt[48], g_fboN=0;
+static int  g_vpW[48], g_vpH[48], g_vpFbo[48], g_vpCnt[48], g_vpN=0;
+static int  g_fboLast=0; static long g_fboBinds=0;
+static void fbo_dump(){
+    char b[900]; size_t n=0;
+    n+=snprintf(b+n,sizeof b-n,"FBOs(bind#%ld):",g_fboBinds);
+    for(int i=0;i<g_fboN && n<sizeof b-24;i++) n+=snprintf(b+n,sizeof b-n," id%d:%d",g_fboIds[i],g_fboCnt[i]);
+    LOGI("[FBO] %s",b);
+    n=0; n+=snprintf(b+n,sizeof b-n,"viewports:");
+    for(int i=0;i<g_vpN && n<sizeof b-32;i++) n+=snprintf(b+n,sizeof b-n," %dx%d@fbo%d:%d",g_vpW[i],g_vpH[i],g_vpFbo[i],g_vpCnt[i]);
+    LOGI("[FBO] %s",b);
+}
+static void repl_glBindFramebuffer(GLenum_ target, GLenum_ fb){
+    orig_glBindFramebuffer(target,fb);
+    g_fboBinds++; int f=(int)fb; int i;
+    for(i=0;i<g_fboN;i++) if(g_fboIds[i]==f){ g_fboCnt[i]++; break; }
+    if(i==g_fboN && g_fboN<48){ g_fboIds[g_fboN]=f; g_fboCnt[g_fboN]=1; g_fboN++; LOGI("[FBO] new FBO id=%d (bind#%ld)",f,g_fboBinds); }
+    g_fboLast=f;
+    if((g_fboBinds % 1800)==0) fbo_dump();
+}
+static void repl_glViewport(GLint_ x,GLint_ y,GLsizei_ w,GLsizei_ h){
+    orig_glViewport(x,y,w,h); int i;
+    for(i=0;i<g_vpN;i++) if(g_vpW[i]==(int)w && g_vpH[i]==(int)h && g_vpFbo[i]==g_fboLast){ g_vpCnt[i]++; break; }
+    if(i==g_vpN && g_vpN<48){ g_vpW[g_vpN]=(int)w; g_vpH[g_vpN]=(int)h; g_vpFbo[g_vpN]=g_fboLast; g_vpCnt[g_vpN]=1; g_vpN++;
+        LOGI("[FBO] new viewport %dx%d @fbo%d (bind#%ld)",(int)w,(int)h,g_fboLast,g_fboBinds); }
+}
+static void fbo_try_install(){
+    if(g_fbo_hooked) return;
+    void* b=dlsym(RTLD_DEFAULT,"glBindFramebuffer"); void* v=dlsym(RTLD_DEFAULT,"glViewport");
+    if(!b||!v){ LOGI("[FBO] glBindFramebuffer/glViewport not resolvable yet (b=%p v=%p)",b,v); return; }
+    A64HookFunction(b,(void*)repl_glBindFramebuffer,(void**)&orig_glBindFramebuffer);
+    A64HookFunction(v,(void*)repl_glViewport,(void**)&orig_glViewport);
+    g_fbo_hooked=true;
+    LOGI("[FBO] hooked glBindFramebuffer=%p glViewport=%p -- logging distinct FBOs + render sizes",b,v);
+}
+// ============ Stream-camera probe (flag tribemod/cam_probe) -- READ-ONLY, poll thread ============
+// Go Live streams Tribe's SELECTED camera (user: usually the selfie stick) = a SceneCaptureComponent2D drawing into a
+// UTextureRenderTarget2D. Resolve BP_SelfieStick_C -> CaptureComponent2D -> TextureTarget by reflection and log the RT's
+// path/size/format + capture settings, plus /Game/Environment/SpectatorRenderTarget. Names resolve at runtime, so a wrong
+// name logs -1 instead of misreading. Logs only on change.
+static void cam_log_rt(const char* label, uintptr_t rt){
+    if(!rt){ LOGI("[CAM] %s: TextureTarget=(null)",label); return; }
+    char fp[400], cn[128]; full_path(rt,fp,sizeof fp); class_name(rt,cn,sizeof cn);
+    uintptr_t cls=rdptr(rt+OFF_Class);
+    int oX=prop_offset(cls,"SizeX",0), oY=prop_offset(cls,"SizeY",0), oF=prop_offset(cls,"RenderTargetFormat",0);
+    LOGI("[CAM] %s: RT=%s (%s) @0x%lx size=%dx%d fmt=%d",label,fp,cn,(unsigned long)rt,
+        oX>=0?(int)rd32(rt+oX):-1, oY>=0?(int)rd32(rt+oY):-1, oF>=0?(int)(rd32(rt+oF)&0xff):-1);
+}
+static void cam_probe_tick(){
+    static uintptr_t lastStick=1, lastRT=1; static bool specDone=false;
+    uintptr_t st=find_live_class_sub("BP_SelfieStick_C"), cap=0, rt=0;
+    if(st){ uintptr_t scls=rdptr(st+OFF_Class); int oc=prop_offset(scls,"CaptureComponent2D",0); cap=oc>=0?rdptr(st+oc):0;
+        if(cap){ uintptr_t ccls=rdptr(cap+OFF_Class); int ot=prop_offset(ccls,"TextureTarget",0); rt=ot>=0?rdptr(cap+ot):0; } }
+    if(st!=lastStick || rt!=lastRT){
+        if(!st) LOGI("[CAM] selfie stick: not in level yet (take it out / open the camera to spawn it)");
+        else if(!cap) LOGI("[CAM] selfie stick @0x%lx: CaptureComponent2D unresolved",(unsigned long)st);
+        else { uintptr_t ccls=rdptr(cap+OFF_Class); char cn[128]; class_name(cap,cn,sizeof cn);
+            int ob=prop_offset(ccls,"bCaptureEveryFrame",0), om=prop_offset(ccls,"bCaptureOnMovement",0), os=prop_offset(ccls,"CaptureSource",0);
+            LOGI("[CAM] selfie stick @0x%lx comp=%s @0x%lx everyFrameByte=0x%02x onMoveByte=0x%02x CaptureSource=%d",
+                (unsigned long)st,cn,(unsigned long)cap, ob>=0?(rd32(cap+ob)&0xff):0xff, om>=0?(rd32(cap+om)&0xff):0xff,
+                os>=0?(int)(rd32(cap+os)&0xff):-1);
+            cam_log_rt("selfie",rt); }
+        lastStick=st; lastRT=rt; }
+    if(!specDone){ uintptr_t sp=find_by_path("/Game/Environment/SpectatorRenderTarget.SpectatorRenderTarget",0);
+        if(sp){ cam_log_rt("SpectatorRenderTarget",sp); specDone=true; } }
+}
 // poll thread: resolve A2 (retarget) functions/offsets/enums + load this rig's saved calibration
 static void a2_resolve(){
     g_fnNumBones  =find_by_path("/Script/Engine.SkinnedMeshComponent.GetNumBones",0);
@@ -1909,6 +2057,16 @@ static void* dump_thread(void*){
           if(file_present("next_skin")){ char np2[600]; snprintf(np2,sizeof np2,"%s/next_skin",OUTDIR); unlink(np2);            // remote skin switch
             if(g_loaded_once&&orig_pe){ advance_skin(); g_load_req=1; } else load_status("next_skin: no skin loaded yet"); }
           if(g_bt_started && g_btPolls<24){ pt++; if(pt==2||pt==6||pt==20||(pt>=60&&pt%60==0)) g_bt_poll_req=1; } }
+        // GLES capture probe: install the eglSwapBuffers hook when tribemod/capture_probe exists; one-shot 4-frame burst
+        // when tribemod/capture_now appears (so you can first open the selfie/spectator cam to show the avatar).
+        if(file_present("capture_probe") && !g_probe_hooked) probe_try_install();
+        if(g_probe_hooked && file_present("capture_now")){ char cn[600]; snprintf(cn,sizeof cn,"%s/capture_now",OUTDIR); unlink(cn);
+            g_probe_seq=0; g_probe_left=4; g_probe_armed=1; probe_log("capture_now -> arming a 4-frame burst"); }
+        // GL FBO/viewport locator: install when tribemod/fbo_probe exists (finds eye render targets; eglSwapBuffers is empty)
+        if(file_present("fbo_probe") && !g_fbo_hooked) fbo_try_install();
+        // Stream-camera probe: resolve the selfie stick's capture render target (what Go Live streams). Every ~10 ticks
+        // because each pass scans the object array.
+        { static int ctk=0; if(file_present("cam_probe") && (++ctk % 10)==0) cam_probe_tick(); }
         // RENDER report schedule: first at ~3s after attach, then every ~10s, up to 8 reports (drained on the game thread).
         if(g_report_ticks>0 && --g_report_ticks==0){ if(g_reports<8){ g_report_req=1; g_report_ticks=20; } }
         // KEEPER (~1s): if Tribe reset our body natively (bypassing the PE blocker), request a re-attach on the game thread.

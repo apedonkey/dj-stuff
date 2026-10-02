@@ -28,3 +28,8 @@ extracted/blueprints/*.json
 # large/transient on-device dumps
 logs/scan_final/objects.txt
 logs/*.log
+
+# device recovery data (avatar backups, calibration, bulk object dumps) — machine/account specific, kept locally
+backup/
+# transient per-session load logs
+logs/a2_*_session_load_result.txt
