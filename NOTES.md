@@ -4461,3 +4461,89 @@ the build as fallback. Only maintenance item = Meta token freshness. KEY RULE: n
   RELAUNCH to take effect (storage view is set at process start; the grant may also force-stop the app).
 - Alt (in-headset): Quest Settings -> Apps -> Tribe XR -> Permissions -> Files/Storage -> Allow.
 - ADD TO RE-SEED CHECKLIST: after any uninstall/reinstall, re-grant storage perms or 360 videos / media break again.
+
+## Session 3i — Drone camera (fly Tribe's own Auto cam) — built, not yet installed
+Tribe's stream cameras (CommonLevel, from objects dump): SpectatorCamera1..4, SpectatorCameraFirstPerson,
+SpectatorCameraAutoCam. Each is an ASceneCapture2D actor (root "SceneComponent" + "NewSceneCaptureComponent2D").
+"Auto Fast/Slow" = SpectatorCameraAutoCam, moved by NATIVE TribePlayerController.SetAutoCamMode(EAutoCamMode)
+(+ AutoCamResetBeatOrigin, beat-synced). Its motion is baked into native code with fixed modes -> we replace it.
+
+Implementation (hook/dumper.cpp, flag tribemod/drone_cam, OFF by default; params tribemod/drone.txt):
+- Poll thread drone_poll() every ~2s: find_live("NewSceneCaptureComponent2D","SceneCaptureComponent2D",
+  "SpectatorCameraAutoCam") (map-independent); liveness check obj_at(rd32(cap+OFF_Index))==cap (re-resolve after a
+  room change); reads drone.txt (radius/height/speed/look/bob, clamped); one-time [DRONE] dump of every EAutoCamMode
+  name=value (learn Tribe's modes without Ghidra).
+- Game thread drone_update(dt) inside the iso actor's ReceiveTick (same place follow_update/bt_frame run):
+  orbit center = HMD world position (K2_GetComponentLocation) through a 1.5 s low-pass (head-bobbing to the beat
+  doesn't shake the shot); position = center + (r cos t, r sin t, height + bob*sin); look-at a point `look` cm vs the
+  eyes; SceneComponent.K2_SetWorldLocationAndRotation on the CAPTURE COMPONENT (world space, so actor/relative
+  composition doesn't matter), bTeleport=1.
+- [DRONE] log every 5 s incl. drift = how far the camera moved since OUR last write: ~0 => we're the only writer;
+  large => Tribe's auto-cam motion fights ours -> next step park it via SetAutoCamMode(<static mode from the enum dump>).
+- Defaults: radius 300, height 80 (above head), speed 12 deg/s (~30 s/orbit), look -40, bob 20.
+- Built libhook.so 173816 B (no new warnings). Packaged out/hookA/drone.aligned.apk (work.apk + libhook, 7z ->
+  zipalign -p 4 -> apksigner tribe.keystore). NOT INSTALLED YET (headset offline). reseed.sh still points at the
+  proven cam.aligned.apk until this build is verified on-device.
+
+Next headset session: `adb install -r out/hookA/drone.aligned.apk` (preserves token/OBB/data) -> launch -> select the
+Auto camera angle -> touch tribemod/drone_cam -> watch the spectator view / [DRONE] logs (drift, EAutoCamMode dump).
+
+Ghidra: PERSISTENT project C:/ghidra-work/tribexr (libUnreal.so analyzed; do NOT delete -> later -process runs skip
+the ~1 h analysis). Launch via support/launch.bat with a 16G heap (support/analyzeHeadless.bat hardcodes MAXMEM=2G):
+  launch.bat fg jdk Ghidra-Headless 16G "-XX:ParallelGCThreads=2 -XX:CICompilerCount=2"
+    ghidra.app.util.headless.AnalyzeHeadless C:/ghidra-work tribexr -process libUnreal.so -noanalysis
+    -scriptPath <repo>/scripts -postScript <Script>.java <args>
+Current run: FindNativeThunk -> out/ghidra_autocam.txt (SetAutoCamMode, AutoCamResetBeatOrigin, depth 2).
+
+### Session 3i cont. — Ghidra: Tribe's Auto cam decoded (persistent project now saved)
+Ghidra run: 3816 s analysis, SUCCEEDED, project SAVED at C:/ghidra-work/tribexr (reuse with -process, no re-analysis).
+Output out/ghidra_autocam.txt (FindNativeThunk, depth 2). 22 "VarnodeContext out of address spaces" ERRORs are normal
+for this binary (same count in the earlier successful runs).
+- SetAutoCamMode: exec thunk rva 0x4fd43c0 (P_GET_ENUM + P_FINISH) -> impl rva 0x509fc54 = 8 bytes:
+  `*(uint8*)(this+0x980) = Mode;` -- a pure setter. (2nd match rva 0x4fd4468 is a FALSE POSITIVE: a cached
+  singleton constructor (StaticEnum/ConstructUFunction), not a thunk.)
+- AutoCamResetBeatOrigin: thunk rva 0x4fd3d84 -> impl 0x509fb90 -> "cut" function 0x509fc5c (532 B).
+- MODEL: the Auto cam is a BEAT-SYNCED CUT CAMERA, not a flying one. TribePlayerController fields:
+    +0x97c BPM | +0x978 beats per cut (table DAT_008a3200 indexed from +0x920 phrase info, default 4; x2 if mode==1)
+    +0x980 AutoCamMode (1 = Slow) | +0x970 cut interval s = 60/BPM*beats | +0x974 SECONDS UNTIL NEXT CUT (countdown;
+    each cut resets it to the interval) | +0x2d0 a camera/actor ref used by the cut.
+  Each cut finds /Game/Equipment/BP_Rig.BP_Rig_C (the DJ rig), takes its location (+30 cm z, +const xy offset) as the
+  focus and jumps the camera to a new angle. Between cuts it is still.
+- Drone CUT-PARK: while drone_cam is on, drone_update writes +0x974 = 1e9 every frame (only if the current value looks
+  like a countdown: 0..600 s, or already parked) so Tribe never cuts mid-flight; on OFF it writes 0.5 s so Tribe's
+  Auto cam resumes. drone_poll resolves the controller via find_live_class_sub("TribePlayerControllerBP_C") and logs its
+  reflected autocam/spectator/beat/bpm/tempo props + raw 0x970..0x980 ONCE to confirm the layout on-device.
+- Rebuilt libhook.so 175720 B; drone.aligned.apk re-packaged + signed. Still NOT installed (headset offline).
+- IDEA for later: BPM is right there (+0x97c) -> beat-synced drone moves (orbit speed / bob on the beat, cut on drops).
+
+### Session 3j — Drone v2: fly the SELFIE STICK camera (user's idea), Auto cam kept as an option
+User (2026-10-03): fly the selfie stick instead -- it's the camera they stream with and it can go anywhere; today it's only
+limited by where they can physically put it. Better than the Auto cam: no beat-cut logic to fight, normal stream setup.
+Design (hook/dumper.cpp drone section, flag tribemod/drone_cam, params tribemod/drone.txt):
+- Default target = BP_SelfieStick_C's "CaptureComponent2D" (resolved by property, same chain as cam_probe).
+  `target=auto` -> SpectatorCameraAutoCam's NewSceneCaptureComponent2D (+ the cut-timer park, Auto only).
+- TAKEOFF: on the first active frame, read the camera's current world location -> radius / height (vs your head) /
+  angle are taken FROM WHERE YOU PLACED THE STICK, so it lifts off with no jump. `radius=` / `height=` in drone.txt
+  override those live; absent = "from stick".
+- MOUNT SAVE/RESTORE: at takeoff the capture component's RelativeLocation/RelativeRotation are saved (sr reads via
+  g_offRelLoc/g_offRelRot, resolved in drone_poll if body tracking hasn't yet); LANDING (drone off, target switch, camera
+  gone) calls SceneComponent.K2_SetRelativeLocationAndRotation to put the camera back on the stick head. Selfie target
+  REFUSES takeoff if the mount pose can't be saved (never leave the selfie camera displaced).
+- Flight: K2_SetWorldLocationAndRotation on the capture component each frame (iso actor ReceiveTick); orbit around the
+  head through a 1.5 s low-pass; look-at `look` cm vs the eyes; `bob` vertical float; `speed` deg/s (negative reverses).
+- set_comp_xform(fn,...) generalizes the setter (World/Relative share param names; per-fn offset cache, 2 slots).
+- Built libhook.so 179008 B (clean under -Wall -Wformat=2); out/hookA/drone.aligned.apk packaged + signed.
+  NOT installed yet (headset offline).
+Next headset session: install -r drone.aligned.apk -> launch -> take out + place the selfie stick -> touch drone_cam ->
+watch the stick's preview / stream; tune via drone.txt live. Then rm drone_cam -> camera should snap back onto the stick.
+
+### Session 3j — Drone v2 VERIFIED on-device; 360-crowd fly-out = not possible (flat projection)
+- Installed drone.aligned.apk via install -r: libhook 179008, OBB + avatar data intact, storage perms (360 videos)
+  survived install -r too.
+- Selfie-stick drone works: resolve OK (relLoc@296 relRot@320, xform psz=0x131 NewLocation@0 NewRotation@24 bSweep@48
+  bTeleport@304), takeoff from the stick's spot (r 264, h 6, angle -88), smooth 12 deg/s orbit, drift=0.0 cm (nothing
+  fights the selfie camera), hover test r=800 h=200 speed=0 held steady, and LANDING restored the camera onto the stick.
+- EAutoCamMode confirmed at runtime: Fast=0, Slow=1, MAX=2 (no Off mode -> the cut-timer park is the right approach).
+- User test: fly the drone out "into the crowd" of a 360 video. The 360 video IS visible to the selfie camera (scene
+  geometry, not a headset-only stereo layer), but the crowd is a FLAT IMAGE on the sphere -> no parallax/depth, so
+  flying toward it doesn't put the camera among people. User shelved the idea. Reset: drone off, drone.txt removed.

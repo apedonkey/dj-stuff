@@ -21,7 +21,7 @@ PKG=com.TribeXR.TribeXR
 D=/sdcard/Android/data/$PKG/files/tribemod
 OBB_DST=/sdcard/Android/obb/$PKG/main.2304.$PKG.obb
 GENUINE=pulled/base.apk                 # genuine Tribe (CN=Kevin Lowe) -- mints the token
-MOD=out/hookA/cam.aligned.apk           # the mod to put back  <-- change if you rebuild to a new filename
+MOD=out/hookA/drone.aligned.apk           # the mod to put back  <-- change if you rebuild to a new filename
 OBB=pulled/main.2304.$PKG.obb           # ~1.9GB game data (version 2304)
 BK=backup/reseed_20261001               # avatar data: custom.glb, bt_user_calib.txt, params.txt, active_skin.txt
 SKINS=backup/tribemod_20261001/tribemod/skins

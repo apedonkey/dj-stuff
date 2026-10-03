@@ -1789,6 +1789,74 @@ static void bt_frame(float dt){
     if(!g_rbOK||!g_calOK) return;
     if(!g_a2Live){ a2_go_live(); if(!g_a2Live) return; }
     a2_drive(mq,mp,camQ,camP,dt); }
+// ============ Drone camera (flag tribemod/drone_cam, params tribemod/drone.txt) ============
+// Flies a Tribe stream camera in a smooth orbit around you. Default target = the SELFIE STICK's camera (the one you stream
+// with): place the stick by hand, turn the drone on, and it takes off from exactly there -- same distance, height and
+// angle -- then orbits. Turning it off lands the camera back on the stick (its mount pose is saved at takeoff and
+// restored). "target=auto" in drone.txt flies Tribe's Auto cam instead. The poll thread resolves the camera + reads params
+// (drone_poll); this game-thread tick moves it. Orbit center = your head through a 1.5 s low-pass (head-bobbing to the
+// beat doesn't shake the shot).
+static volatile sig_atomic_t g_droneOn=0, g_droneTarget=0, g_dRset=0, g_dHset=0;    // target 0 = selfie stick, 1 = Auto cam
+static uintptr_t g_droneCap=0, g_fnSetWorldLR=0, g_fnSetRelLR=0, g_dronePC=0;
+// Tribe's Auto cam is a beat-synced CUT camera (decompiled TribePlayerController, NOTES 3i): +0x97c BPM, +0x978 beats
+// per cut, +0x980 AutoCamMode (1 = Slow, doubles the beats), +0x970 cut interval s, +0x974 SECONDS UNTIL THE NEXT CUT
+// (counts down; each cut resets it to the interval). Holding +0x974 huge while we fly it stops Tribe yanking the camera.
+static const uint32_t PC_AUTOCAM_NEXTCUT=0x974;
+static volatile double g_dR=300, g_dH=80, g_dSpeed=12, g_dLook=-40, g_dBob=20;   // cm, cm vs head, deg/s, aim vs eyes cm, cm
+// SceneComponent.K2_Set{World,Relative}LocationAndRotation share params (NewLocation, NewRotation, bSweep, SweepHitResult,
+// bTeleport); offsets resolved by name per function, cached in two slots.
+static void set_comp_xform(uintptr_t fn,uintptr_t comp,const double loc[3],const double rot[3]){
+    static uintptr_t cf[2]={0,0}; static int cL[2],cR[2],cS[2],cT[2];
+    if(!fn||!comp) return; int s=(cf[0]==fn)?0:(cf[1]==fn)?1:-1;
+    if(s<0){ s=cf[0]?1:0; cf[s]=fn; cL[s]=prop_offset(fn,"NewLocation",0); cR[s]=prop_offset(fn,"NewRotation",0);
+        cS[s]=prop_offset(fn,"bSweep",0); cT[s]=prop_offset(fn,"bTeleport",0);
+        LOGI("[DRONE] xform fn psz=0x%x NewLocation@%d NewRotation@%d bSweep@%d bTeleport@%d",rd16(fn+0xB6),cL[s],cR[s],cS[s],cT[s]); }
+    uint16_t psz=rd16(fn+0xB6); static uint8_t b[1024]; if(cL[s]<0||cR[s]<0||psz>sizeof b) return;
+    memset(b,0,psz); memcpy(b+cL[s],loc,24); memcpy(b+cR[s],rot,24); if(cS[s]>=0) b[cS[s]]=0; if(cT[s]>=0) b[cT[s]]=1;
+    call_uf(comp,fn,b); }
+static void drone_update(float dt){
+    static bool flying=false, parked=false, haveRel=false, haveLast=false;
+    static uintptr_t flyCap=0; static int flyTgt=0;
+    static double relL[3], relR[3], C[3], th=0, t=0, rS=300, hS=80, lastP[3], logT=0;
+    uintptr_t pc=g_dronePC, cap=g_droneCap;
+    bool active=g_droneOn && cap && g_fnSetWorldLR && g_camComp && g_fnLoc;
+    if(flying && (!active || cap!=flyCap)){                        // landing: drone off, or the camera/target changed
+        if(haveRel && g_fnSetRelLR){ set_comp_xform(g_fnSetRelLR,flyCap,relL,relR);
+            LOGI("[DRONE] landed: camera back on its %s mount",flyTgt?"Auto-cam":"selfie-stick"); }
+        if(parked && pc){ float* cd=(float*)(pc+PC_AUTOCAM_NEXTCUT); if(*cd>1e8f) *cd=0.5f; LOGI("[DRONE] released Tribe's Auto-cam cuts"); }
+        flying=false; parked=false; haveRel=false; haveLast=false; }
+    if(!active||dt<=0||dt>0.25f) return;
+    double H[3]; if(!get_vec3(g_camComp,g_fnLoc,H)) return;        // your head (HMD) in world space
+    if(!flying){                                                    // takeoff from wherever the camera is right now
+        double P0[3]; if(!get_vec3(cap,g_fnLoc,P0)) return;
+        int tgt=g_droneTarget;
+        haveRel=g_offRelLoc>=0&&g_offRelRot>=0&&sr(cap+g_offRelLoc,relL,24)&&sr(cap+g_offRelRot,relR,24);
+        if(tgt==0&&(!haveRel||!g_fnSetRelLR)){ static int w=0; if((w++%300)==0)
+            LOGI("[DRONE] not taking off: can't save the selfie camera's mount pose (relLoc@%d relRot@%d setRel=0x%lx)",
+                g_offRelLoc,g_offRelRot,(unsigned long)g_fnSetRelLR); return; }
+        memcpy(C,H,24); double dx=P0[0]-H[0], dy=P0[1]-H[1];
+        rS=sqrt(dx*dx+dy*dy); if(rS<50) rS=50; if(rS>2000) rS=2000;
+        hS=P0[2]-H[2]; if(hS<-200) hS=-200; if(hS>600) hS=600;
+        th=atan2(dy,dx)*180.0/M_PI; t=0; logT=0; flying=true; flyCap=cap; flyTgt=tgt;
+        LOGI("[DRONE] takeoff (%s) from (%.0f,%.0f,%.0f): %.0f cm out, %.0f cm vs your head, angle %.0f deg",
+            tgt?"Auto cam":"selfie stick",P0[0],P0[1],P0[2],rS,hS,th); }
+    if(flyTgt==1&&pc){ float* cd=(float*)(pc+PC_AUTOCAM_NEXTCUT); float v=*cd;   // Auto cam only: park its cut timer
+        if((v>0.0f&&v<600.0f)||v>1e8f){ if(!parked) LOGI("[DRONE] parking Tribe's Auto-cam cuts (next-cut timer was %.2fs)",v);
+            *cd=1e9f; parked=true; } }
+    double k=dt/1.5; if(k>1) k=1; for(int i=0;i<3;i++) C[i]+=(H[i]-C[i])*k;  // smoothed orbit center
+    double r=g_dRset?(double)g_dR:rS, h=g_dHset?(double)g_dH:hS;              // drone.txt overrides the stick's start pose
+    th=fmod(th+g_dSpeed*dt,360.0); t+=dt; double a=th*M_PI/180.0;
+    double P[3]={ C[0]+r*cos(a), C[1]+r*sin(a), C[2]+h+g_dBob*sin(t*0.6) };
+    double A[3]={ C[0], C[1], C[2]+g_dLook };                               // aim point: a bit below your eyes
+    double dx=A[0]-P[0], dy=A[1]-P[1], dz=A[2]-P[2], hz=sqrt(dx*dx+dy*dy);
+    double R[3]={ atan2(dz,hz)*180.0/M_PI, atan2(dy,dx)*180.0/M_PI, 0 };    // FRotator: Pitch, Yaw, Roll
+    logT+=dt;
+    if(logT>=5.0){ logT=0; double Q[3]; bool got=get_vec3(cap,g_fnLoc,Q);
+        // drift = how far the camera moved since OUR last write. ~0 = we're the only writer; large = something fights us.
+        double d=(got&&haveLast)?sqrt((Q[0]-lastP[0])*(Q[0]-lastP[0])+(Q[1]-lastP[1])*(Q[1]-lastP[1])+(Q[2]-lastP[2])*(Q[2]-lastP[2])):-1;
+        LOGI("[DRONE] %s center=(%.0f,%.0f,%.0f) cam=(%.0f,%.0f,%.0f) pitch=%.0f yaw=%.0f orbit=%.0fdeg r=%.0f h=%.0f spd=%.0f drift=%.1fcm cutsParked=%d",
+            flyTgt?"auto":"selfie",C[0],C[1],C[2],P[0],P[1],P[2],R[0],R[1],th,r,h,(double)g_dSpeed,d,(int)parked); }
+    set_comp_xform(g_fnSetWorldLR,cap,P,R); memcpy(lastP,P,24); haveLast=true; }
 extern "C" void repl_pe(void* self,void* func,void* parms){
     // BLOCK Blueprint-level resets of our body while the keeper is on (Tribe setting AvatarBodyMesh to null/other).
     if(g_keep && !g_in_load && g_fnSet && func==(void*)g_fnSet && (uintptr_t)self==g_body && parms && *(uintptr_t*)parms!=g_mymesh){
@@ -1799,8 +1867,8 @@ extern "C" void repl_pe(void* self,void* func,void* parms){
     // ReceiveTick through ProcessEvent even with no Blueprint implementation. Fallback: the pawn's tick, only while ours is silent.
     if(g_isoActor && !g_in_load && parms){
         uintptr_t s=(uintptr_t)self;
-        if(s==g_isoActor && func==(void*)g_fnReceiveTick){ g_isoTicks++; g_in_load=1; follow_update(*(float*)parms); bt_frame(*(float*)parms); g_in_load=0; }
-        else if(g_isoTicks==0 && s && s==g_fallbackTicker && is_receive_tick(func)){ g_camTicks++; g_in_load=1; follow_update(*(float*)parms); bt_frame(*(float*)parms); g_in_load=0; }
+        if(s==g_isoActor && func==(void*)g_fnReceiveTick){ g_isoTicks++; g_in_load=1; follow_update(*(float*)parms); bt_frame(*(float*)parms); drone_update(*(float*)parms); g_in_load=0; }
+        else if(g_isoTicks==0 && s && s==g_fallbackTicker && is_receive_tick(func)){ g_camTicks++; g_in_load=1; follow_update(*(float*)parms); bt_frame(*(float*)parms); drone_update(*(float*)parms); g_in_load=0; }
     }
     // keeper: poll thread saw a NATIVE reset -> re-attach our (rooted) mesh here on the game thread
     if(g_reattach_req && g_keep && !g_in_load){ g_reattach_req=0; g_in_load=1; attach_mesh(g_body,g_mymesh); g_in_load=0; }
@@ -1968,6 +2036,70 @@ static void cam_probe_tick(){
     if(!specDone){ uintptr_t sp=find_by_path("/Game/Environment/SpectatorRenderTarget.SpectatorRenderTarget",0);
         if(sp){ cam_log_rt("SpectatorRenderTarget",sp); specDone=true; } }
 }
+// ---- drone camera: poll-thread side (resolve Tribe's auto-cam, liveness, params, one-time enum dump) ----
+static void drone_dump_enum_once(){
+    static bool done=false; if(done) return;
+    uintptr_t e=find_by_path("/Script/TribeXR.EAutoCamMode",0); if(!e) return;
+    uintptr_t d; int n=enum_entries(e,&d); char nm[96]; int64_t v;
+    for(int i=0;i<n;i++) if(enum_entry(d,i,nm,sizeof nm,&v)) LOGI("[DRONE] EAutoCamMode %s = %lld",nm,(long long)v);
+    done=true; }
+static void drone_read_params(){       // tribemod/drone.txt: key=value, e.g. "target=selfie radius=300 speed=12"
+    char p[600]; snprintf(p,sizeof p,"%s/drone.txt",OUTDIR); FILE* f=fopen(p,"r");
+    double r=g_dR,h=g_dH,s=g_dSpeed,l=g_dLook,b=g_dBob; int tgt=0, rset=0, hset=0; char k[32], v[32];
+    if(f){ while(fscanf(f," %31[^= \t\r\n]=%31s",k,v)==2){ double x=strtod(v,0);
+            if(!strcmp(k,"radius")){ r=x; rset=1; } else if(!strcmp(k,"height")){ h=x; hset=1; } else if(!strcmp(k,"speed")) s=x;
+            else if(!strcmp(k,"look")) l=x; else if(!strcmp(k,"bob")) b=x; else if(!strcmp(k,"target")) tgt=!strcmp(v,"auto")?1:0; }
+        fclose(f); }
+    if(r<50) r=50; if(r>2000) r=2000; if(h<-200) h=-200; if(h>600) h=600; if(s<-90) s=-90; if(s>90) s=90;
+    if(l<-300) l=-300; if(l>300) l=300; if(b<0) b=0; if(b>200) b=200;
+    if(r!=g_dR||h!=g_dH||s!=g_dSpeed||l!=g_dLook||b!=g_dBob||tgt!=g_droneTarget||rset!=g_dRset||hset!=g_dHset){
+        g_dR=r; g_dH=h; g_dSpeed=s; g_dLook=l; g_dBob=b; g_droneTarget=tgt; g_dRset=rset; g_dHset=hset;
+        LOGI("[DRONE] params target=%s radius=%s height=%s speed=%.1f look=%.0f bob=%.0f",tgt?"auto":"selfie",
+            rset?"set":"from stick",hset?"set":"from stick",s,l,b); } }
+// one-time: log the live controller's reflected auto-cam/spectator/beat properties + the raw decompiled block 0x970..0x980,
+// so a headset run confirms the layout the drone's cut-park relies on.
+static void drone_dump_pc_once(uintptr_t pc){
+    static bool done=false; if(done||!pc) return; done=true;
+    static const char* keys[]={"autocam","spectator","beat","bpm","tempo"};
+    char nm[128],lo[128],ty[64],cn[96]; int n=0;
+    for(uintptr_t c=rdptr(pc+OFF_Class); c && n<4000; c=rdptr(c+OFF_Super)){ obj_name(c,cn,sizeof cn);
+        for(uintptr_t f=rdptr(c+OFF_ChildProps); f && n<4000; f=rdptr(f+FF_Next),n++){
+            uint32_t off=rd32(f+FP_Offset); fname_resolve(rd32(f+FF_Name),nm,sizeof nm);
+            int i=0; for(;nm[i]&&i<127;i++){ char ch=nm[i]; lo[i]=(ch>='A'&&ch<='Z')?(char)(ch+32):ch; } lo[i]=0;
+            bool hit=(off>=0x960&&off<=0x990)||off==0x2d0;
+            for(unsigned k=0;!hit&&k<sizeof keys/sizeof keys[0];k++) if(strstr(lo,keys[k])) hit=true;
+            if(!hit) continue;
+            ffield_type(f,ty,sizeof ty); uint32_t r=rd32(pc+off); float fv; memcpy(&fv,&r,4);
+            LOGI("[DRONE] pc %s.%s (%s) @0x%x raw=0x%08x float=%.3f",cn,nm,ty,off,r,fv); } }
+    for(uint32_t o=0x970;o<=0x980;o+=4){ uint32_t r=rd32(pc+o); float fv; memcpy(&fv,&r,4);
+        LOGI("[DRONE] pc raw +0x%x = 0x%08x (float %.3f)",o,r,fv); } }
+static void drone_poll(){
+    static int capTgt=-1;
+    bool on=file_present("drone_cam");
+    if(on) drone_read_params();
+    int tgt=g_droneTarget;
+    if(g_droneCap && (obj_at(rd32(g_droneCap+OFF_Index))!=g_droneCap || capTgt!=tgt)){   // gone (room change) or target switched
+        g_droneOn=0; g_droneCap=0; LOGI("[DRONE] camera changed (gone or new target); re-resolving"); }
+    if(g_dronePC && obj_at(rd32(g_dronePC+OFF_Index))!=g_dronePC) g_dronePC=0;
+    if(on){
+        if(!g_fnSetWorldLR) g_fnSetWorldLR=find_by_path("/Script/Engine.SceneComponent.K2_SetWorldLocationAndRotation",0);
+        if(!g_fnSetRelLR)   g_fnSetRelLR  =find_by_path("/Script/Engine.SceneComponent.K2_SetRelativeLocationAndRotation",0);
+        if(g_offRelLoc<0||g_offRelRot<0){ uintptr_t sc=find_by_path("/Script/Engine.SceneComponent",1);   // mount pose (also set by a2)
+            if(sc){ g_offRelLoc=prop_offset(sc,"RelativeLocation",0); g_offRelRot=prop_offset(sc,"RelativeRotation",0); } }
+        if(!g_droneCap){
+            if(tgt==0){ uintptr_t st=find_live_class_sub("BP_SelfieStick_C");
+                if(st){ int oc=prop_offset(rdptr(st+OFF_Class),"CaptureComponent2D",0); g_droneCap=oc>=0?rdptr(st+oc):0; } }
+            else g_droneCap=find_live("NewSceneCaptureComponent2D","SceneCaptureComponent2D","SpectatorCameraAutoCam");
+            capTgt=tgt;
+            LOGI("[DRONE] resolve (%s): capture=0x%lx setWorld=0x%lx setRel=0x%lx relLoc@%d relRot@%d%s",tgt?"Auto cam":"selfie stick",
+                (unsigned long)g_droneCap,(unsigned long)g_fnSetWorldLR,(unsigned long)g_fnSetRelLR,g_offRelLoc,g_offRelRot,
+                g_droneCap?"":(tgt?"  (Auto cam not found)":"  (take the selfie stick out)"));
+            drone_dump_enum_once(); }
+        if(tgt==1 && !g_dronePC){ g_dronePC=find_live_class_sub("TribePlayerControllerBP_C");
+            LOGI("[DRONE] player controller=0x%lx",(unsigned long)g_dronePC); drone_dump_pc_once(g_dronePC); } }
+    int want=(on&&g_droneCap&&g_fnSetWorldLR)?1:0;
+    if(want!=g_droneOn){ g_droneOn=want; LOGI("[DRONE] %s",want?(tgt?"ON: flying the Auto cam (select the Auto angle)":
+        "ON: flying the selfie-stick camera"):"OFF"); } }
 // poll thread: resolve A2 (retarget) functions/offsets/enums + load this rig's saved calibration
 static void a2_resolve(){
     g_fnNumBones  =find_by_path("/Script/Engine.SkinnedMeshComponent.GetNumBones",0);
@@ -2067,6 +2199,8 @@ static void* dump_thread(void*){
         // Stream-camera probe: resolve the selfie stick's capture render target (what Go Live streams). Every ~10 ticks
         // because each pass scans the object array.
         { static int ctk=0; if(file_present("cam_probe") && (++ctk % 10)==0) cam_probe_tick(); }
+        // Drone cam: resolve/validate Tribe's auto-cam + read drone.txt every ~4 ticks; the game-thread tick flies it.
+        { static int dtk=0; if((++dtk % 4)==0) drone_poll(); }
         // RENDER report schedule: first at ~3s after attach, then every ~10s, up to 8 reports (drained on the game thread).
         if(g_report_ticks>0 && --g_report_ticks==0){ if(g_reports<8){ g_report_req=1; g_report_ticks=20; } }
         // KEEPER (~1s): if Tribe reset our body natively (bypassing the PE blocker), request a re-attach on the game thread.
