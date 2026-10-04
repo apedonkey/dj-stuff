@@ -1857,7 +1857,124 @@ static void drone_update(float dt){
         LOGI("[DRONE] %s center=(%.0f,%.0f,%.0f) cam=(%.0f,%.0f,%.0f) pitch=%.0f yaw=%.0f orbit=%.0fdeg r=%.0f h=%.0f spd=%.0f drift=%.1fcm cutsParked=%d",
             flyTgt?"auto":"selfie",C[0],C[1],C[2],P[0],P[1],P[2],R[0],R[1],th,r,h,(double)g_dSpeed,d,(int)parked); }
     set_comp_xform(g_fnSetWorldLR,cap,P,R); memcpy(lastP,P,24); haveLast=true; }
+// ============ Skin-menu trace (flag tribemod/skin_trace; diagnostic, logcat [SKIN]) ============
+// Logs every ProcessEvent call into the avatar menu's item widgets (W_SkinItem_C), the skin objects (BP_*Skin*_C) and the
+// visuals manager, with self + first param. Blueprint->Blueprint calls never pass ProcessEvent, so this shows which entry
+// points of a menu click our hook can actually see (the old cycle hook listened on ApplySkinToPlayer, a BP-internal call).
+static volatile sig_atomic_t g_skinTrace=0;
+static uintptr_t g_stFn[2048]; static uint8_t g_stCls[2048], g_stCnt[2048];  // func -> 1 menu/skin / 2 other; per-func log cap
+static int skin_trace_slot(uintptr_t func){
+    uint32_t h=(uint32_t)((func>>4)*2654435761u)&2047;
+    for(int i=0;i<2048;i++){ uint32_t j=(h+i)&2047;
+        if(g_stFn[j]==func) return (int)j;
+        if(!g_stFn[j]){ char cn[96]; obj_name(rdptr(func+OFF_Outer),cn,sizeof cn);
+            g_stCls[j]=(strstr(cn,"W_SkinItem")||(strstr(cn,"BP_")&&strstr(cn,"Skin"))||strstr(cn,"TribeVisualsManager"))?1:2;
+            g_stFn[j]=func; return (int)j; } }
+    return -1; }
+static void skin_trace_hit(uintptr_t self,uintptr_t func,void* parms){
+    int j=skin_trace_slot(func); if(j<0||g_stCls[j]!=1||g_stCnt[j]>=40) return; g_stCnt[j]++;
+    char fp[300], sc[96], sn[96], pc[96]="-", pn[96]="-";
+    full_path(func,fp,sizeof fp); class_name(self,sc,sizeof sc); obj_name(self,sn,sizeof sn);
+    uintptr_t p0=parms?rdptr((uintptr_t)parms):0;                 // first param, if it is a UObject
+    if(p0&&in_range(p0,0x30)&&in_range(rdptr(p0+OFF_Class),0x30)){ class_name(p0,pc,sizeof pc); obj_name(p0,pn,sizeof pn); }
+    LOGI("[SKIN] %s  self=%s:%s  p0=%s:%s",fp,sc,sn,pc,pn); }
+// ============ Extra avatar-menu boxes (flag tribemod/skin_menu) ============
+// One box per .glb in tribemod/skins/ is added to Tribe's avatar list (W_ProfileMenu's "AvatarList", a UListView): we
+// SpawnObject a fresh BP_ReadyPlayerMeAvatarSkin_C per character, ListView.AddItem() it (Tribe then builds a W_SkinItem
+// box for it), and relabel the box's NameText with the file name. Clicking one of OUR boxes is swallowed at both entry
+// points Tribe uses (the box's OnMouseButtonDown and the menu's AvatarList item handler) so Tribe never tries to apply an
+// RPM skin, and the mod loads that .glb instead. Blueprint-internal calls are invisible to ProcessEvent; these two are not.
+#define SM_MAX 8
+static volatile sig_atomic_t g_skinMenuOn=0, g_smCount=0;
+static char g_smFiles[SM_MAX][128], g_smLabels[SM_MAX][64];               // written by the poll thread
+static uintptr_t g_smItems[SM_MAX];                                          // our skin objects (game thread)
+static uintptr_t g_smList=0, g_smTribeRpm=0, g_smRpmCls=0;
+static uintptr_t g_smFnAddItem=0, g_smFnIndexOf=0, g_smFnSpawn=0, g_smGS=0, g_smFnStr2Txt=0, g_smKTL=0, g_smFnSetText=0;
+static uintptr_t g_smFnObjSet=0, g_smFnMouseDown=0, g_smFnListEvt=0;
+static uintptr_t g_smW[32]; static int g_smWi[32];                            // W_SkinItem box -> index of our item
+static long g_smLastClickMs=0;
+static uintptr_t find_prop(uintptr_t cls,const char* pname){                 // FProperty* by name (class + supers)
+    char nm[128];
+    for(uintptr_t c=cls; c; c=rdptr(c+OFF_Super)){
+        for(uintptr_t f=rdptr(c+OFF_ChildProps); f; f=rdptr(f+FF_Next)){
+            fname_resolve(rd32(f+FF_Name),nm,sizeof nm); if(!strcmp(nm,pname)) return f; } }
+    return 0; }
+static bool obj_alive(uintptr_t o){                  // new objects get indices past the cached count -> refresh it first
+    if(!o) return false; uint32_t idx=rd32(o+OFF_Index); if(idx>=g_numElements) refresh_numelements(); return obj_at(idx)==o; }
+static int sm_item_idx(uintptr_t o){ if(!o) return -1; int n=g_smCount; for(int i=0;i<n&&i<SM_MAX;i++) if(g_smItems[i]==o) return i; return -1; }
+static int sm_widget_idx(uintptr_t w){ for(int i=0;i<32;i++) if(g_smW[i]==w) return g_smWi[i]; return -1; }
+static void sm_map_widget(uintptr_t w,int idx){
+    int free=-1; for(int i=0;i<32;i++){ if(g_smW[i]==w){ if(idx<0) g_smW[i]=0; else g_smWi[i]=idx; return; } if(!g_smW[i]&&free<0) free=i; }
+    if(idx>=0&&free>=0){ g_smW[free]=w; g_smWi[free]=idx; } }
+// FText from ASCII via KismetTextLibrary.Conv_StringToText. The FText bytes are copied out without touching the refcount;
+// the param buffer is never destructed, so the text data just stays alive (a few bytes, never freed twice).
+static int make_text(const char* s,uint8_t* out,int cap){
+    static int oIn=-2,oRet=-1,sz=0; if(!g_smFnStr2Txt||!g_smKTL) return 0;
+    if(oIn==-2){ oIn=prop_offset(g_smFnStr2Txt,"InString",0); uintptr_t f=find_prop(g_smFnStr2Txt,"ReturnValue");
+        oRet=f?(int)rd32(f+FP_Offset):-1; sz=f?(int)rd32(f+FP_ElemSize):0;
+        int fb=(oRet>=0)?(int)rd16(g_smFnStr2Txt+0xB6)-oRet:0;               // ReturnValue is the last param
+        LOGI("[MENU] Conv_StringToText InString@%d ReturnValue@%d elemSize=%d (raw +0x30=%u +0x34=%u +0x38=%u) psz=0x%x -> using %d",
+            oIn,oRet,sz,f?rd32(f+0x30):0,f?rd32(f+0x34):0,f?rd32(f+0x38):0,rd16(g_smFnStr2Txt+0xB6),(sz>=8&&sz<=32)?sz:fb);
+        if(!(sz>=8&&sz<=32)) sz=fb; }
+    uint16_t psz=rd16(g_smFnStr2Txt+0xB6); static uint8_t b[256]; static uint16_t buf[128];
+    if(oIn<0||oRet<0||sz<=0||sz>cap||psz>sizeof b) return 0;
+    int i=0; for(;s[i]&&i<127;i++) buf[i]=(uint16_t)(uint8_t)s[i]; buf[i]=0;
+    FStr fs={buf,i+1,i+1}; memset(b,0,psz); memcpy(b+oIn,&fs,sizeof fs);
+    call_uf(g_smKTL,g_smFnStr2Txt,b); memcpy(out,b+oRet,sz); return sz; }
+static void sm_label_box(uintptr_t box,int idx){                             // box.NameText.SetText(label)
+    static int oName=-2,oT=-1; if(!g_smFnSetText||idx<0||idx>=SM_MAX) return;
+    if(oName==-2){ oName=prop_offset(rdptr(box+OFF_Class),"NameText",0); oT=prop_offset(g_smFnSetText,"InText",0);
+        LOGI("[MENU] W_SkinItem.NameText@%d SetText.InText@%d psz=0x%x",oName,oT,rd16(g_smFnSetText+0xB6)); }
+    uintptr_t tb=oName>=0?rdptr(box+oName):0; uint16_t psz=rd16(g_smFnSetText+0xB6); uint8_t txt[64]; static uint8_t b[128];
+    if(!tb||oT<0||psz>sizeof b) return; int n=make_text(g_smLabels[idx],txt,sizeof txt); if(n<=0||oT+n>psz) return;
+    memset(b,0,psz); memcpy(b+oT,txt,n); call_uf(tb,g_smFnSetText,b); }
+static uintptr_t sm_spawn(uintptr_t cls,uintptr_t outer){                    // GameplayStatics.SpawnObject(Class, Outer)
+    static int oC=-2,oO=-1,oR=-1;
+    if(oC==-2){ oC=prop_offset(g_smFnSpawn,"ObjectClass",0); oO=prop_offset(g_smFnSpawn,"Outer",0); oR=prop_offset(g_smFnSpawn,"ReturnValue",0);
+        LOGI("[MENU] SpawnObject ObjectClass@%d Outer@%d ReturnValue@%d psz=0x%x",oC,oO,oR,rd16(g_smFnSpawn+0xB6)); }
+    uint16_t psz=rd16(g_smFnSpawn+0xB6); uint8_t b[64]; if(oC<0||oO<0||oR<0||psz>sizeof b) return 0;
+    memset(b,0,psz); *(uintptr_t*)(b+oC)=cls; *(uintptr_t*)(b+oO)=outer; call_uf(g_smGS,g_smFnSpawn,b); return *(uintptr_t*)(b+oR); }
+static int sm_list_index(uintptr_t list,uintptr_t item){                     // ListView.GetIndexForItem (-1 = absent)
+    static int oI=-2,oR=-1; if(oI==-2){ oI=prop_offset(g_smFnIndexOf,"Item",0); oR=prop_offset(g_smFnIndexOf,"ReturnValue",0); }
+    uint16_t psz=rd16(g_smFnIndexOf+0xB6); uint8_t b[32]; if(oI<0||oR<0||psz>sizeof b) return -2;
+    memset(b,0,psz); *(uintptr_t*)(b+oI)=item; call_uf(list,g_smFnIndexOf,b); return *(int32_t*)(b+oR); }
+static void sm_list_add(uintptr_t list,uintptr_t item){
+    static int o=-2; if(o==-2) o=prop_offset(g_smFnAddItem,"Item",0);
+    uint16_t psz=rd16(g_smFnAddItem+0xB6); uint8_t b[32]; if(o<0||psz>sizeof b) return;
+    memset(b,0,psz); *(uintptr_t*)(b+o)=item; call_uf(list,g_smFnAddItem,b); }
+static void sm_load(int idx){                                                // switch character to our box's .glb
+    struct timespec ts; clock_gettime(CLOCK_MONOTONIC,&ts); long ms=ts.tv_sec*1000L+ts.tv_nsec/1000000L;
+    if(ms-g_smLastClickMs<700) return; g_smLastClickMs=ms;                    // both entry points fire for one click
+    char p[600]; snprintf(p,sizeof p,"%s/active_skin.txt",OUTDIR);
+    int fd=open(p,O_WRONLY|O_CREAT|O_TRUNC,0666); if(fd>=0){ write(fd,g_smFiles[idx],strlen(g_smFiles[idx])); close(fd); }
+    g_load_req=1; LOGI("[MENU] clicked '%s' -> loading %s",g_smLabels[idx],g_smFiles[idx]); }
+// game thread, every frame from our actor's tick: keep our boxes in the live AvatarList (re-adds after Tribe rebuilds it)
+static void menu_tick(){
+    static int tk=0, spawns=0, win=0; static bool tripped=false;
+    if(!g_skinMenuOn||tripped||(++tk%60)!=0) return;                         // ~once a second
+    if(++win>=30){ win=0; spawns=0; }                                        // 30 s window for the respawn guard
+    uintptr_t list=g_smList; int n=g_smCount;
+    if(!list||!obj_alive(list)||!g_smRpmCls||!g_smFnSpawn||!g_smFnAddItem||!g_smFnIndexOf||n<=0) return;
+    uintptr_t outer=(g_smTribeRpm&&obj_alive(g_smTribeRpm))?rdptr(g_smTribeRpm+OFF_Outer):list;   // fallback: the list
+    for(int i=0;i<n&&i<SM_MAX;i++){
+        if(!obj_alive(g_smItems[i])){
+            if(spawns>=3*n){ tripped=true; LOGI("[MENU] guard: %d respawns in 30 s -> stopped adding boxes (bug guard)",spawns); return; }
+            g_smItems[i]=sm_spawn(g_smRpmCls,outer); spawns++;
+            LOGI("[MENU] spawned skin object for '%s' = 0x%lx",g_smLabels[i],(unsigned long)g_smItems[i]); }
+        if(g_smItems[i]){ int ix=sm_list_index(list,g_smItems[i]);
+            if(ix<0){ sm_list_add(list,g_smItems[i]); LOGI("[MENU] added box '%s' (index was %d)",g_smLabels[i],ix); } } }
+    for(int w=0;w<32;w++) if(g_smW[w]){                                      // keep our labels (Tribe may rewrite NameText)
+        if(!obj_alive(g_smW[w])){ g_smW[w]=0; continue; } sm_label_box(g_smW[w],g_smWi[w]); } }
 extern "C" void repl_pe(void* self,void* func,void* parms){
+    if(g_skinTrace) skin_trace_hit((uintptr_t)self,(uintptr_t)func,parms);
+    if(g_skinMenuOn && func && (func==(void*)g_smFnObjSet||func==(void*)g_smFnMouseDown||func==(void*)g_smFnListEvt)){
+        uintptr_t p0=parms?*(uintptr_t*)parms:0;
+        if(func==(void*)g_smFnObjSet){                                       // a box was given an item: label ours after Tribe
+            if(p0&&!g_smTribeRpm){ char cn[96]; class_name(p0,cn,sizeof cn); if(!strcmp(cn,"BP_ReadyPlayerMeAvatarSkin_C")&&sm_item_idx(p0)<0) g_smTribeRpm=p0; }
+            orig_pe(self,func,parms); int idx=sm_item_idx(p0); sm_map_widget((uintptr_t)self,idx);
+            if(idx>=0) sm_label_box((uintptr_t)self,idx); return; }
+        if(func==(void*)g_smFnMouseDown){ int idx=sm_widget_idx((uintptr_t)self); if(idx>=0){ sm_load(idx); return; } }   // swallow ours
+        if(func==(void*)g_smFnListEvt){ int idx=sm_item_idx(p0); if(idx>=0){ sm_load(idx); return; } } }                  // swallow ours
     // BLOCK Blueprint-level resets of our body while the keeper is on (Tribe setting AvatarBodyMesh to null/other).
     if(g_keep && !g_in_load && g_fnSet && func==(void*)g_fnSet && (uintptr_t)self==g_body && parms && *(uintptr_t*)parms!=g_mymesh){
         g_resets_bp++; if(g_resets_bp<=20||(g_resets_bp%100)==0) load_status("BLOCKED BP reset of body -> 0x%lx (#%d)",(unsigned long)*(uintptr_t*)parms,g_resets_bp);
@@ -1867,8 +1984,8 @@ extern "C" void repl_pe(void* self,void* func,void* parms){
     // ReceiveTick through ProcessEvent even with no Blueprint implementation. Fallback: the pawn's tick, only while ours is silent.
     if(g_isoActor && !g_in_load && parms){
         uintptr_t s=(uintptr_t)self;
-        if(s==g_isoActor && func==(void*)g_fnReceiveTick){ g_isoTicks++; g_in_load=1; follow_update(*(float*)parms); bt_frame(*(float*)parms); drone_update(*(float*)parms); g_in_load=0; }
-        else if(g_isoTicks==0 && s && s==g_fallbackTicker && is_receive_tick(func)){ g_camTicks++; g_in_load=1; follow_update(*(float*)parms); bt_frame(*(float*)parms); drone_update(*(float*)parms); g_in_load=0; }
+        if(s==g_isoActor && func==(void*)g_fnReceiveTick){ g_isoTicks++; g_in_load=1; follow_update(*(float*)parms); bt_frame(*(float*)parms); drone_update(*(float*)parms); menu_tick(); g_in_load=0; }
+        else if(g_isoTicks==0 && s && s==g_fallbackTicker && is_receive_tick(func)){ g_camTicks++; g_in_load=1; follow_update(*(float*)parms); bt_frame(*(float*)parms); drone_update(*(float*)parms); menu_tick(); g_in_load=0; }
     }
     // keeper: poll thread saw a NATIVE reset -> re-attach our (rooted) mesh here on the game thread
     if(g_reattach_req && g_keep && !g_in_load){ g_reattach_req=0; g_in_load=1; attach_mesh(g_body,g_mymesh); g_in_load=0; }
@@ -2100,6 +2217,71 @@ static void drone_poll(){
     int want=(on&&g_droneCap&&g_fnSetWorldLR)?1:0;
     if(want!=g_droneOn){ g_droneOn=want; LOGI("[DRONE] %s",want?(tgt?"ON: flying the Auto cam (select the Auto angle)":
         "ON: flying the selfie-stick camera"):"OFF"); } }
+// ---- extra avatar-menu boxes: poll-thread side (resolve functions, read skins/, find the live AvatarList) ----
+static uintptr_t sm_find_avatar_list(){                 // the LIVE W_ProfileMenu AvatarList (not the /Game class template)
+    char nm[96],cn[96],fp[400];
+    for(uint32_t i=0;i<g_numElements;i++){ uintptr_t o=obj_at(i); if(!o) continue;
+        obj_name(o,nm,sizeof nm); if(strcmp(nm,"AvatarList")) continue;
+        class_name(o,cn,sizeof cn); if(strcmp(cn,"ListView")) continue;
+        full_path(o,fp,sizeof fp); if(!strncmp(fp,"/Game/",6)||strstr(fp,"Default__")) continue;
+        return o; }
+    return 0; }
+static void sm_read_skins(){                            // one box per tribemod/skins/*.glb, label = file name ("lampwing.glb" -> "Lampwing")
+    char dir[600]; snprintf(dir,sizeof dir,"%s/skins",OUTDIR); DIR* d=opendir(dir); if(!d) return;
+    char names[SM_MAX][128]; int n=0; struct dirent* e;
+    while((e=readdir(d))&&n<SM_MAX){ size_t L=strlen(e->d_name); if(L>4&&L<120&&!strcasecmp(e->d_name+L-4,".glb")){ strcpy(names[n],e->d_name); n++; } }
+    closedir(d);
+    for(int i=0;i<n;i++) for(int j=i+1;j<n;j++) if(strcmp(names[i],names[j])>0){ char t[128]; strcpy(t,names[i]); strcpy(names[i],names[j]); strcpy(names[j],t); }
+    bool same=(n==g_smCount); for(int i=0;same&&i<n;i++) if(strcmp(names[i],g_smFiles[i])) same=false;
+    if(same) return;
+    for(int i=0;i<n;i++){ strcpy(g_smFiles[i],names[i]); size_t L=strlen(names[i])-4; int k=0;
+        for(size_t c=0;c<L&&k<63;c++){ char ch=names[i][c]; g_smLabels[i][k++]=(ch=='_')?' ':ch; } g_smLabels[i][k]=0;
+        if(g_smLabels[i][0]>='a'&&g_smLabels[i][0]<='z') g_smLabels[i][0]-=32; }
+    g_smCount=n; for(int i=0;i<n;i++) LOGI("[MENU] box %d: '%s' -> skins/%s",i,g_smLabels[i],g_smFiles[i]); }
+// cheap lookup: object named `name` whose Outer is named `outerName` (no full-path building, unlike find_by_path)
+static uintptr_t find_in_outer(const char* name,const char* outerName){
+    char nm[200],on[96];
+    for(uint32_t i=0;i<g_numElements;i++){ uintptr_t o=obj_at(i); if(!o) continue;
+        obj_name(o,nm,sizeof nm); if(strcmp(nm,name)) continue;
+        obj_name(rdptr(o+OFF_Outer),on,sizeof on); if(!strcmp(on,outerName)) return o; }
+    return 0; }
+static uintptr_t sm_find_live_rpm_skin(){              // any live (non-CDO) BP_ReadyPlayerMeAvatarSkin_C -> outer for ours
+    char cn[96],fp[400];
+    for(uint32_t i=0;i<g_numElements;i++){ uintptr_t o=obj_at(i); if(!o||sm_item_idx(o)>=0) continue;
+        class_name(o,cn,sizeof cn); if(strcmp(cn,"BP_ReadyPlayerMeAvatarSkin_C")) continue;
+        if(rd32(o+OFF_Flags)&RF_ClassDefaultObject) continue; full_path(o,fp,sizeof fp); if(strstr(fp,"Default__")) continue;
+        return o; }
+    return 0; }
+static void skin_menu_poll(){
+    bool on=file_present("skin_menu");
+    if(!on){ if(g_skinMenuOn){ g_skinMenuOn=0; LOGI("[MENU] OFF"); } return; }
+    static int tick=0; tick++;
+    if(!g_smFnAddItem){                                  // engine functions: always loaded
+        g_smFnAddItem =find_by_path("/Script/UMG.ListView.AddItem",0);
+        g_smFnIndexOf =find_by_path("/Script/UMG.ListView.GetIndexForItem",0);
+        g_smFnSpawn   =find_by_path("/Script/Engine.GameplayStatics.SpawnObject",0);
+        g_smGS        =find_by_path("/Script/Engine.Default__GameplayStatics",0);
+        g_smFnStr2Txt =find_by_path("/Script/Engine.KismetTextLibrary.Conv_StringToText",0);
+        g_smKTL       =find_by_path("/Script/Engine.Default__KismetTextLibrary",0);
+        g_smFnSetText =find_by_path("/Script/UMG.TextBlock.SetText",0);
+        LOGI("[MENU] engine fns: AddItem=0x%lx GetIndexForItem=0x%lx SpawnObject=0x%lx GS=0x%lx Str2Text=0x%lx KTL=0x%lx SetText=0x%lx",
+            (unsigned long)g_smFnAddItem,(unsigned long)g_smFnIndexOf,(unsigned long)g_smFnSpawn,(unsigned long)g_smGS,
+            (unsigned long)g_smFnStr2Txt,(unsigned long)g_smKTL,(unsigned long)g_smFnSetText); }
+    bool missing=!g_smRpmCls||!g_smFnObjSet||!g_smFnMouseDown||!g_smFnListEvt;
+    if(missing&&(tick%3)==1){                            // Blueprint classes load lazily (menus: when first opened) -> retry
+        if(!g_smRpmCls)     g_smRpmCls=find_by_path("/Game/Visuals/Skins/OculusAvatar/BP_ReadyPlayerMeAvatarSkin.BP_ReadyPlayerMeAvatarSkin_C",1);
+        if(!g_smFnObjSet)   g_smFnObjSet=find_in_outer("OnListItemObjectSet","W_SkinItem_C");
+        if(!g_smFnMouseDown)g_smFnMouseDown=find_in_outer("OnMouseButtonDown","W_SkinItem_C");
+        if(!g_smFnListEvt)  g_smFnListEvt=find_in_outer("BndEvt__W_AchievementMenu_AvatarList_K2Node_ComponentBoundEvent_2_SimpleListItemEventDynamic__DelegateSignature","W_ProfileMenu_C");
+        LOGI("[MENU] blueprint lookups: RpmSkinClass=0x%lx box.OnListItemObjectSet=0x%lx box.OnMouseButtonDown=0x%lx menu.AvatarListEvent=0x%lx",
+            (unsigned long)g_smRpmCls,(unsigned long)g_smFnObjSet,(unsigned long)g_smFnMouseDown,(unsigned long)g_smFnListEvt); }
+    sm_read_skins();
+    if(g_smList&&!obj_alive(g_smList)){ g_smList=0; LOGI("[MENU] avatar list went away"); }
+    if(!g_smList&&(tick%3)==2){ g_smList=sm_find_avatar_list(); LOGI("[MENU] live avatar list = 0x%lx%s",(unsigned long)g_smList,g_smList?"":" (open your avatar menu)"); }
+    if((!g_smTribeRpm||!obj_alive(g_smTribeRpm))&&g_smList&&(tick%3)==0){ g_smTribeRpm=sm_find_live_rpm_skin();
+        LOGI("[MENU] Tribe's RPM skin object = 0x%lx",(unsigned long)g_smTribeRpm); }
+    int want=(g_smFnAddItem&&g_smFnIndexOf&&g_smFnSpawn&&g_smGS&&g_smRpmCls&&g_smFnObjSet&&g_smFnMouseDown)?1:0;
+    if(want!=g_skinMenuOn){ g_skinMenuOn=want; LOGI("[MENU] %s",want?"ON":"waiting for lookups"); } }
 // poll thread: resolve A2 (retarget) functions/offsets/enums + load this rig's saved calibration
 static void a2_resolve(){
     g_fnNumBones  =find_by_path("/Script/Engine.SkinnedMeshComponent.GetNumBones",0);
@@ -2201,6 +2383,10 @@ static void* dump_thread(void*){
         { static int ctk=0; if(file_present("cam_probe") && (++ctk % 10)==0) cam_probe_tick(); }
         // Drone cam: resolve/validate Tribe's auto-cam + read drone.txt every ~4 ticks; the game-thread tick flies it.
         { static int dtk=0; if((++dtk % 4)==0) drone_poll(); }
+        // Skin-menu trace switch (checked here, not per ProcessEvent call)
+        { int st=file_present("skin_trace")?1:0; if(st!=g_skinTrace){ g_skinTrace=st; LOGI("[SKIN] trace %s",st?"ON":"OFF"); } }
+        // Extra avatar-menu boxes: resolve + track the live AvatarList (~2 s); the game-thread tick adds the boxes.
+        { static int smk=0; if((++smk % 4)==0) skin_menu_poll(); }
         // RENDER report schedule: first at ~3s after attach, then every ~10s, up to 8 reports (drained on the game thread).
         if(g_report_ticks>0 && --g_report_ticks==0){ if(g_reports<8){ g_report_req=1; g_report_ticks=20; } }
         // KEEPER (~1s): if Tribe reset our body natively (bypassing the PE blocker), request a re-attach on the game thread.

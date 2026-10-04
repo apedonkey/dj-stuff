@@ -277,12 +277,21 @@ def main():
             print("\nnot pushing: it won't load -- fix the FAIL items first")
             return 1
         for f in files:
-            r = adb("push", f, REMOTE + "/skins/" + os.path.basename(f))
-            print("push %s: %s" % (os.path.basename(f), (r.stdout + r.stderr).strip().splitlines()[-1] if (r.stdout + r.stderr).strip() else "?"))
+            name = os.path.basename(f)
+            # A plain `adb push` into Android/data/<pkg> silently vanishes on this headset now (found 2026-10-03), so the
+            # file is staged in /data/local/tmp, copied in with a shell command, made readable for Tribe -- then verified.
+            r = adb("push", f, "/data/local/tmp/" + name)
+            if r.returncode == 0:
+                adb("shell", "cp '/data/local/tmp/%s' '%s/skins/%s' && chmod 666 '%s/skins/%s'; rm -f '/data/local/tmp/%s'"
+                    % (name, REMOTE, name, REMOTE, name, name))
+            chk = adb("shell", "stat -c %%s '%s/skins/%s'" % (REMOTE, name))
+            landed = chk.returncode == 0 and chk.stdout.strip() == str(os.path.getsize(f))
+            print("push %s: %s" % (name, "OK -- on the headset; it gets its own box in the avatar menu" if landed
+                                   else "FAILED (%s)" % (r.stderr + chk.stderr).strip()))
         if "--activate" in sys.argv:
             name = os.path.basename(files[-1])
             r = adb("shell", "echo -n %s > %s/active_skin.txt" % (name, REMOTE))
-            print("active skin -> %s %s" % (name, "(relaunch Tribe, or switch skins in-game)" if r.returncode == 0 else "FAILED: " + r.stderr.strip()))
+            print("active skin -> %s %s" % (name, "(or just click its box in the avatar menu)" if r.returncode == 0 else "FAILED: " + r.stderr.strip()))
     return 1 if bad else 0
 
 

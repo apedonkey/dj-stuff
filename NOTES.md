@@ -4547,3 +4547,209 @@ watch the stick's preview / stream; tune via drone.txt live. Then rm drone_cam -
 - User test: fly the drone out "into the crowd" of a 360 video. The 360 video IS visible to the selfie camera (scene
   geometry, not a headset-only stereo layer), but the crowd is a FLAT IMAGE on the sphere -> no parallax/depth, so
   flying toward it doesn't put the camera among people. User shelved the idea. Reset: drone off, drone.txt removed.
+
+## Session 3k — Character boxes in Tribe's avatar menu (WORKING) + adb-push regression
+User wanted a dedicated menu choice per character instead of the cycle. Verified on-device: two new boxes, labeled
+"Lampwing" and "Skullbuck", appear at the end of the avatar list; clicking one switches character.
+
+Why the old cycle hook never fired: Blueprint->Blueprint calls never pass through ProcessEvent. It listened on
+BP_TribeVisualsManager.ApplySkinToPlayer, which is BP-internal. skin_trace (flag tribemod/skin_trace, logcat [SKIN])
+showed the avatar menu = 6 W_SkinItem boxes (1 BP_ReadyPlayerMeAvatarSkin_C + 5 BP_OculusAvatarSkin_C) and the
+PE-visible calls: W_SkinItem.OnListItemObjectSet(item), OnMouseButtonDown, BP_OnItemSelectionChanged, OnSkinApplied,
+OnMouseEnter/Leave. Menu = W_ProfileMenu_C, list widget "AvatarList" (UListView); its item handler is
+BndEvt__W_AchievementMenu_AvatarList_K2Node_ComponentBoundEvent_2_SimpleListItemEventDynamic__DelegateSignature(Item).
+W_SkinItem tree: NameText (label), DescriptionText, PreviewImage, StatusText, ProgressBar, SettingsButton, ...
+
+Feature (hook/dumper.cpp, flag tribemod/skin_menu):
+- One box per tribemod/skins/*.glb (max 8), label from the file name ("lampwing.glb" -> "Lampwing"). New .glb files get
+  a box automatically.
+- Game thread (menu_tick, ~1/s): GameplayStatics.SpawnObject(BP_ReadyPlayerMeAvatarSkin_C, outer = Tribe's RPM skin's
+  outer, fallback the list) -> ListView.GetIndexForItem / AddItem. Re-adds after Tribe rebuilds the list. Respawn guard:
+  >3*n respawns in 30 s -> stops (prevents a repeat of the runaway below). Relabels our boxes each second.
+- Label: KismetTextLibrary.Conv_StringToText -> TextBlock.SetText on the box's NameText, after Tribe's own
+  OnListItemObjectSet runs (we call orig first).
+- Click: swallow BOTH W_SkinItem.OnMouseButtonDown (box mapped to our item) and the AvatarList item handler (Item is
+  ours) -> write active_skin.txt + g_load_req. Tribe never tries to apply our dummy RPM skin.
+Bugs found + fixed on the way:
+- BP menu classes load LAZILY (when the menu first opens) -> lookups now retry; cheap find_in_outer(name, outerName).
+- obj_alive() used obj_at() bounded by a STALE g_numElements -> freshly spawned objects looked dead -> respawned every
+  second (105 boxes). Fix: refresh_numelements() when an index is past the cached count.
+- FText size read as 0: FP_ElemSize=0x34 is WRONG for this build. Observed on Conv_StringToText.ReturnValue: +0x30=16
+  (ElementSize), +0x34=0, +0x38=0x580 (PropertyFlags Parm|OutParm|ReturnParm), Offset_Internal +0x44 correct.
+  Fallback used: size = ParmsSize - offset (ReturnValue is last) = 16; FText is 16 B in this build (SetText psz 0x10).
+  TODO: verify + move FP_ElemSize to 0x30 (spawn_iso_actor's FTransform size check reads it too).
+- Known minor: one click fires both entry points >0.7 s apart -> the same skin loads twice. Harmless; next build:
+  debounce same-index within ~3 s.
+- Built libhook.so 192688 B -> out/hookA/menu.aligned.apk, installed + VERIFIED; reseed.sh MOD now points here.
+
+adb-push REGRESSION (2026-10-03): `adb push` into /sdcard/Android/data/<pkg>/ reports success but the file never lands
+(tested with a 5-byte probe: Android/data GONE; Android/obb + /sdcard/Download KEPT). Shell-created files there still
+work (echo/printf/cp). Workaround: push to /data/local/tmp, `cp` in via adb shell, `chmod 666` (cp'd files come out
+0660 shell:shell, unreadable to Tribe otherwise). reseed.sh (put() helper; restores lampwing+skullbuck from the PC's
+skins/; touches skin_menu) and check_skin.py --push (stages, then verifies the landed size) are both fixed; check_skin
+push verified live. Also: my earlier "checker multi-file bug" was MY mistake -- MSYS_NO_PATHCONV=1 stopped Git Bash from
+converting /c/... paths for Windows Python, so the checker couldn't open the files.
+- Rotation on the headset is now lampwing + skullbuck only (default/mentor/apose/armless removed; PC copies kept in
+  skins/ and Downloads). install -r also preserved the storage permissions (360 videos still fine).
+- Debug tip: the device logcat ring buffer is small and floods fast; during tests run
+  `adb logcat -s TRIBEMOD:V > file` in the background so startup lines aren't lost.
+
+## Session 3l — Festival stage feasibility (read-only): props loader, stock environments, backdrop screen
+User (2026-10-04) wants to "physically add" to Tribe, specifically an OUTDOOR FESTIVAL STAGE in real 3D rather than
+a 360 video. Read-only investigation; nothing built.
+
+Loading props / a whole stage [observed: object dump backup/tribemod_20261001 + extracted/paklist.txt]:
+- In the game: glTFRuntimeAsset.LoadStaticMesh / LoadStaticMeshRecursive / LoadSkeletalAnimation / LoadPunctualLight,
+  and glTFRuntimeAssetActor(+Async). Plugin source (master): Asset is ExposeOnSpawn, plus bAllowNodeAnimations and
+  ProcessNode, which builds the node tree in BeginPlay. Engine: StaticMeshActor, StaticMeshComponent.SetStaticMesh,
+  Actor.SetActorHiddenInGame, PrimitiveComponent.SetSimulatePhysics, MeshComponent.SetScalarParameterValueOnMaterials.
+- Pak has the glTFRuntime materials: M_glTFRuntimeBase, Masked/Translucent/TwoSided instances, M_Unlit_glTFRuntimeBase.
+- Plan: same chain as skins (glTFLoadAssetFromFilename, SceneScale=100), then either AssetActor (whole scene) or
+  LoadStaticMesh + StaticMeshActor.
+
+Stock environments [observed: DT_EnvironmentSkins + Environment_{Void,VideoSphere,Desert_Optimized}.umap, extracted
+with pak_extract + oodle_dec + bp_disasm into the session scratchpad]:
+- 10 table rows: Passthrough, Tribe Lounge, Lodato Lounge, The Void, Pioneer DJ Powerstation, Desert Lounge,
+  Polygon City, Hip Hop Ride, Hotel Selina, Video Sphere. Each is its own streamed level,
+  /Game/Maps/Environments/Environment_*.umap (LevelStreamingDynamic under DJRoomMap). The rig and cameras live in CommonLevel.
+- Levels are small.
+  - Void: directional light, skylight, reflection capture, Avatar/Backdrop/Booth spotlights, SM_BackdropScreen and
+    SM_BackdropScreen_ChromaKey. No scenery.
+  - VideoSphere: the same lights plus TribeVideoSphere (DomeMesh) and the chroma backdrop only.
+  - Desert Lounge: adds SM_DesertSkybox/M_DesertSkybox, desk, desk lights, speakers, railings, interior meshes, banana
+    plants (foliage), wall/ceiling blockers, post-process and baked lightmaps.
+- Asset style: Polygon City uses the Synty POLYGON Sci-Fi atlas. Pioneer uses a KitBash3D 8k atlas plus MediaPlayer video
+  screens on buildings. Tribe's own budget is therefore a few meshes sharing atlas textures, a skybox and baked lighting.
+- Transforms can't be read offline: the cooked levels use unversioned properties and there is no .usmap, so UAssetAPI
+  leaves the exports raw. Read the dome size and booth position LIVE in the first headset test instead.
+
+Backdrop screen [Ghidra out/ghidra_backdrop.txt + level name tables]:
+- Every environment's level BP calls BP_TribeVisualsManager_C.SetupEnvironmentBackdrop(BackdropMesh,
+  ChromaKeyBackdropMesh) in BeginPlay. All of them use SM_BackdropScreen_OldStyleUVs; the chroma one uses
+  /Game/Visuals/ChromaKey/ChromaKey_M.
+- TribeVisualsManager.SetBackdropStaticMesh: thunk rva 0x4ff01b0, impl rva 0x510de3c. It sets this+0x2d0 = actor. If
+  DrawMode (this+0x3d4) is 1/2/3 it takes the material at this+0x2e8/0x2f0/0x2e0 and makes vcall +0x698 on
+  actor+0x290 (StaticMeshActor.StaticMeshComponent; inferred SetMaterial(0, mat)). The second match, thunk rva
+  0x4ff0258, is likely the cached-UFunction constructor false positive seen with SetAutoCamMode.
+- UpdateBackdropVisibility: thunk rva 0x4ff08b8, impl rva 0x51128c0. When a backdrop is set it makes vcall +0x368 on
+  the actor (inferred SetActorHiddenInGame): shown when DrawMode != 0, otherwise hidden by a setting.
+- [inferred, untested] Registering OUR LED-wall StaticMeshActor through SetupEnvironmentBackdrop/SetBackdropStaticMesh
+  should put Tribe's visuals on it: videos, beat-matched GIFs, text, images, NDI (StreamVideoToBackdrop,
+  DrawGifToBackdrop + SetGifBeatmatchEnabled, DrawTextToBackdrop, StreamNdiToBackdrop). There is only one backdrop
+  pointer, and an environment switch re-registers that environment's own screen, so ours must be re-registered after
+  each environment load.
+- Also seen: TribePlayerController.SetChromaKeyBackdropInSpectatorCameras / SetChromaKeyColor (Tribe's green-screen
+  mode for the stream cameras).
+
+Proposed next step (awaiting the user):
+- Add a stage loader to the hook: spawn a whole .glb at the booth, auto-register the LED-wall node as the backdrop, and
+  read out the booth position and VideoSphere dome bounds live.
+- Test with a rough stage first, then the real Blender stage.
+- Base environment: The Void (lights + backdrop only) or Video Sphere (360 crowd as the far backdrop).
+
+### Session 3l cont. — User wants their OWN environment (a menu entry like the stock ones), not a stage on top of one
+[observed, object dump + BP_EnvironmentSkin name table + out/obb_listing.txt]:
+- The environment menu works like the avatar menu where the character boxes already work.
+  - W_VisualsMenu_C.EnvironmentList is a ListView with the shared box widget /Game/Menus/W_SkinItem.W_SkinItem_C.
+  - Items come from AddSkinWidgetsForList / BuildEnvironmentSkinWidgets.
+  - The click handler is BndEvt__W_VisualsMenu_EnvironmentList_K2Node_ComponentBoundEvent_2_SimpleListItemEventDynamic__DelegateSignature.
+- BP_EnvironmentSkin_C does the switching:
+  - It holds Environment (row name) and EnvironmentType (native enum /Script/TribeXR.ETribeEnvironmentType).
+  - It reads the DT_EnvironmentSkins row, checks IsHost / IsTribePassthroughSupported, and calls
+    TribeGameStateBP_C.SetEnvironment_ShowLoadingScreen, then native TribeGameState.SetEnvironment.
+  - It persists the choice with WriteConfigString ([TribeSkins] Environment=).
+  - => [inferred] The set of loadable environments is fixed in native code (an enum). A custom environment has to
+    borrow a slot: The Void (lights + screens, no scenery). Others in a multiplayer room would see The Void.
+- Path A (mod, runtime): add our box to EnvironmentList (reuse the character-box code) → on click, switch to The Void →
+  hide SM_BackdropScreen and SM_BackdropScreen_ChromaKey → spawn our .glb world → SetupEnvironmentBackdrop with our
+  LED wall → persist and re-apply on launch.
+- Path B (real UE level): Tribe is UE 5.4. The OBB has 4 paks, no .sig files and no .utoc/.ucas (unsigned, no IoStore),
+  so a mod pak is plausible. LevelStreamingDynamic.LoadLevelInstance and GameplayStatics.LoadStreamLevel/UnloadStreamLevel
+  exist. UNKNOWN: whether Quest Tribe mounts an extra pak, and from where. Needs a UE 5.4 + Android cook setup.
+
+### Session 3l cont. 2 — User asks "why not Unreal?" (a real UE level instead of a runtime .glb). Feasibility facts
+[observed: libUnreal.so UTF-16 strings, Tribe's config extracted from pakchunk0, extracted/paklist.txt, PC check]
+- Patch/overflow OBB support is compiled in. Strings: "main.%d.%s.obb", "patch.%d.%s.obb", "overflow%d.%d.%s.obb";
+  logs "Mounted patch OBB: %s", "Mounted overflow%d OBB: %s"; "Mounting pak file: %s".
+  => Candidate delivery: patch.<ver>.com.TribeXR.TribeXR.obb (a zip holding TribeXR/Content/Paks/<mod>.pak) in
+  /sdcard/Android/obb/<pkg>/ (adb push into Android/obb works, per Session 3k). UNTESTED.
+- Tribe mounts add-on paks itself. Classes: UTribeAddon with VisualsPack / LessonPack / TrackPack / VideoSphere
+  subclasses. Name prefixes: TribeXR-VisualsPack_, -360VideoPack_, -LessonPack_, -TrackPack_. UFunctions:
+  TribeAddon.InstallAddon, TrackLibrary.LoadTrackPak, TribeVisualsManager.InstallVisualsPackAddon /
+  InstallVideoSphereAddon. => Runtime pak mounting is live in this build. There is no environment add-on type.
+- Engine: UE 5.4 (asset headers "++UE5+Release-5.4", Session 0). No engine-branch string in the .so (the Meta fork is
+  undetermined).
+- Tribe's settings (TribeXR/Config/DefaultEngine.ini + DefaultGame.ini), which a mod project must mirror:
+  - Rendering: r.ForwardShading=True, r.AllowStaticLighting=True, MSAA (AA method 3, r.MSAACount=2), r.MobileHDR=False,
+    vr.MobileMultiView(+Direct)=True, r.Mobile.UseHWsRGBEncoding=True, r.Mobile.EnableMovableSpotlights=False,
+    r.Mobile.SupportGPUScene=True.
+  - Android: Vulkan only (bBuildForES31=False, bSupportsVulkan=True, SM5 off), ASTC.
+  - Packaging: UsePakFile=True, bUseIoStore=False, bGenerateChunks=True, Oodle Kraken, bShareMaterialShaderCode=True,
+    bSharedMaterialNativeLibraries=False.
+- Shader libraries are per chunk inside the paks:
+  - ShaderArchive-Global-SF_VULKAN_ES31_ANDROID-VULKAN_ES3_1_ANDROID.ushaderbytecode
+  - ShaderArchive-TribeXR_Chunk0-... (pakchunk0) and ShaderArchive-TribeXR_Chunk1-... (pakchunk1)
+  - => A mod pak must ship its own ShaderArchive-TribeXR_Chunk<N> (or inline shaders) built with matching settings.
+    That is the main technical risk after mounting.
+- PC: Blender 4.3 + 4.4 installed. Unreal Engine NOT installed (no Epic Games dir, no registry entry). UE 5.4 + Android
+  target support needs an Epic Games Launcher install (user action, needs their Epic login).
+- Menu integration: environments are a native enum (Session 3l cont.). Options: (a) a mod pak overrides an unused
+  environment's level path (e.g. /Game/Maps/Environments/Environment_HipHop) plus its preview texture, and the hook
+  relabels the box; or (b) borrow The Void + LevelStreamingDynamic.LoadLevelInstance from the hook.
+- Risk-first plan:
+  - Step 0, no Unreal needed: a tiny test pak (repak, v11) delivered as a patch OBB; check logcat for
+    "Mounted patch OBB" / "Mounting pak file" and confirm the file is visible in-game.
+  - Step 1: UE 5.4 mod project mirroring the settings above; cook a minimal test level into chunk N and test it.
+  - Step 2: the festival.
+
+## Session 3m — STEP 0 PASSED: Tribe mounts an extra pak delivered as a PATCH OBB (no APK rebuild)
+Method: no hook rebuild. The mod's loader already honors tribemod/glb_path.txt when active_skin.txt is absent, and it
+calls glTFLoadAssetFromFilename(path, bPathRelativeToContent=false), which reads through UE's file layer (pak first).
+- Built with repak 0.2.3 (cargo install --git trumank/repak repak_cli): two V11 paks, mount ../../../, uncompressed.
+  - TribeModTest_P.pak: TribeXR/Content/ModTest/{plain.glb, hello.txt}
+  - pakchunk99-Android_ASTC_P.pak: TribeXR/Content/ModTest/chunk.glb
+  - Each .glb is a copy of skins/lampwing.glb (sha256 e2d176b1… matches inside both paks).
+- Patch OBB = plain STORED zip, mirroring main: entries TribeXR/Content/Paks/<both paks> + loose
+  TribeXR/Content/ModTest/loose.glb; zip comment "      2304" (as in main). Verified with scripts/pak_list.py.
+- Pushed to /sdcard/Android/obb/com.TribeXR.TribeXR/patch.2304.com.TribeXR.TribeXR.obb (versionCode 2304; lands
+  shell:ext_obb_rw 644, readable).
+- Device steps: active_skin.txt renamed aside, glb_path.txt written, Tribe force-stopped and relaunched via
+  `am start -n com.TribeXR.TribeXR/com.epicgames.unreal.GameActivity` (monkey fails on Quest: no LAUNCHER category).
+- RESULT [observed, logcat TRIBEMOD, pid 26910]:
+    asset=0x72afa092a0 (path=../../../TribeXR/Content/ModTest/plain.glb) -> mesh built, materials on, actor follows
+    asset=0x72ae7c5aa0 (path=../../../TribeXR/Content/ModTest/chunk.glb) -> do_load done
+    asset=0x72b9d75aa0 (path=../../../TribeXR/Content/ModTest/loose.glb) -> do_load done
+  plain.glb and chunk.glb exist ONLY inside the paks, so the paks were mounted at startup. Both a plain _P name and a
+  pakchunk99 name work. The loose file proves the patch OBB zip itself is in the file system. Our unsigned pak was
+  accepted (no signature enforcement).
+- Restored afterwards: glb_path.txt removed, active_skin.txt back to skullbuck.glb, skullbuck reloaded.
+  The patch OBB was LEFT on the device (test-only ModTest paths, no overrides). Remove it with
+  `adb shell rm /sdcard/Android/obb/com.TribeXR.TribeXR/patch.2304.com.TribeXR.TribeXR.obb`. Step 1 overwrites it anyway.
+- UE's own logs (LogPakFile etc.) do NOT reach logcat in this Shipping build. The proof has to come from inside the
+  process (the mod).
+- Not yet tested: cooked UE assets from our own UE 5.4 install (shader library / engine-build match) and _P override
+  priority over a stock environment level. That is Step 1, which needs UE 5.4 + Android installed by the user.
+- Signing note: the keystore password isn't in the repo. Auto mode blocked recovering it from old session logs
+  (credential), so future APK rebuilds need the user to sign or supply it. Step 1 (pak-only) needs no APK rebuild.
+
+### Session 3m cont. — Can we add a NEW environment (not replace a stock one)? Decoded: the level list is native
+[observed: Ghidra out/ghidra_setenv.txt; F_EnvironmentSkinEntry extracted from pakchunk0]
+- A DT_EnvironmentSkins row (F_EnvironmentSkinEntry) has exactly 2 fields: Environment_44_… (EnumProperty
+  ETribeEnvironmentType) and SkinInfo_37_… (F_SkinInfo: name, preview, etc.). There is NO level-name field.
+- ETribeEnvironmentType values (binary strings): None, PolygonCity, Desert, Pioneer, HipHop, Lodato, Passthrough,
+  VideoSphere, Lounge, Void, HotelSelina.
+- TribeGameState.SetEnvironment: exec thunk rva 0x4fc4974, impl rva 0x509497c.
+  - this+0x308 = current env enum, +0x309 = previous.
+  - If the previous env != 0, FUN rva 0x5094ac8 unloads it.
+  - If the new env != 0, FUN rva 0x4fb1608 builds the level path, then FUN rva 0x5094bb4 streams it in.
+  - Passthrough special case: enum == 7. FUN rva 0x50c4394 broadcasts the change.
+- Level path builder (rva 0x4fb1608): FName from FUN rva 0x4fb1894(enum), then
+  `World'/Game/Maps/Environments/%s.%s'`. => Level = /Game/Maps/Environments/<Name>.<Name>, hard-wired per enum value.
+- => A pak alone can REPLACE a stock level (same path; a _P pak wins) but cannot ADD an 11th environment.
+- A NEW entry needs mod code, either:
+  - (A) hook rva 0x4fb1894 so a new value (e.g. 11) maps to "Environment_<Ours>", plus a DT row (pak override or
+    runtime row injection) with Environment=11 + our SkinInfo. Tribe's own menu, loading screen and config then
+    treat it as native. Guests without the mod get an unknown value (likely no environment).
+  - (B) our own menu box, which calls SetEnvironment(None) and then LevelStreamingDynamic.LoadLevelInstance(our path)
+    itself.
+  - Either way the APK must be rebuilt and re-signed.

@@ -21,17 +21,22 @@ PKG=com.TribeXR.TribeXR
 D=/sdcard/Android/data/$PKG/files/tribemod
 OBB_DST=/sdcard/Android/obb/$PKG/main.2304.$PKG.obb
 GENUINE=pulled/base.apk                 # genuine Tribe (CN=Kevin Lowe) -- mints the token
-MOD=out/hookA/drone.aligned.apk           # the mod to put back  <-- change if you rebuild to a new filename
+MOD=out/hookA/menu.aligned.apk            # the mod to put back  <-- change if you rebuild to a new filename
 OBB=pulled/main.2304.$PKG.obb           # ~1.9GB game data (version 2304)
 BK=backup/reseed_20261001               # avatar data: custom.glb, bt_user_calib.txt, params.txt, active_skin.txt
-SKINS=backup/tribemod_20261001/tribemod/skins
+SKINS=skins                             # your characters on the PC (lampwing.glb, skullbuck.glb, ...)
+KEEP_SKINS="lampwing skullbuck"          # which ones go on the headset (one menu box each)
 
 say(){   echo; echo ">>> $*"; }
 pause(){ echo; read -r -p "    $* -- press Enter when done... " _; }
 adb(){   "$ADB" -s "$SERIAL" "$@"; }
+# A plain `adb push` into Android/data/<pkg> now silently vanishes on this headset (found 2026-10-03; Android/obb and
+# /sdcard/Download still work). So files for tribemod/ are staged in /data/local/tmp, copied in with a shell command, and
+# made readable for Tribe.
+put(){ adb push "$1" /data/local/tmp/tribemod_put.tmp >/dev/null &&        adb shell "cp /data/local/tmp/tribemod_put.tmp '$2' && chmod 666 '$2'; rm -f /data/local/tmp/tribemod_put.tmp" &&        echo "    put $(basename "$1") -> $2"; }
 
 # --- preflight: make sure every file exists and the headset is connected before we uninstall anything ---
-for f in "$GENUINE" "$MOD" "$OBB" "$BK/custom.glb" "$BK/bt_user_calib.txt"; do
+for f in "$GENUINE" "$MOD" "$OBB" "$BK/custom.glb" "$BK/bt_user_calib.txt" $(for g in $KEEP_SKINS; do echo "$SKINS/$g.glb"; done); do
   [ -f "$f" ] || { echo "MISSING required file: $f"; exit 1; }
 done
 adb get-state >/dev/null 2>&1 || { echo "headset not connected over adb -- plug in / check 'adb devices'"; exit 1; }
@@ -54,15 +59,13 @@ adb uninstall "$PKG"
 adb install "$MOD"
 adb shell "mkdir -p /sdcard/Android/obb/$PKG $D $D/skins"
 adb push "$OBB" "$OBB_DST"
-adb push "$BK/custom.glb"        "$D/custom.glb"
-adb push "$BK/bt_user_calib.txt" "$D/bt_user_calib.txt"
-adb push "$BK/params.txt"        "$D/params.txt"
-adb push "$BK/active_skin.txt"   "$D/active_skin.txt"
-adb push backup/tribemod_20261001/tribemod/avatar_url.txt "$D/avatar_url.txt"
-for g in default mentor skullbuck; do
-  [ -f "$SKINS/$g.glb" ] && adb push "$SKINS/$g.glb" "$D/skins/$g.glb"
-done
-adb shell "touch $D/executor_on $D/auto_load $D/auto_actor $D/body_tracking"
+put "$BK/custom.glb"        "$D/custom.glb"
+put "$BK/bt_user_calib.txt" "$D/bt_user_calib.txt"
+put "$BK/params.txt"        "$D/params.txt"
+put "$BK/active_skin.txt"   "$D/active_skin.txt"
+put backup/tribemod_20261001/tribemod/avatar_url.txt "$D/avatar_url.txt"
+for g in $KEEP_SKINS; do put "$SKINS/$g.glb" "$D/skins/$g.glb"; done
+adb shell "touch $D/executor_on $D/auto_load $D/auto_actor $D/body_tracking $D/skin_menu"
 
 say "fix tribemod permissions (adb-pushed files are shell-owned; the app needs to read them)"
 adb shell "chmod 666 $D/* 2>/dev/null; chmod 777 /sdcard/Android/data/$PKG/files $D $D/skins; chmod 666 $D/skins/* 2>/dev/null"
