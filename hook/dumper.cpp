@@ -34,7 +34,7 @@ static inline pid_t my_tid(){ return (pid_t)syscall(SYS_gettid); }
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
 // which build this is (claudedocs/mod_2311_plan.md): A = startup + crash fixes, B = A + characters, C = B + stages.
 // Shown in the [READY] line and in ready_history.txt.
-#define MOD2311_STEP "B"
+#define MOD2311_STEP "C"
 static double mono_now(){ struct timespec ts; clock_gettime(CLOCK_MONOTONIC,&ts); return ts.tv_sec+ts.tv_nsec*1e-9; }
 
 // ---- resolved statics (this session) ----
@@ -2522,7 +2522,7 @@ static int em_soft_get(uintptr_t sp,uintptr_t* out){
     refresh_numelements(); if(idx<0||(uint32_t)idx>=g_numElements) return -1;
     uintptr_t chunk=rdptr(g_chunks+(uintptr_t)(idx>>16)*8); if(!chunk) return -1;
     uintptr_t item=chunk+(uintptr_t)(idx&0xFFFF)*ITEM_STRIDE;
-    if((int32_t)rd32(item+0x10)!=ser||(rd32(item+8)&(0x200000u|0x10000000u))) return -1;
+    if((int32_t)rd32(item+0x10)!=ser||(rd32(item+8)&gc_dead_mask())) return -1;   // step C: 5.4 rotates the unreachable flag
     uintptr_t o=rdptr(item); if(!o||!in_range(o,0x30)||rd32(o+OFF_Index)!=(uint32_t)idx) return -1;
     *out=o; return 1; }
 static uintptr_t em_find_mesh_actor(const char* meshName){          // the actor whose StaticMeshComponent shows that mesh
@@ -3118,7 +3118,8 @@ static void giant_lookup(){                                           // POLL th
         {"halloween","/Game/Mods/Halloween/MaterialInstances/MPC_HwShow.MPC_HwShow","MPC_HwShow"},
         {"christmas","/Game/Mods/Christmas/MaterialInstances/MPC_XmShow.MPC_XmShow","MPC_XmShow"},
         {"harvest","/Game/Mods/Harvest/MaterialInstances/MPC_HmShow.MPC_HmShow","MPC_HmShow"},    // HARVEST MOON (Thanksgiving)
-        {"redeye","/Game/Mods/RedEye/MaterialInstances/MPC_ReShow.MPC_ReShow","MPC_ReShow"}};     // RED EYE (hangar)
+        {"redeye","/Game/Mods/RedEye/MaterialInstances/MPC_ReShow.MPC_ReShow","MPC_ReShow"},      // RED EYE (hangar)
+        {"bigdub","/Game/Mods/BigDub/MaterialInstances/MPC_BdShow.MPC_BdShow","MPC_BdShow"}};     // BIG DUB (Main Stage), C3
     char fol[48]=""; int si=-1;
     if(em_active_folder(fol,sizeof fol)) for(int i=0;i<(int)(sizeof SHOWS/sizeof SHOWS[0]);i++) if(!strcmp(fol,SHOWS[i][0])) si=i;
     static int miss=0; uintptr_t c=si>=0?find_by_path(SHOWS[si][1],0):0;
@@ -3699,9 +3700,23 @@ static void giant_tick(float dt){                                     // game th
         giant_mpc(g_pawn,GP_ROBE,g_gH>25?1.f:0.f); giant_mpc(g_pawn,GP_GLOW,(float)g_gGlow); }
     wasDown=down; }
 // game thread, ~once a second from our actor's tick: keep our boxes in the live EnvironmentList, then run the load steps
+// mod2311 step C: is every envs.txt level in the mounted paks? BlueprintPathsLibrary.FileExists goes through the pak layer
+// (em_diagnose uses the same check after a failed load). Once, logged as one line; shown in [READY] as paks=N/M.
+static volatile sig_atomic_t g_emPaksOk=-1, g_emPaksN=0;
+static void em_check_paks(){
+    static bool done=false; if(done||!g_emFnFileExists||!g_emBPL||!g_emFnContentDir||g_emCount<=0) return; done=true;
+    char dir[300]=""; uint8_t* r=call_ret(g_emBPL,g_emFnContentDir,0,0); if(r) read_fstring((uintptr_t)r,dir,sizeof dir);
+    if(!dir[0]||!strcmp(dir,"(empty)")){ LOGI("[ENV] stages in the paks: ProjectContentDir unreadable: not checked"); return; }
+    int ok=0, n=g_emCount; char miss[300]=""; int ml=0;
+    for(int i=0;i<n&&i<EM_MAX;i++){ const char* pk=g_emPaths[i]; const char* sub=strncmp(pk,"/Game/",6)?pk:pk+6; char p[500];
+        snprintf(p,sizeof p,"%s%s.umap",dir,sub); int e=em_file_exists(p);
+        if(e==1) ok++; else if(ml<(int)sizeof miss-70) ml+=snprintf(miss+ml,sizeof miss-ml,"%s'%s'%s",ml?", ":"",g_emLabels[i],e<0?" (n/a)":""); }
+    g_emPaksN=n; g_emPaksOk=ok;
+    LOGI("[ENV] stages in the paks: %d/%d levels found%s%s",ok,n,ok<n?"; missing: ":"",ok<n?miss:""); }
 static void env_menu_tick(){
     static int tk=0, spawns=0, win=0, away=0; static bool tripped=false;
     if(!g_envMenuOn||(++tk%60)!=0) return;
+    em_check_paks();
     if(++win>=30){ win=0; spawns=0; }                                        // same respawn guard as the avatar boxes
     uintptr_t list=g_emList; int n=g_emCount;
     g_emListLive=(list&&obj_alive(list))?1:0;
@@ -4662,9 +4677,9 @@ static void ready_poll(){
       if(!smOn||g_smBoxesOff) snprintf(menus+k2,sizeof menus-k2,",avatar:off");
       else if(g_smMode!=1||!g_smListLive) snprintf(menus+k2,sizeof menus-k2,",avatar:list-not-open");
       else { snprintf(menus+k2,sizeof menus-k2,",avatar%d/%d",(int)g_smAdded,(int)g_smCount); need(g_smAdded>=g_smCount,"menus",menus); } }
-    char line[1200];
-    int k=snprintf(line,sizeof line,"[READY] %s step=%s pid=%d t=%.1fs hook=%s world=%d avatar=%s skin=%s stage=%s stream=%s menus=%s gen=%d skips=%ld",
-        all?"all=1":(t>=180.0?"FAIL":"all=0"),MOD2311_STEP,(int)getpid(),t,hook,(int)g_worldUp,av,skin,stg,strm,menus,(int)g_worldGen,g_callSkips);
+    char line[1200]; char paks[24]="?"; if(g_emPaksOk>=0) snprintf(paks,sizeof paks,"%d/%d",(int)g_emPaksOk,(int)g_emPaksN);
+    int k=snprintf(line,sizeof line,"[READY] %s step=%s pid=%d t=%.1fs hook=%s world=%d avatar=%s skin=%s stage=%s stream=%s menus=%s paks=%s gen=%d skips=%ld",
+        all?"all=1":(t>=180.0?"FAIL":"all=0"),MOD2311_STEP,(int)getpid(),t,hook,(int)g_worldUp,av,skin,stg,strm,menus,paks,(int)g_worldGen,g_callSkips);
     if(!all&&k>0&&k<(int)sizeof line) snprintf(line+k,sizeof line-k," missing=%s",miss);
     bool changed=(int)all!=lastAll; lastAll=all;
     if(changed||now>=nextAt){ LOGI("%s",line); char l2[1210]; snprintf(l2,sizeof l2,"%s\n",line); ready_write_file("ready.txt",l2,false);
@@ -4676,7 +4691,7 @@ static void* dump_thread(void*){
     char cmd[600]; snprintf(cmd,sizeof cmd,"%s/dump_now",OUTDIR);
     char lcmd[600]; snprintf(lcmd,sizeof lcmd,"%s/load_avatar",OUTDIR);
     for(;;){ modon_poll();                                        // mod2311: the supervisor (see above)
-        { static int rk=0; if(!g_resolved&&g_mod_on&&(rk++%4)==0) ensure_resolved(); }   // the object array, every 2 s until found
+        { static int rk=0; if(!g_resolved&&g_mod_on&&(rk++%4)==0) run_guarded(ensure_resolved,"resolve"); }   // guarded: the scan can hit a SIGBUS page (C2)   // the object array, every 2 s until found
         world_poll(); avatar_poll(); ready_poll();
         g_log_pe = file_present("log_pe")?1:0;                   // toggle the ProcessEvent diagnostic
         g_logDeck = file_present("log_deck")?1:0;                // the deck capture (intro.cpp)
@@ -4689,11 +4704,11 @@ static void* dump_thread(void*){
             install_guard(); usmap_dump(); remove_guard(); } }
         // native dump (hook/native.cpp): tribemod/native_now (one-shot; its text may list packages) -> native_dump.jsonl,
         // once the engine objects are resolved (native classes are loaded at startup)
-        { static int ndk=0; if((++ndk % 4)==3 && file_present("native_now")){ ensure_resolved();
+        { static int ndk=0; if((++ndk % 4)==3 && file_present("native_now")){ run_guarded(ensure_resolved,"resolve");
             if(g_resolved){ LOGI("native_now: dumping..."); install_guard(); native_dump(); remove_guard(); } } }
         // manual load_avatar trigger: resolve globals here (heavy scan, off the game thread), then arm the PE-drain.
         int lf=open(lcmd,O_RDONLY); if(lf>=0){ close(lf); unlink(lcmd); LOGI("load_avatar seen; arming executor...");
-            ensure_resolved(); if(g_resolved && orig_pe && g_mod_on){ g_load_req=1; load_status("armed; waiting for next ProcessEvent on game thread"); }
+            run_guarded(ensure_resolved,"resolve"); if(g_resolved && orig_pe && g_mod_on){ g_load_req=1; load_status("armed; waiting for next ProcessEvent on game thread"); }
             else load_status("NOT armed (resolved=%d pe=%p)",(int)g_resolved,g_pe_addr); }
         // (the auto-load and the avatar actor's spawn are avatar_poll's now, with retries; mod2311)
         // ISO trigger: tribemod/iso_here (one-shot) -> spawn our own actor in front of the HMD on the game thread.

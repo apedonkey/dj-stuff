@@ -133,6 +133,7 @@ static void club_lookup(){
 static uintptr_t g_cPawn=0, g_cPC=0, g_cVRO=0, g_cCam=0, g_cPar=0;  // g_cPar: what VROrigin hangs on (its AttachParent)
 static double g_cScale=1;                                       // that parent's world scale (relative moves divide by it)
 static int g_cOffVRO=-1, g_cOffCam=-1, g_cOffRole=-1, g_cOffHost=-1, g_cOffDJ=-1, g_cOffRelLoc=-1, g_cOffRelRot=-1;
+static uint8_t g_cMaskHost=0xFF, g_cMaskDJ=0xFF;                     // 2311: bHost / bDJing are bitfield bools (their ByteMask)
 static long g_cResolveAt=0, g_cOnFrame=0, g_cGuestMoved=-100000;
 static bool g_cBased=false, g_cHaveSet=false, g_cRefloor=false, g_cTurnArmed=true, g_cIgnoreParent=false;
 static double g_cBaseLoc[3], g_cBaseRot[3], g_cSetLoc[3], g_cSetRot[3], g_cParent[4];
@@ -182,6 +183,9 @@ static bool club_resolve(){
         uintptr_t cls=rdptr(pawn+OFF_Class); char cn[96]; obj_name(cls,cn,sizeof cn);
         g_cOffVRO=prop_offset(cls,"VROrigin",0); g_cOffCam=prop_offset(cls,"Camera",0); g_cOffRole=prop_offset(cls,"Role",0);
         g_cOffHost=prop_offset(cls,"bHost",0); g_cOffDJ=prop_offset(cls,"bDJing",0);
+        { int S=calib_fprop_size(); uintptr_t f; g_cMaskHost=0xFF; g_cMaskDJ=0xFF;   // mod2311 step C (levels doc S4): as em_actor_hidden,
+          if(S>0&&g_cOffHost>=0&&(f=find_prop(cls,"bHost"))){ g_cOffHost+=rd8(f+S+1); g_cMaskHost=rd8(f+S+2); }   // the byte at
+          if(S>0&&g_cOffDJ>=0&&(f=find_prop(cls,"bDJing"))){ g_cOffDJ+=rd8(f+S+1); g_cMaskDJ=rd8(f+S+2); } }      // Offset+ByteOffset & ByteMask
         LOGI("[CLUB] local pawn 0x%lx (%s): VROrigin@%d Camera@%d Role@%d bHost@%d bDJing@%d",(unsigned long)pawn,cn,
              g_cOffVRO,g_cOffCam,g_cOffRole,g_cOffHost,g_cOffDJ);
         g_cPawn=pawn; g_cAllowed=-1; }
@@ -199,8 +203,8 @@ static bool club_resolve(){
 // the gate's question: the host (or alone: the pawn has authority), Tribe's host flag, or a DJ; club.txt role= overrides
 static bool club_allowed(){
     int r=g_clubRole;
-    int role=g_cOffRole>=0?*(uint8_t*)(g_cPawn+g_cOffRole):-1, host=g_cOffHost>=0?*(uint8_t*)(g_cPawn+g_cOffHost):-1,
-        dj=g_cOffDJ>=0?*(uint8_t*)(g_cPawn+g_cOffDJ):-1;
+    int role=g_cOffRole>=0?*(uint8_t*)(g_cPawn+g_cOffRole):-1, host=g_cOffHost>=0?(*(uint8_t*)(g_cPawn+g_cOffHost)&g_cMaskHost):-1,
+        dj=g_cOffDJ>=0?(*(uint8_t*)(g_cPawn+g_cOffDJ)&g_cMaskDJ):-1;
     bool a=(r==1||r==2)?true:(r==3)?false:(role==3||host>0||dj>0);
     if((int)a!=g_cAllowed){ g_cAllowed=a; static const char* const NR[4]={"None","SimulatedProxy","AutonomousProxy","Authority"};
         LOGI("[CLUB] gate: %s (role=%s; pawn Role %d %s, bHost %d, bDJing %d)",a?"OPEN for you":"SHUT for you (guest)",CLUB_ROLES[r],

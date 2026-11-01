@@ -1,0 +1,20 @@
+Asset ID:      Grass004 (Grass 004)
+Picked for:    short grass / meadow
+Source:        ambientCG, https://ambientcg.com
+Asset page:    https://ambientcg.com/view?id=Grass004
+               short link https://ambientcg.com/a/Grass004
+Download URL:  https://ambientcg.com/get?file=Grass004_1K-JPG.zip
+               (HTTP 200 after one redirect to
+               https://acg-download.struffelproductions.com/file/ambientCG-Web/download/Grass004_8f7ZrdgN/Grass004_1K-JPG.zip)
+File:          Grass004_1K-JPG.zip, 11003149 bytes (equals the size listed by the ambientCG API v2),
+               SHA-256 4b63495f459db8481f4d5144e4e9069345c81cf898cc71f2216f5dd3bb344469
+Download date: 2026-10-31
+Author:        not shown (neither the asset page nor the ambientCG API record names an author)
+Licence:       CC0 1.0 Universal (see LICENSE.txt)
+Page facts:    technique: procedural (the page spells it "Prodedural"; API creationMethod PBRProcedural)
+               real-world size: ca. 1.4 m x 1.4 m (page; API dimensionX/Y = 140 cm)
+               released: 2021-03-28
+               tags: dense, garden, grass, green, ground, lawn, lush, natural, park, short, soft, suburban
+Contents:      the zip is extracted in this folder: Color, NormalGL, NormalDX, Roughness,
+               AmbientOcclusion and Displacement maps (1024 x 1024 JPG), material files
+               (.blend, .mtlx, .tres, .usdc) and a preview PNG.

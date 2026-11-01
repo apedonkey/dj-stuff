@@ -276,7 +276,10 @@ static void ir_screen_tick(const IRide* r,float dt){                  // about o
 static void intro_tick(float dt){
     static int gen=-1;
     int ix=g_irIdx;
-    bool up=ix>=0&&g_introArmed&&g_emState==EM_ACTIVE&&show_coll_ok()&&g_pawn&&obj_alive(g_pawn);   // mod2311: the show bus's check
+    char ifol[48], iwant[64]=""; if(em_active_folder(ifol,sizeof ifol)) snprintf(iwant,sizeof iwant,"intro.%s.txt",ifol);
+    bool up=ix>=0&&g_introArmed&&g_emState==EM_ACTIVE&&!strcmp(iwant,g_irFile)&&show_coll_ok()&&g_pawn&&obj_alive(g_pawn);   // mod2311:
+    // the show bus's check (step A), and this stage's own ride (step C: after a switch the old stage's ride stays loaded
+    // until intro_lookup reads the new one, up to ~8 s, and its actors and keys belong to the old stage)
     if(!up){ if(g_isState!=IS_IDLE||g_introCam||g_introDark) intro_reset("the intro's stage isn't up",false); gen=-1; return; }
     if(gen!=g_showGen){                                               // this stage instance (a reload starts over)
         if(g_isState!=IS_IDLE||g_introCam||g_introDark) intro_reset("the stage loaded again",false);

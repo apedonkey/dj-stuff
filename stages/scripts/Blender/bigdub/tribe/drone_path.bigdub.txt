@@ -1,0 +1,22 @@
+# BIG DUB (Main Stage) drone reel: world cm, the DJ at (0, 90) facing -Y, the Stone Circle round the crowd toward -Y
+# (its centre (0, -1560), 61 x 49 m; the Flame Stone at (0, -4610)). Checked by bd_dronecheck.py: every shot stays
+# 1.5 m over the ground, clear of the LED pillars, the stage and the jellyfish's height band (8-13 m) over the crowd, and
+# over the forest's crowns outside the stones. About 106 s.
+# rising over the Flame Stone's end of the ring, the stage ahead
+fly 12 0,-4200,700 0,-3300,2300 look=0,600,500
+# across the crowd's middle, low
+fly 12 -1800,-3050,450 1800,-3050,450 look=0,-1500,0
+# over the crowd toward you
+fly 12 0,-2600,650 0,-750,330 look=dj
+# close orbit
+orbit 14 r=260 h=30 deg=360 start=-90
+# over your shoulder: the crowd and the ring ahead
+fly 8 -250,380,260 250,380,260 look=0,-3800,300
+# the stage front, low over the first rows
+fly 10 -900,-950,340 900,-950,340 look=0,500,450
+# high over the ring along its axis: the stones all round, the forest beyond
+fly 14 0,-5600,3900 0,-300,3900 look=0,-1700,0
+# rising in front of the stage: the roof, the sky beams
+fly 12 0,-1100,400 0,-1300,1600 look=0,800,2600
+# a crane on the crowd's right side
+fly 12 1900,-2200,600 1900,-1400,600 look=0,-1600,200

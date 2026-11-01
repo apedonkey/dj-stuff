@@ -1,0 +1,20 @@
+Asset ID:      Bark012 (Bark 012)
+Picked for:    hardwood tree bark (oak-like)
+Source:        ambientCG, https://ambientcg.com
+Asset page:    https://ambientcg.com/view?id=Bark012
+               short link https://ambientcg.com/a/Bark012
+Download URL:  https://ambientcg.com/get?file=Bark012_1K-JPG.zip
+               (HTTP 200 after one redirect to
+               https://acg-download.struffelproductions.com/file/ambientCG-Web/download/Bark012_QvMcRb6t/Bark012_1K-JPG.zip)
+File:          Bark012_1K-JPG.zip, 10336310 bytes (equals the size listed by the ambientCG API v2),
+               SHA-256 6e26e4c24fe53cf564909b371afbfc84041d9077f39bf8eb4ae16951df1c4763
+Download date: 2026-10-31
+Author:        not shown (neither the asset page nor the ambientCG API record names an author)
+Licence:       CC0 1.0 Universal (see LICENSE.txt)
+Page facts:    technique: surface photogrammetry (page; API creationMethod PBRPhotogrammetry)
+               real-world size: not stated (page shows none; API dimensionX/Y = 0)
+               released: 2022-08-07
+               tags: bark, brown, oak, tree
+Contents:      the zip is extracted in this folder: Color, NormalGL, NormalDX, Roughness,
+               AmbientOcclusion and Displacement maps (1024 x 1024 JPG), material files
+               (.blend, .mtlx, .tres, .usdc) and a preview PNG.

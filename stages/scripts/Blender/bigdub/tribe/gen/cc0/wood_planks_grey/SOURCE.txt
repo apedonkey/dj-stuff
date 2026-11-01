@@ -1,0 +1,20 @@
+Asset ID:      wood_planks_grey (Wood Planks Grey)
+Picked for:    weathered wood planks
+Source:        Poly Haven, https://polyhaven.com
+Asset page:    https://polyhaven.com/a/wood_planks_grey
+Download URLs: Poly Haven serves each map as a separate file (there is no zip); the URLs,
+               sizes and md5 sums are from https://api.polyhaven.com/files/wood_planks_grey
+               https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/wood_planks_grey/wood_planks_grey_diff_1k.jpg
+                 228279 bytes, md5 f2b4a70fed329c13850917c5f2d1498c (verified after download)
+               https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/wood_planks_grey/wood_planks_grey_nor_gl_1k.jpg
+                 157419 bytes, md5 fe633ea606ac22b732d4204a7fa52b03 (verified after download)
+               https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/wood_planks_grey/wood_planks_grey_nor_dx_1k.jpg
+                 156398 bytes, md5 df67e7f7b88bf22c20124ca5081dea6a (verified after download)
+               https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/wood_planks_grey/wood_planks_grey_rough_1k.jpg
+                 186804 bytes, md5 eb620bf4c075153d9272de00f1bf7633 (verified after download)
+Download date: 2026-10-31
+Author:        Rob Tuytel (credited for "All"),
+               from https://api.polyhaven.com/info/wood_planks_grey
+Licence:       CC0 (see LICENSE.txt)
+Real size:     1.5 m x 1.5 m (API "dimensions")
+Contents:      diffuse (colour), OpenGL normal, DirectX normal and roughness maps, 1024 x 1024 JPG.

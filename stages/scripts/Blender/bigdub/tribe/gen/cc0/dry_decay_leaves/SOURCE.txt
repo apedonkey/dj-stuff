@@ -1,0 +1,20 @@
+Asset ID:      dry_decay_leaves (Dry Decay Leaves)
+Picked for:    forest floor with dead leaves (leaf litter)
+Source:        Poly Haven, https://polyhaven.com
+Asset page:    https://polyhaven.com/a/dry_decay_leaves
+Download URLs: Poly Haven serves each map as a separate file (there is no zip); the URLs,
+               sizes and md5 sums are from https://api.polyhaven.com/files/dry_decay_leaves
+               https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/dry_decay_leaves/dry_decay_leaves_diff_1k.jpg
+                 756437 bytes, md5 195514abaeb19e6766df1c8ba181f29c (verified after download)
+               https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/dry_decay_leaves/dry_decay_leaves_nor_gl_1k.jpg
+                 1072874 bytes, md5 7fe6c1aee86a022636323b017968a8ec (verified after download)
+               https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/dry_decay_leaves/dry_decay_leaves_nor_dx_1k.jpg
+                 1075710 bytes, md5 104a5950238dd90524a33dde74c1cf4c (verified after download)
+               https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/dry_decay_leaves/dry_decay_leaves_rough_1k.jpg
+                 545422 bytes, md5 bd818090b76c5a4b084325b314b50e5c (verified after download)
+Download date: 2026-10-31
+Author:        Amal Kumar (credited for "All"),
+               from https://api.polyhaven.com/info/dry_decay_leaves
+Licence:       CC0 (see LICENSE.txt)
+Real size:     2.0 m x 2.0 m (API "dimensions")
+Contents:      diffuse (colour), OpenGL normal, DirectX normal and roughness maps, 1024 x 1024 JPG.

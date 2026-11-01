@@ -1,0 +1,20 @@
+Asset ID:      pine_bark (Pine Bark)
+Picked for:    conifer bark (pine / hemlock-like)
+Source:        Poly Haven, https://polyhaven.com
+Asset page:    https://polyhaven.com/a/pine_bark
+Download URLs: Poly Haven serves each map as a separate file (there is no zip); the URLs,
+               sizes and md5 sums are from https://api.polyhaven.com/files/pine_bark
+               https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_diff_1k.jpg
+                 837641 bytes, md5 7bb38cccfc647aeaf2f5b6488c815e75 (verified after download)
+               https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_nor_gl_1k.jpg
+                 1178440 bytes, md5 7b971070fc986e517b5d2795cec0f4e0 (verified after download)
+               https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_nor_dx_1k.jpg
+                 1134671 bytes, md5 20e793f2f881af3777514f7c582f3266 (verified after download)
+               https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/pine_bark/pine_bark_rough_1k.jpg
+                 506697 bytes, md5 f5ba950ee648056809153e0506f8a2e2 (verified after download)
+Download date: 2026-10-31
+Author:        Dimitrios Savva (credited for "All"),
+               from https://api.polyhaven.com/info/pine_bark
+Licence:       CC0 (see LICENSE.txt)
+Real size:     2.0 m x 2.0 m (API "dimensions")
+Contents:      diffuse (colour), OpenGL normal, DirectX normal and roughness maps, 1024 x 1024 JPG.

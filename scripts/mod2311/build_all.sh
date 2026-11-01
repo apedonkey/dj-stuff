@@ -3,7 +3,7 @@
 # combo_pedriver_2311.apk, sign it (scripts/sign_apk.sh), compare it with the live APK, print md5s and sizes.
 # Run from the repo root. Writes backup/mod2311_build/{out_<X>/, mod2311_<X>.apk, mod2311_<X>_libhook.so}.
 set -euo pipefail
-cd "$(dirname "$0")/../../.."
+cd "$(dirname "$0")/../.."
 B=backup/mod2311_build
 CXX=out/android-ndk-r26d/toolchains/llvm/prebuilt/windows-x86_64/bin/aarch64-linux-android32-clang++
 STEPS=("$@"); [ ${#STEPS[@]} -gt 0 ] || STEPS=(A B C)

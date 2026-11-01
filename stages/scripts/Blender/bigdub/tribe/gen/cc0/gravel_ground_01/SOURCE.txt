@@ -1,0 +1,20 @@
+Asset ID:      gravel_ground_01 (Gravel Ground 01)
+Picked for:    dirt / gravel footpath
+Source:        Poly Haven, https://polyhaven.com
+Asset page:    https://polyhaven.com/a/gravel_ground_01
+Download URLs: Poly Haven serves each map as a separate file (there is no zip); the URLs,
+               sizes and md5 sums are from https://api.polyhaven.com/files/gravel_ground_01
+               https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/gravel_ground_01/gravel_ground_01_diff_1k.jpg
+                 954257 bytes, md5 ee99ef89fb50cfeb198db369bb7151f0 (verified after download)
+               https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/gravel_ground_01/gravel_ground_01_nor_gl_1k.jpg
+                 1314248 bytes, md5 8a54072ce38665da29081d57dc10cb69 (verified after download)
+               https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/gravel_ground_01/gravel_ground_01_nor_dx_1k.jpg
+                 1334307 bytes, md5 1a09c0f26c98a4b3222c376f6839546f (verified after download)
+               https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/gravel_ground_01/gravel_ground_01_rough_1k.jpg
+                 379669 bytes, md5 65bfe11a3fa71c9ac3f07ca09a4dbd88 (verified after download)
+Download date: 2026-10-31
+Author:        Rob Tuytel (credited for "All"),
+               from https://api.polyhaven.com/info/gravel_ground_01
+Licence:       CC0 (see LICENSE.txt)
+Real size:     3.0 m x 3.0 m (API "dimensions")
+Contents:      diffuse (colour), OpenGL normal, DirectX normal and roughness maps, 1024 x 1024 JPG.

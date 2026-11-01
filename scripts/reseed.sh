@@ -97,6 +97,7 @@ for f in envs.txt active_env.txt drone.txt drone_path.txt song.txt giant.txt clu
          camview.halloween.txt christmas_collide.txt intro.christmas.txt drone_path.christmas.txt \
          redeye_collide.txt intro.redeye.txt drone_path.redeye.txt \
          harvest_collide.txt intro.harvest.txt drone_path.harvest.txt \
+         bigdub_collide.txt drone_path.bigdub.txt \
          stream.txt; do [ -f "$ENVBK/$f" ] && put "$ENVBK/$f" "$D/$f"; done   # stream.txt: the stream encoder (hook/stream.cpp, 2026-10-27)
 say "light scripts for every song (TribeUE/Songs/cues, from scripts songs/scan_library.py + make_cues.py)"
 SONGS=C:/Users/Chris/TribeUE/Songs/cues
