@@ -35,7 +35,8 @@ static volatile double g_clubDim[4]={-1,-1,-1,-1};
 static const char* const CLUB_ROLES[4]={"auto","host","dj","guest"};
 static uintptr_t g_cFnLoc=0, g_cFnRot=0, g_cFnSetRel=0, g_cGPS=0, g_cFnGetPawn=0, g_cFnGetPC=0, g_cFnKey=0, g_cKSL=0, g_cFnToName=0;
 static uintptr_t g_cFnParent=0, g_cFnScale=0;
-static uintptr_t g_cAxFn[4]; static int g_cAxOff[4];           // TribePawnBP_C's stick events: L X, L Y, R X, R Y
+static uintptr_t g_cAxFn[4]; static int g_cAxOff[4];           // TribePawnBP_C's stick events: L X, L Y, R X, R Y (2304 only:
+                                                                // 0.12.6's C++ pawn has none, club_sticks polls the keys then)
 // ---- game thread
 static float g_cAx[4]; static long g_cAxFrame[4]={-1000,-1000,-1000,-1000}; static uintptr_t g_cAxSelf=0; static long g_cFrame=0;
 
@@ -80,8 +81,9 @@ static void club_find_all(){
          "GetPlayerPawn 0x%lx GetPlayerController 0x%lx | GetInputAnalogKeyState 0x%lx | KismetStringLibrary 0x%lx Conv_StringToName 0x%lx",
          (unsigned long)out[0],(unsigned long)out[1],(unsigned long)out[2],(unsigned long)out[9],(unsigned long)out[10],(unsigned long)out[3],
          (unsigned long)out[4],(unsigned long)out[5],(unsigned long)out[6],(unsigned long)out[7],(unsigned long)out[8]);
-    LOGI("[CLUB] stick events on TribePawnBP_C: LX 0x%lx LY 0x%lx RX 0x%lx RY 0x%lx (AxisValue at +%d)",(unsigned long)ax[0],
-         (unsigned long)ax[1],(unsigned long)ax[2],(unsigned long)ax[3],g_cAxOff[0]); }
+    LOGI("[CLUB] stick events on TribePawnBP_C: LX 0x%lx LY 0x%lx RX 0x%lx RY 0x%lx (AxisValue at +%d)%s",(unsigned long)ax[0],
+         (unsigned long)ax[1],(unsigned long)ax[2],(unsigned long)ax[3],g_cAxOff[0],
+         (ax[0]&&ax[1]&&ax[2]&&ax[3])?"":" -> not all there (0.12.6 has none): the sticks come from GetInputAnalogKeyState"); }
 static void club_read_cfg(){                                    // tribemod/club.txt; anything missing takes its default
     char s[600]=""; read_trim_file("club.txt",s,sizeof s);
     double v; const char* p; int walk=1, role=0; double speed=180, dead=0.25, turn=30;
@@ -165,7 +167,8 @@ static void club_restore(const char* why){                     // VROrigin back 
     if(g_cBased&&g_cVRO&&obj_alive(g_cVRO)&&g_cFnSetRel) club_set_rel(g_cBaseLoc,g_cBaseRot);
     if(g_cBased) LOGI("[CLUB] walking off (%s): back where Tribe put you",why);
     g_cBased=false; g_cHaveSet=false; g_cZ=0; }
-// the local pawn, its VROrigin and camera (TribePawnBP_C properties); re-checked every ~2 s, objects checked every frame
+// the local pawn, its VROrigin and camera (the pawn's properties by name: TribePawnBP_C on 2304, the C++ TribePawn on 2311);
+// re-checked every ~2 s, objects checked every frame
 static bool club_resolve(){
     bool ok=g_cPawn&&g_cVRO&&g_cCam&&obj_alive(g_cPawn)&&obj_alive(g_cVRO)&&obj_alive(g_cCam)&&(!g_cPC||obj_alive(g_cPC));
     if(ok&&g_cFrame<g_cResolveAt) return true;

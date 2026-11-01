@@ -28,14 +28,15 @@ static volatile uintptr_t g_irScreen=0, g_irPlane=0, g_irPreviewMat=0;
 static volatile uintptr_t g_irBtnActor=0;                           // HARVEST MOON: buttonactor (the cap the hand pushes down)
 static uintptr_t g_irFnGetMat=0, g_irFnSetMat=0;
 static uintptr_t g_irMP=0, g_irFnPlay=0, g_irFnPause=0, g_irFnRewind=0, g_irFnIsPlaying=0;   // Tribe's backdrop video
-static uintptr_t g_irFnAtCue=0; static int g_irAtCueOut=-1;         // BP_Deck_C.IsAtCue
-static uintptr_t g_irBtnCls=0, g_irFnEquip=0; static int g_irEquipOut=-1;   // BP_PlayButton_C.GetTribeEquipmentBase
+static uintptr_t g_irFnAtCue=0; static int g_irAtCueOut=-1;         // the deck class's IsAtCue (BP_Deck_C / 2311 TribeDeck)
+static uintptr_t g_irBtnCls=0, g_irFnEquip=0; static int g_irEquipOut=-1;   // BP_PlayButton_C.GetTribeEquipmentBase (2304)
+static int g_irBtnDeckOff=-1;                                      // 2311: TribePlayButton.Deck (that function is gone)
 static uintptr_t g_irBtns[16]; static volatile int g_irNBtn=0;    // the live play buttons (for "button:" calls)
 // how the intro presses Play on the cued deck and stops the others: tribemod/intro_deck.txt (re-read when it changes),
 // written after the deck capture (tribemod/log_deck) shows what a real press calls:
-//   play deck:<Function> [param=value ...]      BP_Deck_C.<Function> on the deck sitting at its cue point
+//   play deck:<Function> [param=value ...]      BP_Deck_C.<Function> (2311: TribeDeck) on the deck sitting at its cue point
 //   stop deck:<Function> [param=value ...]      ... on every other deck that is playing
-// "button:<Function>" calls it on that deck's BP_PlayButton_C instead. Values: a number, true / false, or (an object)
+// "button:<Function>" calls it on that deck's BP_PlayButton_C (2311: TribePlayButton) instead. Values: a number, true / false, or (an object)
 // hand_l, hand_r, pawn, deck, none. No file: showtime leaves the decks alone and says so.
 struct IDCall { int on, button, na; char fn[64], an[6][48], av[6][32]; uintptr_t f; };
 static IDCall g_idc[2][2]; static volatile sig_atomic_t g_idcIdx=-1; // [buffer][0 play, 1 stop]
@@ -77,8 +78,14 @@ static void intro_read_deck_cfg(){                                   // POLL thr
     if(key!=lastKey){ lastKey=key; tries=0; resolved=false; wasOn[0]=wasOn[1]=0; }
     else if(resolved||tries>=30||!g_sCls) return;
     tries++;
-    if(!g_irBtnCls){ g_irBtnCls=find_by_path("/Game/Equipment/Deck/PlayPause/BP_PlayButton.BP_PlayButton_C",1);
-        if(g_irBtnCls){ g_irFnEquip=em_find_child_func(g_irBtnCls,"GetTribeEquipmentBase"); char ty[48]; g_irEquipOut=fn_out(g_irFnEquip,ty,sizeof ty); } }
+    if(!g_irBtnCls&&g_sCls){ char mc[48]; class_name(g_sCls,mc,sizeof mc);   // the decks are C++ (2311: TribePlayButton) or Blueprints (2304)
+        g_irBtnCls=find_by_path(strcmp(mc,"Class")?"/Game/Equipment/Deck/PlayPause/BP_PlayButton.BP_PlayButton_C":"/Script/TribeXR.TribePlayButton",1);
+        if(g_irBtnCls){ g_irFnEquip=em_find_child_func(g_irBtnCls,"GetTribeEquipmentBase"); char ty[48]="?"; g_irEquipOut=fn_out(g_irFnEquip,ty,sizeof ty);
+            uintptr_t fc=0; char dt[48]="?"; g_irBtnDeckOff=g_irFnEquip?-1:prop_offset(g_irBtnCls,"Deck",&fc); if(fc) fname_resolve(rd32(fc),dt,sizeof dt);
+            if(g_irBtnDeckOff>=0&&strcmp(dt,"ObjectProperty")) g_irBtnDeckOff=-1;
+            char bn[64]; obj_name(g_irBtnCls,bn,sizeof bn);
+            LOGI("[INTRO] play buttons: %s 0x%lx, its deck by %s",bn,(unsigned long)g_irBtnCls,g_irFnEquip?"GetTribeEquipmentBase()":
+                 g_irBtnDeckOff>=0?"the Deck property":"NOTHING (button: calls can't find their button)"); } }
     int nx=g_idcIdx==0?1:0; IDCall* c=g_idc[nx]; memset(c,0,2*sizeof(IDCall));
     char s[1200]=""; if(key!=-1) read_trim_file("intro_deck.txt",s,sizeof s);
     bool all=true; char* save=0;
@@ -126,7 +133,7 @@ static void intro_lookup(){                                          // POLL thr
             g_irFnSetMat=find_by_path("/Script/Engine.PrimitiveComponent.SetMaterial",0); }
         if(!g_irPreviewMat) g_irPreviewMat=find_by_path("/Game/Equipment/Table/M_SelfiePreview.M_SelfiePreview",0);
         static int pt=0; uintptr_t pl=g_irPlane;
-        if((!pl||!obj_alive(pl))&&(pt++%5)==0){ uintptr_t st=find_live_class_sub("BP_SelfieStick_C"); pl=0;
+        if((!pl||!obj_alive(pl))&&(pt++%5)==0){ uintptr_t st=find_live_class_sub("SelfieStick"); pl=0;   // BP_SelfieStick_C / 2311 TribeSelfieStick
             if(st){ int o=prop_offset(rdptr(st+OFF_Class),"DisplayPlane",0); pl=o>=0?rdptr(st+o):0; }
             if(pl!=g_irPlane) LOGI("[INTRO] screen %s: the selfie stick's preview plane 0x%lx, M_SelfiePreview 0x%lx; GetMaterial 0x%lx SetMaterial 0x%lx",
                 r->screen,(unsigned long)pl,(unsigned long)g_irPreviewMat,(unsigned long)g_irFnGetMat,(unsigned long)g_irFnSetMat);
@@ -137,7 +144,7 @@ static void intro_lookup(){                                          // POLL thr
         if(g_irMP||(tries++%30)==0) LOGI("[INTRO] Tribe's backdrop video: player 0x%lx, Play 0x%lx Pause 0x%lx Rewind 0x%lx IsPlaying 0x%lx",(unsigned long)g_irMP,
              (unsigned long)g_irFnPlay,(unsigned long)g_irFnPause,(unsigned long)g_irFnRewind,(unsigned long)g_irFnIsPlaying); }
     if(!g_irFnAtCue&&g_sCls){ char ty[48]="?"; g_irFnAtCue=em_find_child_func(g_sCls,"IsAtCue"); g_irAtCueOut=fn_out(g_irFnAtCue,ty,sizeof ty);
-        LOGI("[INTRO] BP_Deck_C.IsAtCue 0x%lx, out @%d %s",(unsigned long)g_irFnAtCue,g_irAtCueOut,ty); }
+        LOGI("[INTRO] the deck's IsAtCue 0x%lx, out @%d %s",(unsigned long)g_irFnAtCue,g_irAtCueOut,ty); }
     intro_read_deck_cfg();
     int ci=g_idcIdx;                                                  // the play buttons, only if a call goes through them
     if(ci>=0&&(g_idc[ci][0].button||g_idc[ci][1].button)&&g_irBtnCls){
@@ -165,13 +172,14 @@ static void ir_door_to(double to,double dur){ g_isDoorFrom=g_isDoor; g_isDoorTo=
 // the stream capture's horizontal FOV while the intro flies it; fov <= 0: give Tribe's back
 static void intro_fov(double fov){
     uintptr_t cap=g_droneCap;
-    if(g_irFovSaved&&(fov<=0||cap!=g_irFovCap)){ if(g_irFovCap&&obj_alive(g_irFovCap)&&g_irFovOff>=0) *(float*)(g_irFovCap+g_irFovOff)=g_irFovOrig;
+    static uintptr_t fovCls=0;                                         // mod2311: raw writes only into the class we measured
+    if(g_irFovSaved&&(fov<=0||cap!=g_irFovCap)){ if(g_irFovCap&&obj_alive(g_irFovCap)&&g_irFovOff>=0&&rdptr(g_irFovCap+OFF_Class)==fovCls) *(float*)(g_irFovCap+g_irFovOff)=g_irFovOrig;
         g_irFovSaved=false; LOGI("[INTRO] the stream camera's FOV is Tribe's again (%.1f deg)",g_irFovOrig); }
     if(fov<=0||!cap||!obj_alive(cap)) return;
-    if(cap!=g_irFovCap){ g_irFovCap=cap; uintptr_t fc=0; char ty[48]="?"; g_irFovOff=prop_offset(rdptr(cap+OFF_Class),"FOVAngle",&fc);
+    if(cap!=g_irFovCap){ g_irFovCap=cap; fovCls=rdptr(cap+OFF_Class); uintptr_t fc=0; char ty[48]="?"; g_irFovOff=prop_offset(fovCls,"FOVAngle",&fc);
         if(fc) fname_resolve(rd32(fc),ty,sizeof ty); if(strcmp(ty,"FloatProperty")) g_irFovOff=-1;
         LOGI("[INTRO] stream camera 0x%lx: FOVAngle @%d %s",(unsigned long)cap,g_irFovOff,ty); }
-    if(g_irFovOff<0) return;
+    if(g_irFovOff<0||rdptr(cap+OFF_Class)!=fovCls) return;
     float* p=(float*)(cap+g_irFovOff); if(!g_irFovSaved){ g_irFovOrig=*p; g_irFovSaved=true; }
     *p=(float)fov; }
 static int ir_video(uintptr_t fn){ return (g_irMP&&obj_alive(g_irMP)&&fn)?call_lib1(g_irMP,fn,-1):-2; }
@@ -187,7 +195,10 @@ static int intro_cued_deck(){
         if(cue&&lv>bl){ bl=lv; best=i; } }
     if(best>=0&&bl>=0&&bl<0.5) LOGI("[INTRO] deck %d's fader is low (%.2f): the crowd and the stream may not hear it",best,bl);
     return best; }
-static uintptr_t intro_deck_button(uintptr_t dk){                     // that deck's BP_PlayButton_C (GetTribeEquipmentBase)
+static uintptr_t intro_deck_button(uintptr_t dk){                     // that deck's play button (2304: GetTribeEquipmentBase)
+    if(!g_irFnEquip&&g_irBtnDeckOff>=0){                               // 2311: TribePlayButton.Deck (an ObjectProperty, by name)
+        for(int j=0;j<g_irNBtn;j++){ uintptr_t bt=g_irBtns[j]; if(bt&&obj_alive(bt)&&rdptr(bt+(uintptr_t)g_irBtnDeckOff)==dk) return bt; }
+        return 0; }
     if(!g_irFnEquip||g_irEquipOut<0) return 0; uint16_t psz=rd16(g_irFnEquip+0xB6); static uint8_t b[256] __attribute__((aligned(16)));
     if(psz>sizeof b) return 0;
     for(int j=0;j<g_irNBtn;j++){ uintptr_t bt=g_irBtns[j]; if(!bt||!obj_alive(bt)) continue;
@@ -265,7 +276,7 @@ static void ir_screen_tick(const IRide* r,float dt){                  // about o
 static void intro_tick(float dt){
     static int gen=-1;
     int ix=g_irIdx;
-    bool up=ix>=0&&g_introArmed&&g_emState==EM_ACTIVE&&g_gColl&&obj_alive(g_gColl)&&g_pawn&&obj_alive(g_pawn);
+    bool up=ix>=0&&g_introArmed&&g_emState==EM_ACTIVE&&show_coll_ok()&&g_pawn&&obj_alive(g_pawn);   // mod2311: the show bus's check
     if(!up){ if(g_isState!=IS_IDLE||g_introCam||g_introDark) intro_reset("the intro's stage isn't up",false); gen=-1; return; }
     if(gen!=g_showGen){                                               // this stage instance (a reload starts over)
         if(g_isState!=IS_IDLE||g_introCam||g_introDark) intro_reset("the stage loaded again",false);

@@ -279,7 +279,7 @@ static void head_poll(){
             LOGI("[HEAD] resolved: LoadStaticMesh=0x%lx StaticMeshComponent=0x%lx SetStaticMesh=0x%lx setWorld=0x%lx socketXf=0x%lx",
                 (unsigned long)g_fnLoadSM,(unsigned long)g_smcCls,(unsigned long)g_fnSetSM,(unsigned long)g_fnHdSetWorldLR,(unsigned long)g_fnSockXf); } }
     uintptr_t cap=g_hdCap; if(cap&&obj_at(rd32(cap+OFF_Index))!=cap){ g_hdCap=0; LOGI("[HEAD] selfie-stick camera gone"); }
-    if(!g_hdCap&&g_hdMesh&&(n%4)==3){ uintptr_t st=find_live_class_sub("BP_SelfieStick_C");
+    if(!g_hdCap&&g_hdMesh&&(n%4)==3){ uintptr_t st=find_live_class_sub("SelfieStick");   // BP_SelfieStick_C / 2311 TribeSelfieStick
         if(st){ int oc=prop_offset(rdptr(st+OFF_Class),"CaptureComponent2D",0); uintptr_t c=oc>=0?rdptr(st+oc):0;
             if(c){ g_hdCap=c; LOGI("[HEAD] selfie-stick camera 0x%lx (the boo target)",(unsigned long)c); } } }
     if((n%2)==0) head_read_cfg(); }

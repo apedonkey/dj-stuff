@@ -8,14 +8,18 @@
 // have it. its a camera in the crowd about where the middle platform is looking at the dj", then a brand-new button
 // ("we've already done that with the stages in the ui"). The selfie-camera half is data: a fov= shot in the stage's
 // drone_path.<folder>.txt (drone_update publishes the shot's fov in g_dShotFov; the FOV is applied here). This file:
-//   - finds W_VisualsMenu's camera buttons (SelfieCameraButton, CameraButton1..8), works out their rows and cells (the
-//     widgets between a row and a button), clones one cell (GameplayStatics.SpawnObject of each widget class + every
-//     style property that has a one-parameter setter of the same type: SetStyle, SetBrush, SetFont, SetPadding, ...)
-//     and adds the clone to the shortest row (ties: the last one), labelled from the file;
+//   - finds the camera menu (Tribe 0.12.6 / 2311: the native TribeVisualsMenuWidget, its widgets built in C++; 0.12.5.1 /
+//     2304: the Blueprint W_VisualsMenu_C) and its camera buttons (SelfieCameraButton, CameraButton1..8), works out
+//     their rows and cells (the widgets between a row and a button), clones one cell (GameplayStatics.SpawnObject of each
+//     widget class + every style property that has a one-parameter setter of the same type: SetStyle, SetBrush, SetFont,
+//     SetPadding, ...) and adds the clone to the shortest row (ties: the last one), labelled from the file. On 2311 all
+//     eight buttons sit straight in one VerticalBox (VerticalBox_117, read from the menu's C++ builder), so that box is
+//     the one row and the clone of its last camera button (CameraButton8 + its TextBlock) goes in below it;
 //   - a press on it (Button.IsPressed, polled every frame) runs Tribe's own Selfie handler, so the stream shows the
 //     selfie capture, then parks that capture at the file's view: drone_update takes g_viewP / g_viewA (a stage intro
 //     still wins) and the capture's FOV is the file's while it holds;
-//   - any of Tribe's camera buttons (their BndEvt handlers pass ProcessEvent) gives the camera back; the reel resumes.
+//   - any of Tribe's camera buttons (their handlers pass ProcessEvent: 2304's BndEvt events, 2311's HandleCamera<d> /
+//     HandleSelfieCamera, bound to OnClicked as dynamic delegates) gives the camera back; the reel resumes.
 // Tribe marks the picked camera by restyling its cell, so ours takes the Selfie cell's look right after Tribe picked the
 // Selfie, and the Selfie cell takes an unpicked cell's look. The layout and every cell's look are logged once per menu
 // and after Tribe's first camera clicks ([CAMVIEW] tree / looks), so a build that guessed the layout wrong says how.
@@ -34,7 +38,7 @@ static void cv_log_looks(const char* when);
 struct CView { char label[32]; double pos[3], look[3], fov, sway; int lookDJ; };
 static CView g_cvView[2]; static volatile sig_atomic_t g_cvIdx=-1, g_cvOff=0, g_cvBuiltAny=0;
 static char g_cvFile[64]="";
-static volatile uintptr_t g_cvMenu=0;                                // the live W_VisualsMenu_C (poll thread)
+static volatile uintptr_t g_cvMenu=0;                                // the live camera menu (poll thread): see CV_MENU_CLS
 static uintptr_t g_cvFnSelfie=0, g_cvFnPressed=0, g_cvFnVis=0, g_cvFnAddChild=0, g_cvFnText2Str=0, g_cvKTL=0;
 #define CV_NFN 16
 static uintptr_t g_cvCamFn[CV_NFN]; static int g_cvCamBtn[CV_NFN]; static volatile int g_cvNCamFn=0;   // handler -> button
@@ -297,16 +301,41 @@ static uintptr_t g_cvFovCap=0; static int g_cvFovOff=-2; static float g_cvFovOri
 static void cv_fov(double want){
     if(g_introCam) return;                                            // a stage intro owns the FOV while it runs (intro_fov)
     uintptr_t cap=g_droneCap;
+    static uintptr_t fovCls=0;                                         // mod2311: raw writes only into the class we measured
     if(g_cvFovSaved&&(want<=0||cap!=g_cvFovCap)){
-        if(g_cvFovCap&&obj_alive(g_cvFovCap)&&g_cvFovOff>=0) *(float*)(g_cvFovCap+g_cvFovOff)=g_cvFovOrig;
+        if(g_cvFovCap&&obj_alive(g_cvFovCap)&&g_cvFovOff>=0&&rdptr(g_cvFovCap+OFF_Class)==fovCls) *(float*)(g_cvFovCap+g_cvFovOff)=g_cvFovOrig;
         g_cvFovSaved=false; LOGI("[CAMVIEW] the stream camera's FOV is Tribe's again (%.1f deg)",g_cvFovOrig); }
     if(want<=0||!cap||!obj_alive(cap)) return;
-    if(cap!=g_cvFovCap){ g_cvFovCap=cap; uintptr_t fc=0; char ty[48]="?"; g_cvFovOff=prop_offset(rdptr(cap+OFF_Class),"FOVAngle",&fc);
+    if(cap!=g_cvFovCap){ g_cvFovCap=cap; fovCls=rdptr(cap+OFF_Class); uintptr_t fc=0; char ty[48]="?"; g_cvFovOff=prop_offset(fovCls,"FOVAngle",&fc);
         if(fc) fname_resolve(rd32(fc),ty,sizeof ty); if(strcmp(ty,"FloatProperty")) g_cvFovOff=-1; }
-    if(g_cvFovOff<0) return;
+    if(g_cvFovOff<0||rdptr(cap+OFF_Class)!=fovCls) return;
     float* p=(float*)(cap+g_cvFovOff);
     if(!g_cvFovSaved){ g_cvFovOrig=*p; g_cvFovSaved=true; LOGI("[CAMVIEW] stream camera FOV %.1f -> %.1f deg",g_cvFovOrig,want); }
     if(*p!=(float)want) *p=(float)want; }
+
+// ---- Tribe's camera menu, either build. 2311 (0.12.6) made it the native TribeVisualsMenuWidget (no native subclass is
+// registered and no VisualsMenu asset ships, so its live objects have exactly that class); 2304 (0.12.5.1) had the
+// Blueprint W_VisualsMenu_C.
+static const char* const CV_MENU_CLS[2]={"TribeVisualsMenuWidget","W_VisualsMenu_C"};
+// em_find_live for both names in one pass (no second object-array walk): the newest live one, its class name, how many
+static uintptr_t cv_find_menu(char* cls,int n,int* nLive){
+    refresh_numelements(); char cn[96]; uintptr_t best=0; int k=0; if(n>0) cls[0]=0;
+    for(uint32_t i=0;i<g_numElements;i++){ uintptr_t o=obj_at(i); if(!o) continue;
+        if(rd32(o+OFF_Flags)&(RF_ClassDefaultObject|0x20u|0x40000000u)) continue;
+        class_name(o,cn,sizeof cn); if(strcmp(cn,CV_MENU_CLS[0])&&strcmp(cn,CV_MENU_CLS[1])) continue;
+        best=o; k++; snprintf(cls,n,"%s",cn); }
+    *nLive=k; return best; }
+// the camera button a menu function picks (index into CV_BTN), -1 if none. 2304: BndEvt__*CameraButton* events (the one
+// named CameraButton5 picks CameraButton6: W_VisualsMenu.txt:465-467). 2311: HandleSelfieCamera and HandleCamera<d>, each
+// bound to that button's OnClicked; HandleCameraToggle (the camera on/off slider) and HandleResetSelfie are not picks.
+static int cv_cam_handler(const char* nm){
+    if(!strncmp(nm,"BndEvt__",8)){ if(!strstr(nm,"CameraButton")) return -1;
+        if(strstr(nm,"CameraButtonSelife")||strstr(nm,"CameraButtonSelfie")||strstr(nm,"SelfieCameraButton")) return 0;
+        const char* q=strstr(nm,"CameraButton"); if(!q||q[12]<'1'||q[12]>'8') return -1;
+        return q[12]=='5'?6:q[12]-'0'; }
+    if(!strcmp(nm,"HandleSelfieCamera")) return 0;
+    if(!strncmp(nm,"HandleCamera",12)&&nm[12]>='1'&&nm[12]<='8'&&!nm[13]) return nm[12]-'0';
+    return -1; }
 
 // ---- POLL thread (~1 s): the stage's view file, Tribe's visuals menu and the functions
 static void camview_poll(){
@@ -335,22 +364,24 @@ static void camview_poll(){
         LOGI("[CAMVIEW] UMG: IsPressed 0x%lx SetVisibility 0x%lx AddChild 0x%lx TextToString 0x%lx; SpawnObject 0x%lx SetText 0x%lx",
              (unsigned long)g_cvFnPressed,(unsigned long)g_cvFnVis,(unsigned long)g_cvFnAddChild,(unsigned long)g_cvFnText2Str,
              (unsigned long)g_smFnSpawn,(unsigned long)g_smFnSetText); }
-    uintptr_t m=g_cvMenu; static int tk=0;
-    if((!m||!obj_alive(m))&&(tk++%3)==0){ m=em_find_live("W_VisualsMenu_C");
+    uintptr_t m=g_cvMenu; static int tk=0, miss=0;
+    if((!m||!obj_alive(m))&&(tk++%3)==0){ char cls[96]; int nLive=0; m=cv_find_menu(cls,sizeof cls,&nLive);
+        if(!m&&(miss++%20)==0) LOGI("[CAMVIEW] no live camera menu (%s / %s) yet: the extra camera button waits for it",CV_MENU_CLS[0],CV_MENU_CLS[1]);
         if(m&&m!=g_cvMenu){ uintptr_t mc=rdptr(m+OFF_Class);
-            if(!g_cvNCamFn){ int n=0; char nm[200];                       // its camera-button handlers (BndEvt__*CameraButton*)
-                for(uintptr_t f=rdptr(mc+OFF_Children); f&&n<CV_NFN; f=rdptr(f+0x28)){ obj_name(f,nm,sizeof nm);
-                    if(strncmp(nm,"BndEvt__",8)||!strstr(nm,"CameraButton")) continue;
-                    int b=-1; if(strstr(nm,"CameraButtonSelife")||strstr(nm,"CameraButtonSelfie")||strstr(nm,"SelfieCameraButton")) b=0;
-                    else { const char* q=strstr(nm,"CameraButton"); if(q&&q[12]>='1'&&q[12]<='8') b=q[12]-'0'; }
-                    if(b<0) continue; g_cvCamFn[n]=f; g_cvCamBtn[n]=b; n++; if(b==0) g_cvFnSelfie=f;
-                    LOGI("[CAMVIEW] camera handler %d: %s -> %s",n,nm,CV_BTN[b]); }
+            if(!g_cvNCamFn){ int n=0, d=0; char nm[200];                  // its camera-button handlers (cv_cam_handler), on its
+                for(uintptr_t c=mc; c&&d<8&&n<CV_NFN; c=rdptr(c+OFF_Super),d++){   // class or a parent below UserWidget (a
+                    obj_name(c,nm,sizeof nm); if(!strcmp(nm,"UserWidget")) break;    // subclass would inherit 2311's natives)
+                    for(uintptr_t f=rdptr(c+OFF_Children); f&&n<CV_NFN; f=rdptr(f+0x28)){ obj_name(f,nm,sizeof nm);
+                        int b=cv_cam_handler(nm); if(b<0) continue;
+                        g_cvCamFn[n]=f; g_cvCamBtn[n]=b; n++; if(b==0) g_cvFnSelfie=f;
+                        LOGI("[CAMVIEW] camera handler %d: %s -> %s",n,nm,CV_BTN[b]); } }
                 __sync_synchronize(); g_cvNCamFn=n;
+                if(!g_cvFnSelfie) LOGI("[CAMVIEW] %s: %d camera handler(s), none for the Selfie button: our button can't switch the stream",cls,n);
                 uintptr_t sa=em_find_child_func(mc,"SetActiveCameraButton"); char pl[300]=""; int k=0;
                 for(uintptr_t f=sa?rdptr(sa+OFF_ChildProps):0; f&&k<240; f=rdptr(f+FF_Next)){ char pn[64], ty[48];
                     fname_resolve(rd32(f+FF_Name),pn,sizeof pn); ffield_type(f,ty,sizeof ty); k+=snprintf(pl+k,sizeof pl-k," %s:%s",pn,ty); }
-                LOGI("[CAMVIEW] W_VisualsMenu_C.SetActiveCameraButton 0x%lx params:%s",(unsigned long)sa,k?pl:" none"); }
-            g_cvMenu=m; LOGI("[CAMVIEW] Tribe's visuals menu: 0x%lx",(unsigned long)m); } } }
+                LOGI("[CAMVIEW] %s.SetActiveCameraButton 0x%lx params:%s",cls,(unsigned long)sa,k?pl:" none"); }
+            g_cvMenu=m; LOGI("[CAMVIEW] Tribe's visuals menu: 0x%lx (%s, %d live)",(unsigned long)m,cls,nLive); } } }
 
 // ---- GAME thread, every frame
 static void camview_tick(float dt){
@@ -359,7 +390,14 @@ static void camview_tick(float dt){
     if(g_cvFor&&(g_cvFor!=m||!menuOk||!g_cvCell||!obj_alive(g_cvCell))){   // the menu was rebuilt: ours went with it
         if(g_cvOn) cv_release("the camera menu was rebuilt",-1);
         g_cvCell=g_cvBtn=g_cvText=g_cvFor=0; g_cvTries=0; g_cvVis=-1; memset(g_cvTribeCell,0,sizeof g_cvTribeCell); }
-    if(menuOk&&armed&&!g_cvFor&&g_cvTries<3&&g_cvBuilds<10&&g_cvFnAddChild&&g_smFnSpawn&&g_cvFnVis){ g_cvTries++; cv_build(m,&g_cvView[ix]); }
+    // 2311 builds the menu's widgets in C++ (from its RebuildWidget override and from a second virtual that also binds the
+    // buttons), so the menu object can be live before its buttons are: no try is spent until its SelfieCameraButton is
+    // set, and each new menu object gets its own 3 tries
+    static uintptr_t triedFor=0, selCls=0; static int selOff=-1;
+    if(m!=triedFor){ triedFor=m; g_cvTries=0; }
+    if(menuOk){ uintptr_t mc=rdptr(m+OFF_Class); if(mc!=selCls){ selCls=mc; selOff=prop_offset(mc,"SelfieCameraButton",0); } }
+    bool notYet=menuOk&&selOff>=0&&!rdptr(m+selOff);
+    if(menuOk&&armed&&!g_cvFor&&!notYet&&g_cvTries<3&&g_cvBuilds<10&&g_cvFnAddChild&&g_smFnSpawn&&g_cvFnVis){ g_cvTries++; cv_build(m,&g_cvView[ix]); }
     bool cellOk=g_cvCell!=0;
     if(cellOk){ int vis=armed?0:1; if(vis!=g_cvVis){ cv_set_vis(g_cvCell,vis); g_cvVis=vis; }
         if(armed&&g_cvText&&strcmp(g_cvShownLabel,g_cvView[ix].label)){ cv_set_text(g_cvText,g_cvView[ix].label);
@@ -378,7 +416,8 @@ static void camview_tick(float dt){
     g_viewCam=g_cvOn?1:0;
     cv_fov(g_cvOn&&ix>=0?g_cvView[ix].fov:(double)g_dShotFov); }
 
-// ---- ProcessEvent: Tribe's camera buttons (their BndEvt handlers on the menu). true = handled (orig already called)
+// ---- ProcessEvent: Tribe's camera buttons (their handlers on the menu: 2304 BndEvt events, 2311 HandleCamera<d> /
+// HandleSelfieCamera through OnClicked's dynamic delegate). true = handled (orig already called)
 static bool camview_pe(void* self,void* func,void* parms){
     uintptr_t m=g_cvMenu; if(!m||(uintptr_t)self!=m) return false;
     int n=g_cvNCamFn, k=-1; for(int i=0;i<n;i++) if(g_cvCamFn[i]==(uintptr_t)func){ k=i; break; }

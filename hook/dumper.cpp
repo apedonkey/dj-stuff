@@ -1,3 +1,4 @@
+#include <time.h>
 // TribeXR Session-2 READ-ONLY SDK/decision dumper (injected via DT_NEEDED libhook.so).
 // No hooks, no game-state mutation: a detached thread polls tribemod/dump_now, then walks
 // NamePool + GUObjectArray and writes selfcheck/objects/values(/sdk) to tribemod/.
@@ -25,16 +26,23 @@
 #include <cstdarg>
 #include <cctype>
 #include <dlfcn.h>
+#include <sys/prctl.h>
 #include "vendor/And64InlineHook.hpp"
 static inline pid_t my_tid(){ return (pid_t)syscall(SYS_gettid); }
 
 #define TAG "TRIBEMOD"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
+// which build this is (claudedocs/mod_2311_plan.md): A = startup + crash fixes, B = A + characters, C = B + stages.
+// Shown in the [READY] line and in ready_history.txt.
+#define MOD2311_STEP "B"
+static double mono_now(){ struct timespec ts; clock_gettime(CLOCK_MONOTONIC,&ts); return ts.tv_sec+ts.tv_nsec*1e-9; }
 
 // ---- resolved statics (this session) ----
-static const uintptr_t RVA_NamePool      = 0x07C632C0; // FNamePool (.bss) [scan-confirmed]
-static const uintptr_t RVA_GUObjectArray = 0x07CBADD0; // FUObjectArray (.bss) [Ghidra AllocateObjectPool]
-static const uintptr_t RVA_GUObj_GOTslot = 0x07AA59E8; // data slot holding &GUObjectArray (Ghidra 0x07ba59e8-0x100000)
+// Tribe 0.12.6 (2311; port 2026-10-31): runtime RVAs = the store lib's vaddr + 0x1000 (add_needed.py shifts every segment
+// by one page; checked on the patched lib). 2304 had 0x07C632C0 / store 0x07CBADD0 / store 0x07AA59E8.
+static const uintptr_t RVA_NamePool      = 0x0884D640; // FNamePool (.bss; store 0x0884C640)
+static const uintptr_t RVA_GUObjectArray = 0x088A6150; // FUObjectArray (.bss; store 0x088A5150)
+static const uintptr_t RVA_GUObj_GOTslot = 0x08679738; // data slot holding &GUObjectArray (store 0x08678738)
 
 static const char* OUTDIR = "/sdcard/Android/data/com.TribeXR.TribeXR/files/tribemod";
 
@@ -49,38 +57,101 @@ static uintptr_t find_lib_base(const char* name) {
     fclose(f); return best;
 }
 
+// [a, a+n) inside one readable + executable mapping, from a fresh read of /proc/self/maps into locals (mod2311: the
+// constructor's hook checks use this, never the shared range table below)
+static bool maps_rx(uintptr_t a,size_t n){
+    FILE* f=fopen("/proc/self/maps","r"); if(!f) return false; char line[1024]; bool ok=false;
+    while(fgets(line,sizeof line,f)){ uintptr_t lo,hi; char pm[8];
+        if(sscanf(line,"%lx-%lx %4s",&lo,&hi,pm)!=3) continue;
+        if(a>=lo&&a<hi){ ok=(pm[0]=='r'&&pm[2]=='x'&&a+n<=hi); break; } }
+    fclose(f); return ok; }
+
 // ---- readable-range cache from /proc/self/maps + SIGSEGV guard ----
+// mod2311: several threads read through sr() at once (the poll thread, the game thread, the HTTP and freeze threads).
+// The one shared table used to be emptied and refilled in place while others searched it, so a valid address could
+// read as unmapped (claudedocs/mod_2311_load.md 2a: the likely cause of the 14:26 launch without a ProcessEvent hook).
+// Now each rebuild fills one of four tables and publishes it; a reader checks the table's sequence number around its
+// search and searches again if a rebuild touched it. A miss rebuilds the table unless another thread has published a
+// newer one since the miss (then the search is simply repeated on it).
 struct Range { uintptr_t lo, hi; };
-static Range g_ranges[4096]; static int g_nranges=0;
-static void load_maps() {
-    g_nranges=0; FILE* f=fopen("/proc/self/maps","r"); if(!f) return; char line[1024];
-    while (fgets(line,sizeof line,f) && g_nranges<4096){
+struct RangeTab { volatile uint32_t seq; int n; Range r[4096]; };
+static RangeTab g_rt[4]; static RangeTab* volatile g_rtCur=nullptr; static pthread_mutex_t g_rtLock=PTHREAD_MUTEX_INITIALIZER;
+static volatile uint32_t g_rtGen=0;                                  // +1 per published table
+static void load_maps_since(uint32_t gen) {                         // gen: g_rtGen when the caller's search missed
+    pthread_mutex_lock(&g_rtLock);
+    static int next=0;
+    if(g_rtCur&&__atomic_load_n(&g_rtGen,__ATOMIC_ACQUIRE)!=gen){ pthread_mutex_unlock(&g_rtLock); return; }   // newer already
+    FILE* f=fopen("/proc/self/maps","r"); if(!f){ pthread_mutex_unlock(&g_rtLock); return; }
+    RangeTab* t=&g_rt[next]; next=(next+1)&3;                        // never the published one (that is next-1)
+    __atomic_add_fetch(&t->seq,1u,__ATOMIC_ACQ_REL);                  // odd: being written
+    int n=0; char line[1024];
+    while (fgets(line,sizeof line,f) && n<4096){
         uintptr_t lo,hi; char perm[8];
-        if (sscanf(line,"%lx-%lx %4s",&lo,&hi,perm)==3 && perm[0]=='r'){ g_ranges[g_nranges++]=(Range){lo,hi}; } }
-    fclose(f);
+        if (sscanf(line,"%lx-%lx %4s",&lo,&hi,perm)==3 && perm[0]=='r'){ t->r[n].lo=lo; t->r[n].hi=hi; n++; } }
+    fclose(f); t->n=n;
+    __atomic_add_fetch(&t->seq,1u,__ATOMIC_ACQ_REL);                  // even: complete
+    __atomic_store_n(&g_rtCur,t,__ATOMIC_RELEASE); __atomic_add_fetch(&g_rtGen,1u,__ATOMIC_ACQ_REL);
+    pthread_mutex_unlock(&g_rtLock);
 }
+static void load_maps(){ load_maps_since(__atomic_load_n(&g_rtGen,__ATOMIC_ACQUIRE)); }   // an explicit refresh
 // /proc/self/maps is address-sorted & non-overlapping -> binary search (O(log n) per read).
-static bool in_range(uintptr_t p, size_t n){ int lo=0,hi=g_nranges-1;
-    while(lo<=hi){ int mid=(lo+hi)>>1;
-        if(p<g_ranges[mid].lo) hi=mid-1; else if(p>=g_ranges[mid].hi) lo=mid+1;
-        else return p+n<=g_ranges[mid].hi; }
+static bool in_range(uintptr_t p, size_t n){
+    for(int tries=0;tries<4;tries++){
+        RangeTab* t=__atomic_load_n(&g_rtCur,__ATOMIC_ACQUIRE); if(!t) return false;
+        uint32_t s0=__atomic_load_n(&t->seq,__ATOMIC_ACQUIRE); if(s0&1u) continue;
+        int lo=0,hi=t->n-1; bool ok=false;
+        while(lo<=hi){ int mid=(lo+hi)>>1; uintptr_t a=t->r[mid].lo, b=t->r[mid].hi;
+            if(p<a) hi=mid-1; else if(p>=b) lo=mid+1; else { ok=(p+n<=b); break; } }
+        __atomic_thread_fence(__ATOMIC_ACQUIRE);
+        if(__atomic_load_n(&t->seq,__ATOMIC_ACQUIRE)==s0) return ok; }
     return false; }
 
-// SIGSEGV/SIGBUS guard. THREAD-SAFE: only longjmp when the faulting thread is the dumper thread;
-// a genuine fault on any other (game) thread chains to the original handler untouched.
-static sigjmp_buf g_jmp; static volatile sig_atomic_t g_guard=0; static struct sigaction g_old_segv, g_old_bus;
-static volatile pid_t g_dump_tid=0;
-static void segv_handler(int sig,siginfo_t* si,void* uc){ if(g_guard && my_tid()==g_dump_tid) siglongjmp(g_jmp,1);
-    if(sig==SIGSEGV && g_old_segv.sa_sigaction) g_old_segv.sa_sigaction(sig,si,uc);
-    else if(sig==SIGBUS && g_old_bus.sa_sigaction) g_old_bus.sa_sigaction(sig,si,uc); }
-static void install_guard(){ g_dump_tid=my_tid(); struct sigaction sa; memset(&sa,0,sizeof sa); sa.sa_sigaction=segv_handler; sa.sa_flags=SA_SIGINFO;
-    sigaction(SIGSEGV,&sa,&g_old_segv); sigaction(SIGBUS,&sa,&g_old_bus); }
-static void remove_guard(){ sigaction(SIGSEGV,&g_old_segv,nullptr); sigaction(SIGBUS,&g_old_bus,nullptr); }
+// SIGSEGV/SIGBUS guard, one slot per thread (mod2311). The old guard had one jump buffer and one flag for every thread:
+// a read on one thread could overwrite another thread's jump target or switch its guard off mid-read (levels doc 7). Now
+// a fault inside sr()'s copy jumps back to that same thread's sr(); any other fault goes to the handler that was there
+// before (Android's crash reporter). The handler is installed only while something asks for it (the dumps and the game
+// thread's loads), counted, so two of them overlapping can't leave it installed or chain it to itself.
+struct GuardSlot { volatile uintptr_t owner; volatile sig_atomic_t on; sigjmp_buf jb; };
+#define GUARD_SLOTS 16
+static GuardSlot g_gslot[GUARD_SLOTS];
+static struct sigaction g_old_segv, g_old_bus; static int g_guardRefs=0; static pthread_mutex_t g_guardLock=PTHREAD_MUTEX_INITIALIZER;
+static GuardSlot* guard_slot(){                     // this thread's slot (pthread_self: no system call)
+    uintptr_t me=(uintptr_t)pthread_self();
+    for(int i=0;i<GUARD_SLOTS;i++) if(g_gslot[i].owner==me) return &g_gslot[i];
+    for(int i=0;i<GUARD_SLOTS;i++){ uintptr_t z=0;
+        if(__atomic_compare_exchange_n(&g_gslot[i].owner,&z,me,false,__ATOMIC_ACQ_REL,__ATOMIC_ACQUIRE)) return &g_gslot[i]; }
+    return nullptr; }
+static void segv_chain(int sig,siginfo_t* si,void* uc){
+    struct sigaction* o=(sig==SIGBUS)?&g_old_bus:&g_old_segv;
+    if((o->sa_flags&SA_SIGINFO)&&o->sa_sigaction){ o->sa_sigaction(sig,si,uc); return; }
+    if(o->sa_handler!=SIG_DFL&&o->sa_handler!=SIG_IGN&&o->sa_handler){ o->sa_handler(sig); return; }
+    sigaction(sig,o,nullptr); }                      // no handler before ours: the default action, on the re-run fault
+static void segv_handler(int sig,siginfo_t* si,void* uc){
+    uintptr_t me=(uintptr_t)pthread_self();
+    for(int i=0;i<GUARD_SLOTS;i++) if(g_gslot[i].owner==me&&g_gslot[i].on){ g_gslot[i].on=0; siglongjmp(g_gslot[i].jb,1); }
+    segv_chain(sig,si,uc); }
+static void install_guard(){ pthread_mutex_lock(&g_guardLock);
+    if(g_guardRefs++==0){ struct sigaction sa,os,ob; memset(&sa,0,sizeof sa); sa.sa_sigaction=segv_handler; sa.sa_flags=SA_SIGINFO|SA_ONSTACK;
+        sigaction(SIGSEGV,&sa,&os); sigaction(SIGBUS,&sa,&ob);
+        if(os.sa_sigaction!=segv_handler) g_old_segv=os;
+        if(ob.sa_sigaction!=segv_handler) g_old_bus=ob; }
+    pthread_mutex_unlock(&g_guardLock); }
+static void remove_guard(){ pthread_mutex_lock(&g_guardLock);
+    if(g_guardRefs>0&&--g_guardRefs==0){ sigaction(SIGSEGV,&g_old_segv,nullptr); sigaction(SIGBUS,&g_old_bus,nullptr); }
+    pthread_mutex_unlock(&g_guardLock); }
 
-// safe typed reads (maps range-check, then guarded deref)
+// safe typed reads (maps range-check, then a guarded copy; a recovered fault unblocks the signals the handler blocked)
 static bool sr(uintptr_t p, void* out, size_t n){
-    if(!p || !in_range(p,n)){ if(!p) return false; load_maps(); if(!in_range(p,n)) return false; }
-    g_guard=1; if(sigsetjmp(g_jmp,1)){ g_guard=0; return false; } memcpy(out,(void*)p,n); g_guard=0; return true;
+    if(!p) return false;
+    uint32_t gen=__atomic_load_n(&g_rtGen,__ATOMIC_ACQUIRE);
+    if(!in_range(p,n)){ load_maps_since(gen); if(!in_range(p,n)) return false; }
+    GuardSlot* g=guard_slot();
+    if(!g||g->on){ memcpy(out,(void*)p,n); return true; }             // no free slot: the range check alone
+    if(sigsetjmp(g->jb,0)){ sigset_t s; sigemptyset(&s); sigaddset(&s,SIGSEGV); sigaddset(&s,SIGBUS);
+        pthread_sigmask(SIG_UNBLOCK,&s,nullptr); return false; }
+    g->on=1; __atomic_signal_fence(__ATOMIC_SEQ_CST);
+    memcpy(out,(void*)p,n);
+    __atomic_signal_fence(__ATOMIC_SEQ_CST); g->on=0; return true;
 }
 static uintptr_t rdptr(uintptr_t p){ uintptr_t v=0; return sr(p,&v,8)?v:0; }
 static uint32_t  rd32 (uintptr_t p){ uint32_t v=0; return sr(p,&v,4)?v:0; }
@@ -113,6 +184,18 @@ static uintptr_t obj_at(uint32_t idx){
 }
 static uint32_t item_flags(uint32_t idx){ uintptr_t chunk=rdptr(g_chunks+(uintptr_t)(idx>>16)*8); if(!chunk) return 0;
     return rd32(chunk+(uintptr_t)(idx&0xFFFF)*ITEM_STRIDE + 8); }
+// The engine's own "is this object dead" test (mod2311), as FWeakObjectPtr::Get does it in the 2311 library (store
+// 0x1A366AC, disassembled: item flags (+8) & (*GUnreachableObjectFlag | Garbage 1<<21); item stride 0x14, serial +0x10).
+// The flag's address is in the GOT slot store 0x8678A30 = runtime 0x8679A30 (its link-time target, store 0x87C9C00,
+// holds 2 = ReachabilityFlag1, UE 5.4's starting value; it rotates among 1, 2 and 4 per GC). Checked by
+// backup/mod2311_build/tools/verify_2311.py. Anything else read there -> Garbage alone.
+static const uintptr_t RVA_GOT_GUnreachableFlag = 0x08679A30;
+static uint32_t gc_dead_mask(){
+    static uintptr_t p=0; static bool said=false;
+    if(!p&&g_base){ uintptr_t v=0; memcpy(&v,(const void*)(g_base+RVA_GOT_GUnreachableFlag),8);   // libUnreal's own GOT: always mapped
+        if(v>=g_base&&v<g_base+0x0C000000) p=v;
+        if(!said){ said=true; LOGI("[OBJ] GUnreachableObjectFlag @ base+0x%lx%s",(unsigned long)(v-g_base),p?"":" (outside libUnreal: Garbage only)"); } }
+    uint32_t f=p?*(volatile uint32_t*)p:0; return ((f==1||f==2||f==4)?f:0)|0x200000u; }
 
 // R2(robust): locate GUObjectArray by a NAME-VALIDATED pointer chain (needs R1). A slot A holds
 // FChunkedFixedUObjectArray.Objects (FUObjectItem**). Chain: A -> Q(chunk-ptr array) -> chunk0 ->
@@ -172,7 +255,7 @@ static bool scan_objarray(){
         uintptr_t lo,hi; char perm[8];
         if(sscanf(line,"%lx-%lx %4s",&lo,&hi,perm)!=3) continue;
         if(perm[0]!='r'||perm[1]!='w') continue;
-        if(hi<=g_base||lo>=g_base+0x08000000) continue; if(lo<g_base) lo=g_base;
+        if(hi<=g_base||lo>=g_base+0x0C000000) continue; if(lo<g_base) lo=g_base;   // 2311's .bss ends near +0x8BBB000
         for(uintptr_t p=(lo+7)&~(uintptr_t)7; p+8<=hi; p+=8){ if(try_objects_field(p)){ hit=true; break; } }
     }
     fclose(f); return hit;
@@ -264,7 +347,7 @@ static bool np_scan_stride(uint32_t stride){
         uintptr_t lo,hi; char perm[8];
         if(sscanf(line,"%lx-%lx %4s",&lo,&hi,perm)!=3) continue;
         if(perm[0]!='r'||perm[1]!='w') continue;                 // writable only
-        if(hi<=g_base || lo>=g_base+0x08000000) continue;        // within libUnreal image window
+        if(hi<=g_base || lo>=g_base+0x0C000000) continue;        // within libUnreal image window (2311's pool: +0x884D640)
         if(lo<g_base) lo=g_base;
         uintptr_t p=(lo+stride-1)&~(uintptr_t)(stride-1);
         for(; p+8<=hi; p+=stride){
@@ -727,23 +810,50 @@ static void upsert_ini(const char* PATH, const char* SEC, const char* key, const
     ssize_t w=write(fd,out,o); fsync(fd); close(fd);
     if(w!=(ssize_t)o){ ini_status("short write"); unlink(tmp); return; }
     if(rename(tmp,PATH)!=0){ ini_status("rename fail"); unlink(tmp); return; }
-    char m[300]; snprintf(m,sizeof m,"%s: %s (%d->%d bytes)",key,have?"SET":"DELETED",n,o); ini_status(m);
+    char m[300]; snprintf(m,sizeof m,"%s: %s (%d->%d bytes)",key,have?"SET":"DELETED",n,o); ini_status(m);   // (sizes only)
 }
 static void upsert_ini_key(const char* key, const char* value){ upsert_ini(INI_PATH,"[TribeAvatar]",key,value,false); }
 // Route A (body tracking): the project setting Tribe never ticked. Only an ini layer can reach settings read during
 // engine/XR init, which is before any code of ours can touch the CDO. Flag tribemod/body_tracking absent -> key deleted.
 static const char* ENGINE_INI_PATH =
   "/data/data/com.TribeXR.TribeXR/files/UnrealGame/TribeXR/TribeXR/Saved/Config/Android/Engine.ini";
+static int tribemod_state();                       // (with the hook install, below)
+static bool ini_flag(const char* name){ char p[600]; snprintf(p,sizeof p,"%s/%s",OUTDIR,name); int fd=open(p,O_RDONLY); if(fd>=0) close(fd); return fd>=0; }
+static void ini_url_cut(const char* url,char* out,int n){   // "https://host/<cut>": no avatar id or token in any log
+    const char* s=strstr(url,"://"); const char* h=s?s+3:url; const char* e=strchr(h,'/');
+    snprintf(out,n,"%.*s%.*s%s",s?(int)(s+3-url):0,url,e?(int)(e-h):(int)strlen(h),h,e?"/<cut>":""); }
 static void ini_upsert(){
-    char url[1024], etag[256]; bool hu=read_trim_file("avatar_url.txt",url,sizeof url);
-    bool he=read_trim_file("avatar_etag.txt",etag,sizeof etag);
-    if(hu && (url[0]=='+'||url[0]=='-'||url[0]=='.'||url[0]=='!')){ ini_status("WARN url op-char; unset"); hu=false; }
-    if(hu) stage_cache(url);            // cache slot => cache HIT (local glTF load, no network)
-    // UE ini truncates an UNQUOTED value at "//" -> quote the URL (matches Tribe's own DataRouterUrl="...")
-    char qurl[1100]; snprintf(qurl,sizeof qurl,"\"%s\"",url);
-    upsert_ini_key("ReadyPlayerMeAvatarUrl", hu?qurl:0);
-    upsert_ini_key("ReadyPlayerMeETag",      he?etag:0);   // ETag present => FUN_050f584c takes the cache-hit branch
-    char m[1400]; snprintf(m,sizeof m,"summary: url=%s etag=%s",hu?qurl:"(none)",he?etag:"(none)"); ini_status(m);
+    // mod2311: when tribemod/ can't be read yet (the first launch after an install), every file reads as absent and the
+    // edits below would delete keys (the RPM URL, body tracking). Leave both ini files as they are then.
+    if(tribemod_state()<0){ LOGI("[INI] tribemod/ is not readable yet: both ini files left as they are this launch"); return; }
+    // Tribe's Ready Player Me keys (mod2311 step B, claudedocs/mod_2311_plan.md 5): left as Tribe has them. The old route
+    // wrote avatar_url.txt's URL (a dead http://127.0.0.1:8000 address) at every launch and deleted both keys without the
+    // file. Now: tribemod/rpm_route_on = the old route exactly; rpm_url_set.txt (one line) = write that URL once, then the
+    // file becomes rpm_url_set.done; rpm_url_clear = delete both keys once. URLs are logged cut to their host.
+    char url[1024], etag[256], cut[200];
+    if(ini_flag("rpm_route_on")){
+        bool hu=read_trim_file("avatar_url.txt",url,sizeof url);
+        bool he=read_trim_file("avatar_etag.txt",etag,sizeof etag);
+        if(hu && (url[0]=='+'||url[0]=='-'||url[0]=='.'||url[0]=='!')){ ini_status("WARN url op-char; unset"); hu=false; }
+        if(hu) stage_cache(url);            // cache slot => cache HIT (local glTF load, no network)
+        // UE ini truncates an UNQUOTED value at "//" -> quote the URL (matches Tribe's own DataRouterUrl="...")
+        char qurl[1100]; snprintf(qurl,sizeof qurl,"\"%s\"",url);
+        upsert_ini_key("ReadyPlayerMeAvatarUrl", hu?qurl:0);
+        upsert_ini_key("ReadyPlayerMeETag",      he?etag:0);   // ETag present => FUN_050f584c takes the cache-hit branch
+        if(hu) ini_url_cut(url,cut,sizeof cut); char m[400]; snprintf(m,sizeof m,"rpm_route_on: url=%s etag=%s",hu?cut:"(none)",he?"(set)":"(none)"); ini_status(m); }
+    else if(read_trim_file("rpm_url_set.txt",url,sizeof url)){
+        char p[600],q[620]; snprintf(p,sizeof p,"%s/rpm_url_set.txt",OUTDIR); snprintf(q,sizeof q,"%s/rpm_url_set.done",OUTDIR);
+        ini_url_cut(url,cut,sizeof cut);
+        if(strncmp(url,"http://",7)&&strncmp(url,"https://",8)){ char m[300]; snprintf(m,sizeof m,"rpm_url_set.txt: not an http(s) URL (%s): nothing written",cut); ini_status(m); }
+        else { char qurl[1100]; snprintf(qurl,sizeof qurl,"\"%s\"",url);
+            upsert_ini_key("ReadyPlayerMeAvatarUrl",qurl); upsert_ini_key("ReadyPlayerMeETag",0);   // no ETag: Tribe loads it fresh
+            char m[300]; snprintf(m,sizeof m,"rpm_url_set.txt: Tribe's Ready Player Me URL set once to %s",cut); ini_status(m); }
+        rename(p,q); }
+    else if(ini_flag("rpm_url_clear")){
+        char p[600]; snprintf(p,sizeof p,"%s/rpm_url_clear",OUTDIR);
+        upsert_ini_key("ReadyPlayerMeAvatarUrl",0); upsert_ini_key("ReadyPlayerMeETag",0); unlink(p);
+        ini_status("rpm_url_clear: Tribe's Ready Player Me URL and ETag deleted once"); }
+    else ini_status("Ready Player Me keys: left as Tribe has them (no rpm_route_on, rpm_url_set.txt or rpm_url_clear)");
     char bp[600]; snprintf(bp,sizeof bp,"%s/body_tracking",OUTDIR); int bf=open(bp,O_RDONLY); if(bf>=0) close(bf);
     upsert_ini(ENGINE_INI_PATH,"[/Script/OculusXRHMD.OculusXRHMDRuntimeSettings]","bBodyTrackingEnabled",bf>=0?"True":0,true);
     // diagnostic (flag tribemod/http_log): raise HTTP/Online log verbosity so Tribe's backend requests + status codes show
@@ -864,9 +974,14 @@ static void* httpd_thread(void*){
 // SkeletalMeshComponent -- bypassing Tribe's dead readyplayer.me metadata path. v1: MaterialsConfig.bSkipLoad
 // => a gray mesh proves geometry/skeleton/placement/visibility. Gated on tribemod/load_avatar.
 // ProcessEvent runtime = base + 0x1857dd4 + 0x1000 (calibrated skew) = base + 0x1858dd4 (== Default__Object vtable[78]).
-static const uintptr_t RVA_PE_GHIDRA = 0x1857dd4; static const uintptr_t PE_SKEW = 0x1000;
+// Tribe 0.12.6 (2311): the store lib's vaddr 0x19e8eb4 (same prologue a9ba7bfd), + the same 0x1000 skew = base + 0x19e9eb4.
+static const uintptr_t RVA_PE_GHIDRA = 0x19e8eb4; static const uintptr_t PE_SKEW = 0x1000;
 typedef void(*pe_t)(void*,void*,void*); static pe_t orig_pe=0; static void* g_pe_addr=0;
 static volatile sig_atomic_t g_load_req=0, g_in_load=0; static bool g_resolved=0;
+// busy flag: enter only if it was free (atomic test-and-set), so two threads cannot both pass the check
+static inline bool ue_enter(){ int z=0; return __atomic_compare_exchange_n(&g_in_load,&z,1,0,__ATOMIC_ACQ_REL,__ATOMIC_ACQUIRE); }
+static inline void ue_leave(){ __atomic_store_n(&g_in_load,0,__ATOMIC_RELEASE); }
+static inline bool ue_busy(){ return __atomic_load_n(&g_in_load,__ATOMIC_ACQUIRE)!=0; }
 // skin-cycle-on-menu-select: when Tribe re-applies the RPM skin (ApplySkinToPlayer), advance to the next skin.
 static uintptr_t g_apply_fn=0; static volatile sig_atomic_t g_loaded_once=0; static long g_last_cycle=0;
 // diagnostic (flag tribemod/log_pe): log each UNIQUE ProcessEvent func whose name looks avatar/skin/menu-ish,
@@ -888,9 +1003,10 @@ static volatile sig_atomic_t g_skin_changed=0;                  // do_load swapp
 // FOLLOW (advisor #1/#2/#5): our actor ticks itself (PrimaryActorTick bits set via reflection before FinishSpawning,
 // TG_PostUpdateWork so camera/controllers are already updated); its ReceiveTick is caught in the PE hook and drives the
 // body: HMD over the floor, pushed back 10 cm; yaw smoothed with a +-35 deg dead zone, biased toward the hands' midpoint.
-static uintptr_t g_fnReceiveTick=0, g_fnGetRot=0, g_fnSetActorLR=0, g_camComp=0, g_vrOrigin=0, g_mcL=0, g_mcR=0;
+static uintptr_t g_fnGetRot=0, g_fnSetActorLR=0, g_camComp=0, g_vrOrigin=0, g_mcL=0, g_mcR=0;
 static int g_fpsz=-1;                                        // sizeof(FProperty) in THIS build (self-calibrated)
-static long g_isoTicks=0, g_camTicks=0; static bool g_restOK=false, g_followInit=false, g_turning=false;
+static long g_pe_n=0, g_pe_drv=0;                  // ProcessEvent calls seen; per-frame runs done from repl_pe
+static bool g_restOK=false, g_followInit=false, g_turning=false;
 static double g_bodyYaw=0, g_faceOff=180.0, g_footZ=0.0;     // rest-pose facing (deg) + toe height (cm) in mesh space
 static int g_restTries=0;
 static const uint32_t IOF_RootSet=0x40000000;               // EInternalObjectFlags::RootSet (1<<30)
@@ -903,21 +1019,84 @@ static bool root_object(uintptr_t obj){                     // == UObject::AddTo
 struct FStr { uint16_t* data; int32_t num; int32_t max; };
 static uint16_t g_fpath[600];
 static void build_fstr(FStr* s,const char* a){ int i=0; for(;a[i]&&i<599;i++) g_fpath[i]=(uint16_t)(uint8_t)a[i]; g_fpath[i]=0; s->data=g_fpath; s->num=i+1; s->max=i+1; }
+// load_result.txt rotates at 1 MB to load_result.1.txt (mod2311: on 2311 a line per frame had grown it to 33.6 MB)
+static pthread_mutex_t g_lsLock=PTHREAD_MUTEX_INITIALIZER;
 static void load_status(const char* fmt,...){ char m[512]; va_list ap; va_start(ap,fmt); vsnprintf(m,sizeof m,fmt,ap); va_end(ap);
-    LOGI("[LOAD] %s",m); char p[600]; snprintf(p,sizeof p,"%s/load_result.txt",OUTDIR); FILE* f=fopen(p,"a"); if(f){ fprintf(f,"%s\n",m); fclose(f); chmod(p,0666);} }   // readable over adb
+    LOGI("[LOAD] %s",m); char p[600]; snprintf(p,sizeof p,"%s/load_result.txt",OUTDIR);
+    pthread_mutex_lock(&g_lsLock);
+    struct stat st; if(stat(p,&st)==0&&st.st_size>1024*1024){ char q[620]; snprintf(q,sizeof q,"%s/load_result.1.txt",OUTDIR); rename(p,q); }
+    FILE* f=fopen(p,"a"); if(f){ fprintf(f,"%s\n",m); fclose(f); chmod(p,0666);}   // readable over adb
+    pthread_mutex_unlock(&g_lsLock); }
 
 // resolve name pool + object array + UStruct offsets from params.txt (heavy scan; run off the game thread)
 static void ensure_resolved(){
     if(g_resolved) return; load_maps(); read_params();
-    if(P_np){ g_namepool=g_base+P_np; g_blocks_off=(P_bo>=0)?(uint32_t)P_bo:0x40; } else scan_namepool();
-    if(!(P_ga && try_objarray(g_base+P_ga))){ if(!scan_objarray()){ load_status("resolve: objarray FAIL"); return; } }
+    if(P_np){ g_namepool=g_base+P_np; g_blocks_off=(P_bo>=0)?(uint32_t)P_bo:0x40;
+        char t0[8]; if(fname_resolve(0,t0,sizeof t0)!=4||strcmp(t0,"None")){   // e.g. a params.txt from another Tribe build
+            load_status("resolve: params.txt np=0x%lx doesn't name FName 0 'None': scanning for the pool",(unsigned long)P_np); scan_namepool(); } }
+    else scan_namepool();
+    if(!(P_ga && try_objarray(g_base+P_ga))){ if(!scan_objarray()){ static int nf=0; if((nf++%15)==0) load_status("resolve: objarray FAIL (try %d)",nf); return; } }
     OFF_Super=0x40; OFF_Children=0x48; OFF_ChildProps=0x50; OFF_PropSize=0x58;   // R3-locked for this build
     char t[32]; fname_resolve(0,t,sizeof t);
     load_status("resolved: np=0x%lx ga=0x%lx NumElem=%u None='%s'",(unsigned long)(g_namepool-g_base),(unsigned long)(g_objarray-g_base),g_numElements,t);
     g_resolved=(g_numElements>1000);
     if(g_resolved) g_apply_fn=find_by_path("/Game/Visuals/BP_TribeVisualsManager.BP_TribeVisualsManager_C.ApplySkinToPlayer",0);
 }
-static void call_uf(uintptr_t obj,uintptr_t fn,void* parms){ if(orig_pe&&obj&&fn) orig_pe((void*)obj,(void*)fn,parms); }
+// ---- every call the mod makes into Tribe goes through call_uf, and call_uf checks it first (mod2311) ----
+// The 13:57:37 crash was a stale object handed to the engine (claudedocs/mod_2311_load.md 2b, mod_2311_levels.md 4): the
+// mod kept a pointer past its object's life, and the engine trusted it. So before every call: (1) the game thread only
+// (once it is known); (2) the object called is alive in the object array: its slot holds it and the engine's own dead
+// test (gc_dead_mask) passes; (3) it is of the class that declares the function (a freed slot reused by another kind of
+// object fails here); (4) every object parameter that isn't null passes (2) and is of its parameter's class. A call
+// that fails is skipped (its parms stay zeroed, as for a missing function) and logged once per function.
+static bool obj_live(uintptr_t o){                   // slot + the engine's dead test; new objects past the count: refresh
+    uint32_t idx=0; if(!o||!g_chunks||!sr(o+OFF_Index,&idx,4)) return false;
+    if(idx>=g_numElements) refresh_numelements(); if(idx>=g_numElements) return false;
+    uintptr_t chunk=rdptr(g_chunks+(uintptr_t)(idx>>16)*8); if(!chunk) return false;
+    uintptr_t item=chunk+(uintptr_t)(idx&0xFFFF)*ITEM_STRIDE;
+    return rdptr(item)==o&&!(rd32(item+8)&gc_dead_mask()); }
+static int calib_fprop_size();
+static volatile uintptr_t g_gtSelf=0;               // the game thread (pthread_self), learned in repl_pe
+static long g_callSkips=0;                            // calls the check refused (shown in the [READY] line)
+// is-a with a small cache: class pointers of loaded classes don't move, so a checked pair stays checked
+static uintptr_t g_isaK[512][2]; static uint8_t g_isaV[512];
+static bool cls_is(uintptr_t cls,uintptr_t want){
+    if(!cls||!want) return false; if(cls==want) return true;
+    uint32_t h=(uint32_t)(((cls>>4)^(want>>3))*2654435761u)>>23;     // 9 bits
+    if(g_isaK[h][0]==cls&&g_isaK[h][1]==want) return g_isaV[h]!=0;
+    bool r=false; int d=0; for(uintptr_t c=rdptr(cls+OFF_Super); c&&d<40; c=rdptr(c+OFF_Super),d++) if(c==want){ r=true; break; }
+    g_isaK[h][0]=cls; g_isaK[h][1]=want; g_isaV[h]=r?1:0; return r; }
+struct FnSig { uintptr_t fn, owner; bool iface, logged; int n; int off[8]; uintptr_t pcls[8]; };
+static FnSig g_fnSig[384]; static int g_fnSigN=0;
+static const FnSig* fn_sig(uintptr_t fn){            // the function's class and its object parameters, read once
+    uint32_t h=(uint32_t)((fn>>4)*2654435761u)%384u;
+    for(int k=0;k<384;k++){ FnSig* s=&g_fnSig[(h+k)%384u]; if(s->fn==fn) return s;
+        if(!s->fn){ if(g_fnSigN>=360) return nullptr; g_fnSigN++;
+            s->owner=rdptr(fn+OFF_Outer); s->iface=false; s->logged=false; s->n=0;
+            char nm[64]; int d=0;                                          // an interface's function: its owner is a UInterface
+            for(uintptr_t c=s->owner; c&&d<12; c=rdptr(c+OFF_Super),d++){ obj_name(c,nm,sizeof nm); if(!strcmp(nm,"Interface")){ s->iface=true; break; } }
+            int S=calib_fprop_size(); uint16_t psz=rd16(fn+0xB6);
+            for(uintptr_t f=rdptr(fn+OFF_ChildProps); f&&S>0&&s->n<8; f=rdptr(f+FF_Next)){ char ty[48]; ffield_type(f,ty,sizeof ty);
+                if(strcmp(ty,"ObjectProperty")&&strcmp(ty,"ObjectPtrProperty")) continue;
+                uint32_t o=rd32(f+FP_Offset); uintptr_t pc=rdptr(f+(uintptr_t)S); if(o+8>psz||!pc) continue;
+                s->off[s->n]=(int)o; s->pcls[s->n]=pc; s->n++; }
+            __atomic_store_n(&s->fn,fn,__ATOMIC_RELEASE); return s; } }
+    return nullptr; }
+static void call_skip(FnSig* s,uintptr_t fn,uintptr_t o,const char* why){
+    g_callSkips++;
+    if(s&&s->logged) return; if(s) s->logged=true;
+    char fp[300], cn[96]="(gone)"; full_path(fn,fp,sizeof fp); if(o&&in_range(o,0x30)&&in_range(rdptr(o+OFF_Class),0x30)) class_name(o,cn,sizeof cn);
+    LOGI("[CALL] skipped %s: %s (object 0x%lx, class %s); logged once per function",fp,why,(unsigned long)o,cn); }
+static void call_uf(uintptr_t obj,uintptr_t fn,void* parms){
+    if(!orig_pe||!obj||!fn) return;
+    uintptr_t gt=g_gtSelf; if(gt&&(uintptr_t)pthread_self()!=gt){ static int w=0; if(w++<5) LOGI("[CALL] refused a call from a thread other than the game thread"); return; }
+    FnSig* s=(FnSig*)fn_sig(fn);
+    if(!obj_live(obj)){ call_skip(s,fn,obj,"the object is gone or being collected"); return; }
+    if(s&&s->owner&&!s->iface&&!cls_is(rdptr(obj+OFF_Class),s->owner)){ call_skip(s,fn,obj,"the object is not of the function's class"); return; }
+    if(s&&parms) for(int k=0;k<s->n;k++){ uintptr_t v=*(uintptr_t*)((uint8_t*)parms+s->off[k]); if(!v) continue;
+        if(!obj_live(v)){ call_skip(s,fn,v,"an object parameter is gone or being collected"); return; }
+        if(!cls_is(rdptr(v+OFF_Class),s->pcls[k])){ call_skip(s,fn,v,"an object parameter is not of its class"); return; } }
+    orig_pe((void*)obj,(void*)fn,parms); }
 // find a live (non-CDO) object by name + class-name whose full path contains 'inpath'
 // live = in a spawned world (path has PersistentLevel), never a CDO/archetype (Default__ / GEN_VARIABLE / _GEN).
 static uintptr_t find_live(const char* name,const char* cls,const char* inpath){
@@ -1019,7 +1198,7 @@ static void report_one(const char* label,uintptr_t comp){
 }
 static void render_report(){ report_one("slot",g_body); report_one("ISO",g_isoComp); }
 // ---- reflection helpers for FOLLOW ----
-static uintptr_t g_pawn=0, g_fallbackTicker=0;
+static uintptr_t g_pawn=0;
 static uintptr_t find_field(uintptr_t st,const char* name){ char nm[128];
     for(uintptr_t c=st; c; c=rdptr(c+OFF_Super)) for(uintptr_t f=rdptr(c+OFF_ChildProps); f; f=rdptr(f+FF_Next)){
         fname_resolve(rd32(f+FF_Name),nm,sizeof nm); if(!strcmp(nm,name)) return f; }
@@ -1028,9 +1207,11 @@ static uintptr_t find_field(uintptr_t st,const char* name){ char nm[128];
 // whose PropertyClass must be the SkeletalMeshComponent UClass. (FP_ElemSize@0x34 proved wrong, so don't assume 0x70.)
 static int calib_fprop_size(){
     if(g_fpsz>0) return g_fpsz;
+    static int fails=0; if(fails>=3||!g_resolved) return -1;            // mod2311: a full object walk per try, so 3 tries
     uintptr_t cls=find_by_path("/Script/Engine.SkeletalMeshActor",1), smc=find_by_path("/Script/Engine.SkeletalMeshComponent",1);
-    uintptr_t f=cls?find_field(cls,"SkeletalMeshComponent"):0; if(!f||!smc) return -1;
+    uintptr_t f=cls?find_field(cls,"SkeletalMeshComponent"):0; if(!f||!smc){ fails++; return -1; }
     for(int o=0x48;o<=0xB0;o+=8) if(rdptr(f+o)==smc){ g_fpsz=o; break; }
+    if(g_fpsz<=0) fails++;
     return g_fpsz; }
 static uint8_t rd8(uintptr_t p){ uint8_t v=0; sr(p,&v,1); return v; }
 // set a (bitfield) bool member of a struct instance at `base`. FBoolProperty = {FieldSize,ByteOffset,ByteMask,FieldMask}@S.
@@ -1114,20 +1295,56 @@ static void follow_update(float dt){
     double P[3]={C[0]-cos(hr)*10.0, C[1]-sin(hr)*10.0, O[2]-g_footZ};
     double R[3]={0, wrap180(g_bodyYaw-g_faceOff), 0};                  // FRotator: Pitch, Yaw, Roll
     set_actor_lr(g_isoActor,P,R);
-    long t=g_isoTicks+g_camTicks;
-    if(t==1||(t%180)==0) load_status("follow: isoTicks=%ld fallbackTicks=%ld dt=%.4f hmd=(%.0f,%.0f,%.0f) hmdYaw=%.0f target=%.0f body=%.0f floorZ=%.0f -> actor=(%.0f,%.0f,%.0f) yaw=%.0f",
-        g_isoTicks,g_camTicks,dt,C[0],C[1],C[2],hmdYaw,target,g_bodyYaw,O[2],P[0],P[1],P[2],R[1]); }
-static bool is_receive_tick(void* func){ if(func==(void*)g_fnReceiveTick) return true;
-    char nm[32]; obj_name((uintptr_t)func,nm,sizeof nm); return !strcmp(nm,"ReceiveTick"); }
+    // mod2311: its own run counter. On 2311 the two tick counters never move (the driver is repl_pe's), so t stayed 0 and
+    // this logged every frame: 250,256 lines, 32.6 MB of load_result.txt, and a flooded logcat (claudedocs/mod_2311_load.md 2f).
+    static long runs=0; long t=++runs;
+    if(t==1||(t%3600)==0) load_status("follow: run %ld dt=%.4f hmd=(%.0f,%.0f,%.0f) hmdYaw=%.0f target=%.0f body=%.0f floorZ=%.0f -> actor=(%.0f,%.0f,%.0f) yaw=%.0f",
+        t,dt,C[0],C[1],C[2],hmdYaw,target,g_bodyYaw,O[2],P[0],P[1],P[2],R[1]); }
+// the pawn: 2304's Blueprint TribePawnBP_C; Tribe 0.12.6 (2311) has only the native TribePawn, whose C++ now declares the
+// tracked components as properties (VROrigin, Camera, MotionControllerL/R). The local one first (camera manager ->
+// PCOwner -> Pawn, engine properties), else the first live one of either class (exact: other 2311 names contain
+// "TribePawn"); then the components from the pawn's properties, else by name under it. Game thread.
+static volatile uintptr_t g_worldCamMgr=0, g_worldPawnHint=0;   // the poll thread's finds (world_poll), for the game thread
+static uintptr_t pawn_of_cam_mgr(uintptr_t cm){                    // camera manager -> PCOwner -> Pawn, if it is Tribe's pawn
+    int o1=cm?prop_offset(rdptr(cm+OFF_Class),"PCOwner",0):-1; uintptr_t pco=o1>=0?rdptr(cm+o1):0;
+    int o2=pco?prop_offset(rdptr(pco+OFF_Class),"Pawn",0):-1; uintptr_t p=o2>=0?rdptr(pco+o2):0; char cn[128];
+    if(!p||!obj_live(p)) return 0; class_name(p,cn,sizeof cn); return (!strcmp(cn,"TribePawn")||!strcmp(cn,"TribePawnBP_C"))?p:0; }
+static void follow_wire(){
+    g_pawn=0; auto alive=[](uintptr_t o){ return obj_live(o); };
+    { char cn[128], fp[400];
+      g_pawn=pawn_of_cam_mgr(g_camMgr);
+      if(!g_pawn){ uintptr_t h=g_worldPawnHint; if(h&&alive(h)){ class_name(h,cn,sizeof cn); if(!strcmp(cn,"TribePawn")||!strcmp(cn,"TribePawnBP_C")) g_pawn=h; } }
+      for(uint32_t i=0;i<g_numElements&&!g_pawn;i++){ uintptr_t o=obj_at(i); if(!o) continue; class_name(o,cn,sizeof cn);
+        if(strcmp(cn,"TribePawn")&&strcmp(cn,"TribePawnBP_C")) continue; if(rd32(o+OFF_Flags)&RF_ClassDefaultObject) continue;
+        full_path(o,fp,sizeof fp); if(strstr(fp,"Default__")||!strstr(fp,"PersistentLevel")) continue; g_pawn=o; } }
+    uintptr_t pc=g_pawn?rdptr(g_pawn+OFF_Class):0;
+    auto comp=[&](const char* prop,const char* cls)->uintptr_t{ int o=pc?prop_offset(pc,prop,0):-1; uintptr_t c=o>=0?rdptr(g_pawn+o):0;
+        char cn[96]; if(c){ class_name(c,cn,sizeof cn); if(!alive(c)||!strstr(cn,cls)) c=0; }
+        return c?c:find_live(prop,cls,"TribePawn"); };
+    g_camComp =comp("Camera","CameraComponent");
+    g_vrOrigin=comp("VROrigin","SceneComponent");
+    g_mcL     =comp("MotionControllerL","MotionControllerComponent");
+    g_mcR     =comp("MotionControllerR","MotionControllerComponent"); }
+// The world (mod2311; replaces the 90 s pawn-tick fallback, which on 2311 never ticked: ReceiveTick doesn't pass
+// ProcessEvent there). Once the poll thread has found the camera manager and Tribe's local pawn (world_poll), the game
+// thread wires the pawn's camera, VROrigin and hands here, with or without our avatar actor. The per-frame work (stage,
+// lights, menus, stream, drone) runs from then on; what needs our avatar checks for it itself.
+static volatile sig_atomic_t g_wire_req=0;
+static void world_wire(){
+    uintptr_t cm=g_worldCamMgr; if(cm&&obj_live(cm)) g_camMgr=cm;
+    follow_wire();
+    load_status("world: wired pawn=0x%lx camera=0x%lx vrOrigin=0x%lx hands=0x%lx/0x%lx (camera manager 0x%lx)",(unsigned long)g_pawn,
+        (unsigned long)g_camComp,(unsigned long)g_vrOrigin,(unsigned long)g_mcL,(unsigned long)g_mcR,(unsigned long)g_camMgr); }
 // spawn our own ASkeletalMeshActor 2 m in front of the HMD, facing it, feet on the floor (skullbuck's origin is at its
 // hips, 97 cm up). All param offsets are resolved BY NAME from the UFunction at runtime; FTransform (UE5 LWC, NEON) is
 // 96 B = quat@0, translation@32, scale@64 -- checked against the SpawnTransform param's ElementSize before use.
 static uintptr_t spawn_iso_actor(uintptr_t mesh){
-    uintptr_t gs   =find_by_path("/Script/Engine.Default__GameplayStatics",0);
-    uintptr_t fnB  =find_by_path("/Script/Engine.GameplayStatics.BeginDeferredActorSpawnFromClass",0);
-    uintptr_t fnF  =find_by_path("/Script/Engine.GameplayStatics.FinishSpawningActor",0);
-    uintptr_t cls  =find_by_path("/Script/Engine.SkeletalMeshActor",1);
-    uintptr_t fnRot=find_by_path("/Script/Engine.PlayerCameraManager.GetCameraRotation",0);
+    static uintptr_t gs=0, fnB=0, fnF=0, cls=0, fnRot=0, fnColl=0, fnShad=0;   // engine objects: looked up once (mod2311)
+    if(!gs)    gs   =find_by_path("/Script/Engine.Default__GameplayStatics",0);
+    if(!fnB)   fnB  =find_by_path("/Script/Engine.GameplayStatics.BeginDeferredActorSpawnFromClass",0);
+    if(!fnF)   fnF  =find_by_path("/Script/Engine.GameplayStatics.FinishSpawningActor",0);
+    if(!cls)   cls  =find_by_path("/Script/Engine.SkeletalMeshActor",1);
+    if(!fnRot) fnRot=find_by_path("/Script/Engine.PlayerCameraManager.GetCameraRotation",0);
     load_status("iso: gs=0x%lx begin=0x%lx finish=0x%lx cls=0x%lx cam=0x%lx mesh=0x%lx",
         (unsigned long)gs,(unsigned long)fnB,(unsigned long)fnF,(unsigned long)cls,(unsigned long)g_camMgr,(unsigned long)mesh);
     if(!gs||!fnB||!fnF||!cls||!g_camMgr||!mesh||!g_fnSet) return 0;
@@ -1171,46 +1388,55 @@ static uintptr_t spawn_iso_actor(uintptr_t mesh){
     static uint8_t sp[0x10]; memset(sp,0,sizeof sp); *(uintptr_t*)sp=mesh; call_uf(comp,g_fnSet,sp);
     call_bool2(comp,g_fnVis,1,1); call_bool2(comp,g_fnHid,0,1);
     // advisor "now, not later": the body must not block Tribe's hand/deck traces, and shadows cost Quest frame time
-    uintptr_t fnColl=find_by_path("/Script/Engine.PrimitiveComponent.SetCollisionEnabled",0);
-    uintptr_t fnShad=find_by_path("/Script/Engine.PrimitiveComponent.SetCastShadow",0);
+    if(!fnColl) fnColl=find_by_path("/Script/Engine.PrimitiveComponent.SetCollisionEnabled",0);
+    if(!fnShad) fnShad=find_by_path("/Script/Engine.PrimitiveComponent.SetCastShadow",0);
     call_bool2(comp,fnColl,0,0);                                // ECollisionEnabled::NoCollision
     call_bool2(comp,fnShad,0,0);                                // SetCastShadow(false)
     refresh_numelements(); root_object(actor);                  // keep our actor alive
-    // FOLLOW wiring: the pawn's tracked components + the functions the per-frame update uses
-    g_fnReceiveTick=find_by_path("/Script/Engine.Actor.ReceiveTick",0);
-    g_fnGetRot     =find_by_path("/Script/Engine.SceneComponent.K2_GetComponentRotation",0);
-    g_fnSetActorLR =find_by_path("/Script/Engine.Actor.K2_SetActorLocationAndRotation",0);
-    g_camComp =find_live("Camera","CameraComponent","TribePawnBP_C");
-    g_vrOrigin=find_live("VROrigin","SceneComponent","TribePawnBP_C");
-    g_mcL     =find_live("MotionControllerL","MotionControllerComponent","TribePawnBP_C");
-    g_mcR     =find_live("MotionControllerR","MotionControllerComponent","TribePawnBP_C");
-    g_pawn    =find_live_class_sub("TribePawnBP_C");
-    g_fallbackTicker = g_pawn? g_pawn : g_camMgr;               // used only if OUR actor never ticks
-    g_isoTicks=0; g_camTicks=0; g_restOK=false; g_restTries=0; g_followInit=false; g_turning=false;
-    load_status("follow: ReceiveTick=0x%lx getRot=0x%lx setLR=0x%lx cam=0x%lx vrOrigin=0x%lx mcL=0x%lx mcR=0x%lx pawn=0x%lx fallback=0x%lx",
-        (unsigned long)g_fnReceiveTick,(unsigned long)g_fnGetRot,(unsigned long)g_fnSetActorLR,(unsigned long)g_camComp,
-        (unsigned long)g_vrOrigin,(unsigned long)g_mcL,(unsigned long)g_mcR,(unsigned long)g_pawn,(unsigned long)g_fallbackTicker);
+    // FOLLOW wiring: the pawn's tracked components + the functions the per-frame update uses (the poll thread looked
+    // them up already, world_poll; only a missing one is looked up here)
+    if(!g_fnGetRot)     g_fnGetRot     =find_by_path("/Script/Engine.SceneComponent.K2_GetComponentRotation",0);
+    if(!g_fnSetActorLR) g_fnSetActorLR =find_by_path("/Script/Engine.Actor.K2_SetActorLocationAndRotation",0);
+    follow_wire();                                              // g_pawn, g_camComp, g_vrOrigin, g_mcL, g_mcR (2304 + 2311)
+    g_restOK=false; g_restTries=0; g_followInit=false; g_turning=false;
+    load_status("follow: getRot=0x%lx setLR=0x%lx cam=0x%lx vrOrigin=0x%lx mcL=0x%lx mcR=0x%lx pawn=0x%lx",
+        (unsigned long)g_fnGetRot,(unsigned long)g_fnSetActorLR,(unsigned long)g_camComp,
+        (unsigned long)g_vrOrigin,(unsigned long)g_mcL,(unsigned long)g_mcR,(unsigned long)g_pawn);
     g_isoActor=actor; g_isoComp=comp;
     load_status("iso: mesh set on our own actor (comp=0x%lx); following the HMD from its next tick",(unsigned long)comp);
     return comp;
 }
 static void head_skin_loaded(const char* skin,uintptr_t libCDO,uintptr_t fnLoad);   // head.cpp: heads/<skin>.glb after a skin load
+// which avatar menu (mod2311 step B; set by the supervisor): 0 not known yet, 1 = 2311's C++ classes, 2 = 2304's Blueprints
+static volatile sig_atomic_t g_smMode=0;
+// the last load's outcome, for the supervisor (mod2311): 1 loaded, -1 failed (g_loadWhy), 0 never ran; g_loadSeq counts runs
+static volatile sig_atomic_t g_loadOk=0, g_loadSeq=0; static char g_loadWhy[96]="", g_skinLoaded[128]="";
+static void do_load_inner();
 static void do_load(){
+    g_loadOk=0; snprintf(g_loadWhy,sizeof g_loadWhy,"%s","stopped early");
+    do_load_inner();
+    if(g_loadOk!=1) g_loadOk=-1;
+    __sync_synchronize(); g_loadSeq=g_loadSeq+1; }
+static void do_load_inner(){
     load_status("=== do_load (game tid=%d) ===",my_tid());
     refresh_numelements();                                       // catch objects spawned since resolve (the pawn)
-    uintptr_t fnLoad=find_by_path("/Script/glTFRuntime.glTFRuntimeFunctionLibrary.glTFLoadAssetFromFilename",0);
-    uintptr_t fnMesh=find_by_path("/Script/glTFRuntime.glTFRuntimeAsset.LoadSkeletalMesh",0);
-    uintptr_t fnErr =find_by_path("/Script/glTFRuntime.glTFRuntimeAsset.GetErrors",0);
-    uintptr_t fnSet =find_by_path("/Script/Engine.SkeletalMeshComponent.SetSkeletalMeshAsset",0);
-    uintptr_t libCDO=find_by_path("/Script/glTFRuntime.Default__glTFRuntimeFunctionLibrary",0);
+    static uintptr_t fnLoad=0, fnMesh=0, fnErr=0, fnSet=0, libCDO=0;     // native objects: looked up once (mod2311)
+    if(!fnLoad) fnLoad=find_by_path("/Script/glTFRuntime.glTFRuntimeFunctionLibrary.glTFLoadAssetFromFilename",0);
+    if(!fnMesh) fnMesh=find_by_path("/Script/glTFRuntime.glTFRuntimeAsset.LoadSkeletalMesh",0);
+    if(!fnErr)  fnErr =find_by_path("/Script/glTFRuntime.glTFRuntimeAsset.GetErrors",0);
+    if(!fnSet)  fnSet =find_by_path("/Script/Engine.SkeletalMeshComponent.SetSkeletalMeshAsset",0);
+    if(!libCDO) libCDO=find_by_path("/Script/glTFRuntime.Default__glTFRuntimeFunctionLibrary",0);
     if(!libCDO) libCDO=find_obj("glTFRuntimeFunctionLibrary",1);
     uintptr_t body=find_live("AvatarBodyMesh","SkeletalMeshComponent","ReadyPlayerMeComponent");
     load_status("fnLoad=0x%lx fnMesh=0x%lx fnErr=0x%lx fnSet=0x%lx libCDO=0x%lx body=0x%lx",
         (unsigned long)fnLoad,(unsigned long)fnMesh,(unsigned long)fnErr,(unsigned long)fnSet,(unsigned long)libCDO,(unsigned long)body);
-    if(!fnLoad||!fnMesh||!fnSet||!libCDO){ load_status("missing UFunction/CDO; abort"); return; }
-    // skin selection: active_skin.txt names a file in tribemod/skins/ ; else glb_path.txt (full path); else custom.glb
+    if(!fnLoad||!fnMesh||!fnSet||!libCDO){ load_status("missing UFunction/CDO; abort"); snprintf(g_loadWhy,sizeof g_loadWhy,"glTFRuntime functions not found"); return; }
+    // skin selection: active_skin.txt names a file in tribemod/skins/ ; else glb_path.txt (full path); else custom.glb.
+    // "tribe" = Tribe's own avatar was picked last (mod2311): nothing of ours loads.
     char path[512]; char skin[256]="";
-    if(read_trim_file("active_skin.txt",skin,sizeof skin)) snprintf(path,sizeof path,"%s/skins/%s",OUTDIR,skin);
+    if(read_trim_file("active_skin.txt",skin,sizeof skin)&&!strcmp(skin,"tribe")){ load_status("active_skin.txt = tribe: Tribe's own avatar, no mod skin");
+        snprintf(g_loadWhy,sizeof g_loadWhy,"Tribe's own avatar is picked"); return; }
+    if(skin[0]) snprintf(path,sizeof path,"%s/skins/%s",OUTDIR,skin);
     else if(!read_trim_file("glb_path.txt",path,sizeof path)) snprintf(path,sizeof path,"%s/custom.glb",OUTDIR);
     // 1) glTFLoadAssetFromFilename(path,false,LoaderConfig)
     static uint8_t lp[0x218]; memset(lp,0,sizeof lp);
@@ -1221,28 +1447,28 @@ static void do_load(){
     *(uint8_t*)(lp+0x20+0x00)=0;                                 // LoaderConfig.TransformBaseType=Default(0)
     call_uf(libCDO,fnLoad,lp); uintptr_t asset=*(uintptr_t*)(lp+0x210);
     load_status("asset=0x%lx (path=%s)",(unsigned long)asset,path);
-    if(!asset){ load_status("asset NULL -> glb parse/file-access failed (check bAllowExternalFiles/path)"); return; }
+    if(!asset){ load_status("asset NULL -> glb parse/file-access failed (check bAllowExternalFiles/path)"); snprintf(g_loadWhy,sizeof g_loadWhy,"glb not loaded (%.60s)",skin[0]?skin:path); return; }
     // 2) asset.LoadSkeletalMesh(0,0) [by index -> ignores AvatarRoot/Armature]. Try materials ON;
     //    if it fails (uncooked M_glTFRuntimeBase aborts the primitive) fall back to gray so SOMETHING shows.
     uintptr_t mesh=load_mesh(asset,fnMesh,0);            // materials ON
     load_status("mesh(materials)=0x%lx",(unsigned long)mesh);
     if(!mesh){ load_status("materials-on failed -> errors:"); decode_errors(asset,fnErr);
         mesh=load_mesh(asset,fnMesh,1); load_status("mesh(gray fallback)=0x%lx",(unsigned long)mesh); }
-    if(!mesh){ load_status("mesh NULL even gray:"); decode_errors(asset,fnErr); return; }
+    if(!mesh){ load_status("mesh NULL even gray:"); decode_errors(asset,fnErr); snprintf(g_loadWhy,sizeof g_loadWhy,"no mesh from %.60s",skin[0]?skin:path); return; }
     // did the glTFRuntime base material load? (advisor's cooked-materials check)
     { uintptr_t mb=find_struct("M_glTFRuntimeBase"); load_status("M_glTFRuntimeBase resident=%s",mb?"YES":"no(maybe uncooked)"); }
     // 3) pin the mesh; our own avatar actor (+ its body-tracked meshes) takes it; Tribe's slot too if it exists (legacy)
     g_fnSet=fnSet;
-    g_fnOwner=find_by_path("/Script/Engine.PrimitiveComponent.SetOwnerNoSee",0);
-    g_fnVis  =find_by_path("/Script/Engine.SceneComponent.SetVisibility",0);
-    g_fnHid  =find_by_path("/Script/Engine.SceneComponent.SetHiddenInGame",0);
-    g_fnLeader  =find_by_path("/Script/Engine.SkinnedMeshComponent.SetLeaderPoseComponent",0);
-    g_fnRendered=find_by_path("/Script/Engine.PrimitiveComponent.WasRecentlyRendered",0);
-    g_fnLoc     =find_by_path("/Script/Engine.SceneComponent.K2_GetComponentLocation",0);
-    g_fnScale   =find_by_path("/Script/Engine.SceneComponent.K2_GetComponentScale",0);
-    g_fnCamLoc  =find_by_path("/Script/Engine.PlayerCameraManager.GetCameraLocation",0);
+    if(!g_fnOwner)    g_fnOwner=find_by_path("/Script/Engine.PrimitiveComponent.SetOwnerNoSee",0);
+    if(!g_fnVis)      g_fnVis  =find_by_path("/Script/Engine.SceneComponent.SetVisibility",0);
+    if(!g_fnHid)      g_fnHid  =find_by_path("/Script/Engine.SceneComponent.SetHiddenInGame",0);
+    if(!g_fnLeader)   g_fnLeader  =find_by_path("/Script/Engine.SkinnedMeshComponent.SetLeaderPoseComponent",0);
+    if(!g_fnRendered) g_fnRendered=find_by_path("/Script/Engine.PrimitiveComponent.WasRecentlyRendered",0);
+    if(!g_fnLoc)      g_fnLoc     =find_by_path("/Script/Engine.SceneComponent.K2_GetComponentLocation",0);
+    if(!g_fnScale)    g_fnScale   =find_by_path("/Script/Engine.SceneComponent.K2_GetComponentScale",0);
+    if(!g_fnCamLoc)   g_fnCamLoc  =find_by_path("/Script/Engine.PlayerCameraManager.GetCameraLocation",0);
     refresh_numelements();                                       // the new mesh's index is past the cached count (was rooted=0)
-    g_camMgr    =find_live_class_sub("CameraManager");
+    if(!g_camMgr||!obj_live(g_camMgr)) g_camMgr=find_live_class_sub("CameraManager");   // (world_wire normally set it)
     bool rooted=root_object(mesh);                               // AddToRoot: survives Tribe dropping its ref
     uintptr_t prev=g_mymesh; g_keep=0;                           // pause keeper/blocker during the swap
     g_mymesh=mesh;
@@ -1250,7 +1476,8 @@ static void do_load(){
         static uint8_t sp2[0x10]; memset(sp2,0,sizeof sp2); *(uintptr_t*)sp2=mesh; call_uf(g_isoComp,fnSet,sp2);
         g_restOK=false; g_restTries=0; g_skin_changed=1;
         load_status("skin: our avatar actor now shows the new mesh; body-tracking re-rig queued"); }
-    if(body){ attach_mesh(body,mesh); g_body=body; g_keep=1; }
+    if(body&&g_smMode==2){ attach_mesh(body,mesh); g_body=body; g_keep=1; }   // 2304 only (mod2311 step B, characters doc C8)
+    else if(body) load_status("2311: Tribe's AvatarBodyMesh left to Tribe (no copy at the world origin, no keeper); Tribe's own avatar is hidden while a mod skin is on");
     else load_status("(no live Tribe AvatarBodyMesh slot -- not needed: our own actor shows the avatar)");
     if(prev && prev!=mesh) unroot_object(prev);                  // release the previous skin's mesh
     load_status("attached mesh=0x%lx body=0x%lx rooted=%d leader=0x%lx camMgr=0x%lx; keeper ON; render report in 3s",
@@ -1258,14 +1485,13 @@ static void do_load(){
     g_reports=0; g_report_ticks=6;                               // first RENDER report ~3s after attach (poll ticks are 0.5s)
     g_loaded_once=1;                                             // enable the menu-select skin-cycle trigger
     head_skin_loaded(skin,libCDO,fnLoad);                        // detachable head: heads/<skin>.glb, if there is one
+    snprintf(g_skinLoaded,sizeof g_skinLoaded,"%s",skin[0]?skin:(strrchr(path,'/')?strrchr(path,'/')+1:path)); g_loadOk=1;
     load_status("=== do_load done (materials on, visible, kept) ===");
 }
-static void run_guarded(void (*fn)(),const char* what){
-    g_dump_tid=my_tid(); struct sigaction sa,os,ob; memset(&sa,0,sizeof sa); sa.sa_sigaction=segv_handler; sa.sa_flags=SA_SIGINFO;
-    sigaction(SIGSEGV,&sa,&os); sigaction(SIGBUS,&sa,&ob); g_old_segv=os; g_old_bus=ob;
-    if(!sigsetjmp(g_jmp,1)){ g_guard=1; fn(); } else load_status("SIGSEGV/BUS during %s; recovered",what);
-    g_guard=0; sigaction(SIGSEGV,&os,0); sigaction(SIGBUS,&ob,0);
-}
+// The fault guard is up while fn runs (mod2311): a bad read inside it fails that read instead of crashing. As before, a
+// fault anywhere else (inside the engine) is not caught: the old version's outer jump target was overwritten by the
+// first read inside fn, and on another thread it could send the game thread onto the poll thread's stack.
+static void run_guarded(void (*fn)(),const char* what){ (void)what; install_guard(); fn(); remove_guard(); }
 static void run_load_guarded(){ run_guarded(do_load,"load"); }
 
 // ================= Route A: Meta body tracking (Movement SDK over OVRPlugin), flag tribemod/body_tracking =================
@@ -2068,8 +2294,10 @@ static int skin_trace_slot(uintptr_t func){
     uint32_t h=(uint32_t)((func>>4)*2654435761u)&2047;
     for(int i=0;i<2048;i++){ uint32_t j=(h+i)&2047;
         if(g_stFn[j]==func) return (int)j;
-        if(!g_stFn[j]){ char cn[96]; obj_name(rdptr(func+OFF_Outer),cn,sizeof cn);
-            g_stCls[j]=(strstr(cn,"W_SkinItem")||(strstr(cn,"BP_")&&strstr(cn,"Skin"))||strstr(cn,"TribeVisualsManager"))?1:2;
+        if(!g_stFn[j]){ char cn[96], fn[64]; obj_name(rdptr(func+OFF_Outer),cn,sizeof cn); obj_name(func,fn,sizeof fn);
+            g_stCls[j]=(strstr(cn,"W_SkinItem")||(strstr(cn,"BP_")&&strstr(cn,"Skin"))||strstr(cn,"TribeVisualsManager")
+                        ||strstr(cn,"SkinItemWidget")||(strstr(cn,"Tribe")&&strstr(cn,"Skin"))||strstr(cn,"VisualsMenu")   // 2311: native menus
+                        ||!strcmp(cn,"UserObjectListEntry")||(!strcmp(cn,"UserWidget")&&strstr(fn,"Mouse")))?1:2;         // + a box's press
             g_stFn[j]=func; return (int)j; } }
     return -1; }
 static void skin_trace_hit(uintptr_t self,uintptr_t func,void* parms){
@@ -2093,15 +2321,17 @@ static uintptr_t g_smList=0, g_smTribeRpm=0, g_smRpmCls=0;
 static uintptr_t g_smFnAddItem=0, g_smFnIndexOf=0, g_smFnSpawn=0, g_smGS=0, g_smFnStr2Txt=0, g_smKTL=0, g_smFnSetText=0;
 static uintptr_t g_smFnObjSet=0, g_smFnMouseDown=0, g_smFnListEvt=0;
 static uintptr_t g_smW[32]; static int g_smWi[32];                            // W_SkinItem box -> index of our item
-static long g_smLastClickMs=0;
+static long g_smLastClickMs=0; static int g_smLastClickIdx=-1;
+// 2311 (mod2311 step B): 0 = not known yet, 1 = Tribe 0.12.6's C++ menu (TribeReadyPlayerMeAvatarSkin exists), 2 = 2304
+static volatile sig_atomic_t g_smTribeMode=0, g_smAdded=0, g_smListLive=0;
+static void menu_tick_2311();
 static uintptr_t find_prop(uintptr_t cls,const char* pname){                 // FProperty* by name (class + supers)
     char nm[128];
     for(uintptr_t c=cls; c; c=rdptr(c+OFF_Super)){
         for(uintptr_t f=rdptr(c+OFF_ChildProps); f; f=rdptr(f+FF_Next)){
             fname_resolve(rd32(f+FF_Name),nm,sizeof nm); if(!strcmp(nm,pname)) return f; } }
     return 0; }
-static bool obj_alive(uintptr_t o){                  // new objects get indices past the cached count -> refresh it first
-    if(!o) return false; uint32_t idx=rd32(o+OFF_Index); if(idx>=g_numElements) refresh_numelements(); return obj_at(idx)==o; }
+static bool obj_alive(uintptr_t o){ return obj_live(o); }   // (defined with the call check, near call_uf)
 static int sm_item_idx(uintptr_t o){ if(!o) return -1; int n=g_smCount; for(int i=0;i<n&&i<SM_MAX;i++) if(g_smItems[i]==o) return i; return -1; }
 static int sm_widget_idx(uintptr_t w){ for(int i=0;i<32;i++) if(g_smW[i]==w) return g_smWi[i]; return -1; }
 static void sm_map_widget(uintptr_t w,int idx){
@@ -2146,7 +2376,7 @@ static void sm_list_add(uintptr_t list,uintptr_t item){
     memset(b,0,psz); *(uintptr_t*)(b+o)=item; call_uf(list,g_smFnAddItem,b); }
 static void sm_load(int idx){                                                // switch character to our box's .glb
     struct timespec ts; clock_gettime(CLOCK_MONOTONIC,&ts); long ms=ts.tv_sec*1000L+ts.tv_nsec/1000000L;
-    if(ms-g_smLastClickMs<700) return; g_smLastClickMs=ms;                    // both entry points fire for one click
+    if(ms-g_smLastClickMs<(idx==g_smLastClickIdx?3000:700)) return; g_smLastClickMs=ms; g_smLastClickIdx=idx;   // one click
     char p[600]; snprintf(p,sizeof p,"%s/active_skin.txt",OUTDIR);
     int fd=open(p,O_WRONLY|O_CREAT|O_TRUNC,0666); if(fd>=0){ write(fd,g_smFiles[idx],strlen(g_smFiles[idx])); close(fd); }
     g_load_req=1; LOGI("[MENU] clicked '%s' -> loading %s",g_smLabels[idx],g_smFiles[idx]); }
@@ -2154,6 +2384,7 @@ static void sm_load(int idx){                                                // 
 static void menu_tick(){
     static int tk=0, spawns=0, win=0; static bool tripped=false;
     if(!g_skinMenuOn||tripped||(++tk%60)!=0) return;                         // ~once a second
+    if(g_smMode==1){ menu_tick_2311(); return; }                             // 2311: its own path (below)
     if(++win>=30){ win=0; spawns=0; }                                        // 30 s window for the respawn guard
     uintptr_t list=g_smList; int n=g_smCount;
     if(!list||!obj_alive(list)||!g_smRpmCls||!g_smFnSpawn||!g_smFnAddItem||!g_smFnIndexOf||n<=0) return;
@@ -2180,6 +2411,11 @@ static void menu_tick(){
 enum { EM_IDLE=0, EM_WAIT_BASE, EM_WAIT_LOAD, EM_ACTIVE };
 static volatile sig_atomic_t g_envMenuOn=0, g_emCount=0, g_emReq=-1, g_emUnloadReq=0, g_emState=EM_IDLE, g_emActive=-1;
 static char g_emLabels[EM_MAX][64], g_emPaths[EM_MAX][256];                  // written by the poll thread
+static volatile int g_emLoadGen=0;                                          // +1 at every stage load and unload (show bus)
+static volatile sig_atomic_t g_emAdded=0, g_emListLive=0;                   // our boxes in the live list / the list exists
+static volatile sig_atomic_t g_emTribeSwitched=0;                           // Tribe left our stage by itself this session
+static char g_emStockName[64]="";                                           // a stock environment you picked (game thread)
+static volatile sig_atomic_t g_emFailed=0;                                  // a load failed (the supervisor retries it)
 static bool em_active_folder(char* out,size_t n){      // "/Game/Mods/Club/Maps/X.X" -> "club"; false if none of ours is up
     int a=g_emActive; if(g_emState!=EM_ACTIVE||a<0||a>=EM_MAX||n<2) return false;
     const char* q=strstr(g_emPaths[a],"/Game/Mods/"); if(!q) return false; q+=11;
@@ -2195,6 +2431,13 @@ static uintptr_t g_emFnCurLevel=0, g_emFnMakeSOP=0, g_emFnSOP2Ref=0, g_emKSL=0, 
 static uintptr_t g_emVoidItem=0; static uintptr_t g_emIdentOf[EM_MAX];        // Tribe's "The Void" list item; which of ours carry its identity
 static int64_t g_emVoid=-1; static int g_emEnvOff=-1, g_emT=0, g_emPrevEnv=-1; static long g_emLastClickMs=0;
 static uintptr_t g_emW[32]; static int g_emWi[32];                            // W_SkinItem box -> index of our item
+// 0.12.6 (2311): the menus are C++ (TribeVisualsMenuWidget, TribeSkinItemWidget, TribeEnvironmentSkin) and the Blueprint
+// events above are gone. Read from the 2311 library: a box's native NativeOnMouseButtonDown calls the engine's first (which
+// raises UserWidget.OnMouseButtonDown through ProcessEvent), then VisualsManager.ApplySkinToPlayer(Skin); ApplySkin sets the
+// environment and broadcasts the skin's OnApplied, which InitSkinItem bound to the box's OnSkinApplied (ProcessEvent too).
+// g_emMode: 0 = not known yet, 1 = native menu (2311), 2 = Blueprint menu (2304).
+static volatile sig_atomic_t g_emMode=0;
+static uintptr_t g_emWCls=0, g_emFnUWDown=0, g_emFnSkinApplied=0; static int g_emOffWSkin=-1;
 static int em_item_idx(uintptr_t o){ if(!o) return -1; int n=g_emCount; for(int i=0;i<n&&i<EM_MAX;i++) if(g_emItems[i]==o) return i; return -1; }
 static int em_widget_idx(uintptr_t w){ for(int i=0;i<32;i++) if(g_emW[i]==w) return g_emWi[i]; return -1; }
 static void em_map_widget(uintptr_t w,int idx){
@@ -2206,6 +2449,7 @@ static void em_map_widget(uintptr_t w,int idx){
 // Only plain-old-data properties are copied (no text/strings/objects/structs: no refcounts to break).
 static int em_copy_identity(uintptr_t dst,uintptr_t src){
     int S=calib_fprop_size(); if(!dst||!src||S<0) return -1; char nm[128],ty[64]; int n=0;
+    if(rdptr(dst+OFF_Class)!=rdptr(src+OFF_Class)){ static int w=0; if(w++<5) LOGI("[ENV] identity: not copied (the two objects' classes differ)"); return -1; }   // mod2311
     for(uintptr_t c=rdptr(src+OFF_Class); c; c=rdptr(c+OFF_Super))
         for(uintptr_t f=rdptr(c+OFF_ChildProps); f; f=rdptr(f+FF_Next)){
             ffield_type(f,ty,sizeof ty); uint32_t off=rd32(f+FP_Offset); int sz=0;
@@ -2233,14 +2477,17 @@ static int em_find_env_prop(uintptr_t gs){              // offset of the game st
 // Fallback when GameplayStatics.GetGameState comes back null for every world context we try (2026-10-05 16:58: a whole
 // session of "click ignored, not ready: gs=0x0" while our actor, the menu and the rig all existed): find Tribe's game state
 // by its class in the object array, the way the gear scan sees it. Newest live, non-template instance wins.
+// The class: TribeMainGameState on 0.12.6 (2311, C++), TribeMainGS_C on 2304 (Blueprint).
 static uintptr_t em_find_gs_by_class(){
     refresh_numelements(); char cn[64]; uintptr_t best=0;
     for(uint32_t i=0;i<g_numElements;i++){ uintptr_t o=obj_at(i); if(!o) continue;
         if(rd32(o+OFF_Flags)&(RF_ClassDefaultObject|0x20u|0x40000000u)) continue;
-        class_name(o,cn,sizeof cn); if(!strcmp(cn,"TribeMainGS_C")) best=o; }
+        class_name(o,cn,sizeof cn); if(!strcmp(cn,"TribeMainGameState")||!strcmp(cn,"TribeMainGS_C")) best=o; }
     return best; }
 // ---- Tribe's visuals on our screen (2026-10-06). Every stock environment's level BP calls
-// BP_TribeVisualsManager_C.SetupEnvironmentBackdrop(BackdropMesh, ChromaKeyBackdropMesh) in BeginPlay; Tribe then draws its
+// BP_TribeVisualsManager_C.SetupEnvironmentBackdrop(BackdropMesh, ChromaKeyBackdropMesh) in BeginPlay (2311: the C++
+// TribeVisualsManager.SetupEnvironmentBackdrop(BackdropMesh, InBoothSpotlight, InBackdropSpotlight, InRoomSkyLight,
+// InLightDimFactor), see em_backdrop_2311); Tribe then draws its
 // visuals (videos, GIFs, text, images, NDI) onto that actor's mesh and shows/hides it with the visuals mode. Our level has
 // no level BP, so after it is visible we make the same call with our SM_DinoVisualScreen actor.
 static uintptr_t em_find_child_func(uintptr_t cls,const char* name){
@@ -2254,6 +2501,30 @@ static uintptr_t em_find_live(const char* clsName){                 // newest li
         if(rd32(o+OFF_Flags)&(RF_ClassDefaultObject|0x20u|0x40000000u)) continue;
         class_name(o,cn,sizeof cn); if(!strcmp(cn,clsName)) best=o; }
     return best; }
+static uintptr_t em_find_live_pl(const char* clsName){             // first live object of EXACTLY this class in a world level
+    refresh_numelements(); char cn[128],fp[400];                    // (find_live_class_sub, but "TribeRig" must not hit TribeRigSkin)
+    for(uint32_t i=0;i<g_numElements;i++){ uintptr_t o=obj_at(i); if(!o) continue;
+        class_name(o,cn,sizeof cn); if(strcmp(cn,clsName)) continue;
+        if(rd32(o+OFF_Flags)&RF_ClassDefaultObject) continue;
+        full_path(o,fp,sizeof fp); if(strstr(fp,"Default__")||!strstr(fp,"PersistentLevel")) continue;
+        return o; } return 0; }
+static bool em_is_a(uintptr_t o,const char* clsName){                // o's class, or one of its supers, is named clsName
+    char cn[96]; int d=0;
+    for(uintptr_t c=o?rdptr(o+OFF_Class):0; c&&d<16; c=rdptr(c+OFF_Super),d++){ obj_name(c,cn,sizeof cn); if(!strcmp(cn,clsName)) return true; }
+    return false; }
+// The weak half of a TSoftObjectPtr (FWeakObjectPtr {int32 ObjectIndex, int32 SerialNumber} at its start), resolved as
+// FWeakObjectPtr::Get does in the 2311 library (store 0x1A366AC): serial != 0, index < NumElements, the item's SerialNumber
+// (+0x10) matches, and its flags (+8) carry neither Garbage (1<<21) nor Unreachable (1<<28). Reads only.
+// 1 = a live object (*out), 0 = an empty soft pointer (*out = 0), -1 = set but not resolvable (a path only, stale, garbage).
+static int em_soft_get(uintptr_t sp,uintptr_t* out){
+    *out=0; int32_t idx=(int32_t)rd32(sp), ser=(int32_t)rd32(sp+4);
+    if(!ser){ uint64_t p0=0,p1=0; sr(sp+8,&p0,8); sr(sp+16,&p1,8); return (p0||p1||rd32(sp+0x20))?-1:0; }   // path FNames, SubPathString.Num
+    refresh_numelements(); if(idx<0||(uint32_t)idx>=g_numElements) return -1;
+    uintptr_t chunk=rdptr(g_chunks+(uintptr_t)(idx>>16)*8); if(!chunk) return -1;
+    uintptr_t item=chunk+(uintptr_t)(idx&0xFFFF)*ITEM_STRIDE;
+    if((int32_t)rd32(item+0x10)!=ser||(rd32(item+8)&(0x200000u|0x10000000u))) return -1;
+    uintptr_t o=rdptr(item); if(!o||!in_range(o,0x30)||rd32(o+OFF_Index)!=(uint32_t)idx) return -1;
+    *out=o; return 1; }
 static uintptr_t em_find_mesh_actor(const char* meshName){          // the actor whose StaticMeshComponent shows that mesh
     static int offSM=-2; refresh_numelements(); char cn[64], nm[96];
     for(uint32_t i=0;i<g_numElements;i++){ uintptr_t o=obj_at(i); if(!o) continue;
@@ -2329,23 +2600,56 @@ static void em_video_fill(bool on,uintptr_t ctx){                     // on: fil
     mpc_call(g_mpcFnSetV,ctx,g_mpcStretch,fill,true,true); mpc_call(g_mpcFnSetS,ctx,g_mpcTile,&one,false,true);
     LOGI("[ENV] video mapping: Tribe had StretchMode=(%.0f,%.0f,%.0f) Tile=%.0f -> fill the big screen, one copy",st[0],st[1],st[2],tile); }
 static uintptr_t g_emOurScreen=0, g_emVM=0;
+// 2311: SetupEnvironmentBackdrop(BackdropMesh, InBoothSpotlight, InBackdropSpotlight, InRoomSkyLight, InLightDimFactor).
+// Tribe's C++ body (store 0x5B58958) stores BackdropMesh and reads its StaticMeshComponent at +0x290 with no class check,
+// null-checks the three lights and keeps each as a soft pointer (plus the booth and sky intensities), and stores the dim
+// factor. We hand back what the Void's own call left in the manager, so its lighting stays as Tribe set it. Anything we
+// can't read or resolve -> no call (logged; em_register_backdrop is retried).
+static bool em_backdrop_2311(uintptr_t vm,uintptr_t scr,uint8_t* b,const int* oL,int oD){
+    static const char* const SP[3]={"BoothSpotlight","BackdropSpotlight","RoomSkyLight"};
+    static const char* const LC[3]={"SpotLight","SpotLight","SkyLight"};
+    uintptr_t cls=rdptr(vm+OFF_Class), L[3]={0,0,0}; char ty[64], cn[96];
+    if(!em_is_a(scr,"StaticMeshActor")){ class_name(scr,cn,sizeof cn);
+        LOGI("[ENV] visuals: our screen is a %s, not a StaticMeshActor (Tribe reads +0x290 of it) -> SetupEnvironmentBackdrop NOT called",cn); return false; }
+    for(int i=0;i<3;i++){ uintptr_t fc=0; int o=prop_offset(cls,SP[i],&fc); ty[0]=0; if(fc) fname_resolve(rd32(fc),ty,sizeof ty);
+        if(o<0||strcmp(ty,"SoftObjectProperty")){ LOGI("[ENV] visuals: manager %s is %s@%d, not a soft pointer -> SetupEnvironmentBackdrop NOT called",
+                                                       SP[i],ty[0]?ty:"missing",o); return false; }
+        if(em_soft_get(vm+(uintptr_t)o,&L[i])<0){ LOGI("[ENV] visuals: manager %s is set but doesn't resolve (index %d serial %d) -> SetupEnvironmentBackdrop NOT called yet",
+                                                      SP[i],(int)rd32(vm+(uintptr_t)o),(int)rd32(vm+(uintptr_t)o+4)); return false; }
+        if(L[i]&&!em_is_a(L[i],LC[i])){ class_name(L[i],cn,sizeof cn);
+            LOGI("[ENV] visuals: manager %s resolves to a %s, not a %s -> SetupEnvironmentBackdrop NOT called",SP[i],cn,LC[i]); return false; } }
+    uintptr_t fd=0; int od=prop_offset(cls,"LightDimFactor",&fd); ty[0]=0; if(fd) fname_resolve(rd32(fd),ty,sizeof ty); double dim=0;
+    if(od<0||strcmp(ty,"DoubleProperty")||!sr(vm+(uintptr_t)od,&dim,8)||!(dim==dim)||fabs(dim)>1e6){
+        LOGI("[ENV] visuals: manager LightDimFactor unreadable (%s@%d) -> SetupEnvironmentBackdrop NOT called",ty[0]?ty:"missing",od); return false; }
+    for(int i=0;i<3;i++) memcpy(b+oL[i],&L[i],8);
+    memcpy(b+oD,&dim,8);
+    LOGI("[ENV] visuals: 2311 signature, handing back the manager's booth spot 0x%lx, backdrop spot 0x%lx, room sky light 0x%lx, dim factor %.3f",
+         (unsigned long)L[0],(unsigned long)L[1],(unsigned long)L[2],dim);
+    return true; }
 static bool em_register_backdrop(){
-    uintptr_t vm=em_find_live("BP_TribeVisualsManager_C");
+    uintptr_t vm=em_find_live("TribeVisualsManager"); if(!vm) vm=em_find_live("BP_TribeVisualsManager_C");   // 2311 C++ / 2304 Blueprint
     uintptr_t fn=vm?em_find_child_func(rdptr(vm+OFF_Class),"SetupEnvironmentBackdrop"):0;
     uintptr_t scr=em_find_mesh_actor("SM_DinoVisualScreen");
     if(!vm||!fn||!scr){ LOGI("[ENV] visuals: not ready (manager=0x%lx SetupEnvironmentBackdrop=0x%lx our screen=0x%lx)",
                              (unsigned long)vm,(unsigned long)fn,(unsigned long)scr); return false; }
     int oB=prop_offset(fn,"BackdropMesh",0), oC=prop_offset(fn,"ChromaKeyBackdropMesh",0); uint16_t psz=rd16(fn+0xB6);
+    int oL[3]={prop_offset(fn,"InBoothSpotlight",0),prop_offset(fn,"InBackdropSpotlight",0),prop_offset(fn,"InRoomSkyLight",0)}, oD=prop_offset(fn,"InLightDimFactor",0);
+    bool v2311=oL[0]>=0||oL[1]>=0||oL[2]>=0||oD>=0, bad2311=false;
+    if(v2311){ static const char* const PN[4]={"InBoothSpotlight","InBackdropSpotlight","InRoomSkyLight","InLightDimFactor"};
+        for(int i=0;i<4;i++){ int o=i<3?oL[i]:oD; uintptr_t pf=find_prop(fn,PN[i]); char ty[64]="";
+            if(pf) ffield_type(pf,ty,sizeof ty);
+            if(o<0||o+8>psz||strcmp(ty,i<3?"ObjectProperty":"DoubleProperty")) bad2311=true; } }
     static uint8_t b[128] __attribute__((aligned(16)));
-    if(oB<0||psz>sizeof b){ char pn[96],ty[64]; LOGI("[ENV] visuals: SetupEnvironmentBackdrop params not as expected (BackdropMesh@%d psz=%u):",oB,psz);
+    if(oB<0||psz>sizeof b||bad2311){ char pn[96],ty[64]; LOGI("[ENV] visuals: SetupEnvironmentBackdrop params not as expected (BackdropMesh@%d psz=%u):",oB,psz);
         for(uintptr_t f=rdptr(fn+OFF_ChildProps); f; f=rdptr(f+FF_Next)){ fname_resolve(rd32(f+FF_Name),pn,sizeof pn); ffield_type(f,ty,sizeof ty);
             LOGI("[ENV] visuals:   param %s (%s) @%u",pn,ty,rd32(f+FP_Offset)); }
         return false; }
     // The user's "keywall" turned out to be Tribe's visuals back wall (the user: "they run from the media folder inside
     // tribe"), so our big screen is the BackdropMesh. Tribe's Key Backwall (green wall for the stream cameras only) keeps
-    // the Void's own chroma screen.
+    // the Void's own chroma screen (2304; the 2311 function has no chroma parameter).
     memset(b,0,psz); *(uintptr_t*)(b+oB)=scr;
-    if(oC>=0) *(uintptr_t*)(b+oC)=(g_emScreens[1]&&obj_alive(g_emScreens[1]))?g_emScreens[1]:0;
+    if(v2311){ if(!em_backdrop_2311(vm,scr,b,oL,oD)) return false; }
+    else if(oC>=0) *(uintptr_t*)(b+oC)=(g_emScreens[1]&&obj_alive(g_emScreens[1]))?g_emScreens[1]:0;
     call_uf(vm,fn,b); g_emOurScreen=scr; g_emVM=vm;
     em_video_fill(true,vm);
     char mn[96]; em_actor_material(scr,mn,sizeof mn);
@@ -2383,13 +2687,237 @@ static void em_lights_restore(){
     for(int j=0;j<g_lN;j++){ if(!g_lComp[j]||!obj_alive(g_lComp[j])) continue;
         static uint8_t b[16] __attribute__((aligned(8))); memset(b,0,sizeof b); memcpy(b,&g_lOrig[j],4); call_uf(g_lComp[j],g_lFnSet,b); }
     if(g_lN) LOGI("[ENV] lights: %d restored",g_lN); }
-static void em_write_active(const char* label){                               // "" forgets the saved choice
-    char p[600]; snprintf(p,sizeof p,"%s/active_env.txt",OUTDIR); if(!label||!*label){ unlink(p); return; }
+static void em_write_active(const char* label){       // your last pick: a mod stage's label, or "stock:<name>" (mod2311: the
+    char p[600]; snprintf(p,sizeof p,"%s/active_env.txt",OUTDIR); if(!label||!*label) return;   // mod never deletes it)
     int fd=open(p,O_WRONLY|O_CREAT|O_TRUNC,0666); if(fd>=0){ write(fd,label,strlen(label)); close(fd); } }
 static void em_click(int idx){
     struct timespec ts; clock_gettime(CLOCK_MONOTONIC,&ts); long ms=ts.tv_sec*1000L+ts.tv_nsec/1000000L;
     if(ms-g_emLastClickMs<700) return; g_emLastClickMs=ms;                    // both entry points fire for one click
     g_emReq=idx; LOGI("[ENV] clicked '%s' -> %s",g_emLabels[idx],g_emPaths[idx]); }
+// 2311, from repl_pe (game thread). func = UserWidget.OnMouseButtonDown (self: any user widget; on a skin box it comes before
+// Tribe applies the box's skin) or TribeSkinItemWidget.OnSkinApplied (self: a box bound to the applied skin, parms
+// {AppliedSkin, Pawn}). A press on one of OUR boxes, or Tribe applying one of our skin objects, loads that stage; Tribe has
+// already switched to The Void then (our objects carry its identity) or kept it (a box that is selected may not re-apply).
+// Nothing is swallowed: Tribe's apply is native and runs anyway. A stock environment skin applied while ours is up -> unload.
+// OnSkinApplied fires for every apply, also ones Tribe makes by itself, so it counts only right after a press on a skin box
+// (press and apply run in the same call), or, for our objects, while no press has been seen at all (then it is the only route).
+static long g_emPressMs=-100000; static bool g_emPressSeen=false;          // the last press on any skin box (ours or Tribe's)
+static void em_pe_2311(uintptr_t self,uintptr_t func,void* parms){
+    struct timespec ts; clock_gettime(CLOCK_MONOTONIC,&ts); long ms=ts.tv_sec*1000L+ts.tv_nsec/1000000L;
+    if(func==g_emFnSkinApplied){ uintptr_t sk=*(uintptr_t*)parms; int idx=em_item_idx(sk); bool pressed=ms-g_emPressMs<1000;
+        if(idx>=0){ if(self) em_map_widget(self,idx);
+            if((idx==g_emActive&&g_emState!=EM_IDLE)||(g_emPressSeen&&!pressed)) return;   // Tribe re-applied it by itself
+            LOGI("[ENV] Tribe applied our skin object for '%s' (OnSkinApplied)",g_emLabels[idx]); em_click(idx); return; }
+        if(pressed&&sk&&g_emCls&&in_range(sk,0x30)&&rdptr(sk+OFF_Class)==g_emCls&&sk!=g_emVoidItem){   // (the Void is our stages' base)
+            int on=prop_offset(g_emCls,"Name",0); char nm[64]="?"; if(on>=0) fname_resolve(rd32(sk+(uintptr_t)on),nm,sizeof nm);
+            if(!strcmp(nm,"Environment_Void")) return;
+            snprintf(g_emStockName,sizeof g_emStockName,"%s",nm); g_emUnloadReq=1;
+            LOGI("[ENV] stock environment picked (press + OnSkinApplied): %s%s",nm,g_emState!=EM_IDLE?" -> unloading ours":""); }
+        return; }
+    if(!self||!g_emWCls||g_emOffWSkin<0) return;                            // UserWidget.OnMouseButtonDown: on a skin box?
+    int d=0; uintptr_t c=rdptr(self+OFF_Class); while(c&&c!=g_emWCls&&d<8){ c=rdptr(c+OFF_Super); d++; }
+    if(c!=g_emWCls) return;
+    g_emPressMs=ms; g_emPressSeen=true;
+    int idx=em_item_idx(rdptr(self+(uintptr_t)g_emOffWSkin)); if(idx<0) return;
+    em_map_widget(self,idx); LOGI("[ENV] press on our box '%s' (UserWidget.OnMouseButtonDown)",g_emLabels[idx]); em_click(idx); }
+// 2311, game thread (env_menu_tick): the boxes the list shows now (UListViewBase.EntryWidgetPool.ActiveWidgets, both
+// reflected), mapped to our items by their Skin. Tribe fills a box natively (NativeOnListItemObjectSet -> InitSkinItem, no
+// ProcessEvent), so this replaces the 2304 OnListItemObjectSet hook for the labels.
+static void em_pool_scan(uintptr_t list){
+    static uintptr_t lcls=0; static int oPool=-1, oAct=-1;
+    if(!list||!g_emWCls||g_emOffWSkin<0) return;
+    uintptr_t cls=rdptr(list+OFF_Class);
+    if(cls!=lcls){ lcls=cls; int S=calib_fprop_size(); uintptr_t f=find_prop(cls,"EntryWidgetPool"), st=(f&&S>0)?rdptr(f+S):0;   // FStructProperty::Struct
+        oPool=f?(int)rd32(f+FP_Offset):-1; oAct=st?prop_offset(st,"ActiveWidgets",0):-1;
+        LOGI("[ENV] the list's boxes: EntryWidgetPool@%d ActiveWidgets@%d%s",oPool,oAct,(oPool<0||oAct<0)?" -> our labels can't be set":""); }
+    if(oPool<0||oAct<0) return;
+    uintptr_t arr=list+(uintptr_t)oPool+(uintptr_t)oAct, data=rdptr(arr); int num=(int)rd32(arr+8);
+    if(!data||num<=0||num>256) return;
+    for(int i=0;i<num;i++){ uintptr_t w=rdptr(data+(uintptr_t)i*8); if(!w||!in_range(w,0x30)) continue;
+        int d=0; uintptr_t c=rdptr(w+OFF_Class); while(c&&c!=g_emWCls&&d<8){ c=rdptr(c+OFF_Super); d++; } if(c!=g_emWCls) continue;
+        int idx=em_item_idx(rdptr(w+(uintptr_t)g_emOffWSkin)); if(idx>=0||em_widget_idx(w)>=0) em_map_widget(w,idx); } }
+// ============ 2311: the avatar menu and Tribe's own avatar (mod2311 step B; claudedocs/mod_2311_characters.md) ============
+// Our boxes are TribeReadyPlayerMeAvatarSkin objects named ReadyPlayerMe_Custom and owned, in the live
+// TribeProfileMenuWidget.AvatarList. A press on one runs Tribe's UTribeSkinItemWidget::NativeOnMouseButtonDown (store
+// 0x5B4C890): it raises UserWidget.OnMouseButtonDown through ProcessEvent first (the hook sees it), then checks the box's
+// bSelected (+0x350) and applies the box's skin only if it isn't selected, or if the skin's CanReapply (vtable +0x300)
+// says yes; for TribeReadyPlayerMeAvatarSkin that is "mov w0, wzr; ret" (all read in the 2311 library,
+// tools/verify_2311.py). So the hook marks our box selected inside the press (SetSelected only stores the flag and
+// refreshes the box's look, decoded at 0x5B4BA58) and loads our skin: Tribe applies nothing and saves nothing, and your
+// saved Tribe avatar stays as it is (the user's note 19). The list's OnAvatarClicked doesn't apply anything (decoded at
+// 0x594A574: it only reports a "CustomizeAvatar" step). If Tribe applies one of our boxes anyway (some other route), the
+// log says WARNING. A "Tribe Avatar" box (and any of Tribe's own avatar boxes) hides our character and shows Tribe's
+// avatar again; active_skin.txt then says "tribe" and the next launch starts that way too.
+static uintptr_t g_smWCls=0, g_smFnUWDown=0, g_smFnSkinApplied=0, g_smFnSetSelected=0, g_smFnToName=0, g_smKSL=0, g_smFnActHid=0;
+static int g_smOffWSkin=-1, g_smIdentOk[SM_MAX], g_smIdentTries[SM_MAX]; static uint64_t g_smNameRpm=0;
+static volatile sig_atomic_t g_smDiagReq=0, g_smKeepTribeAvatar=0, g_smBoxesOff=0; static int g_smDiagDone=0;
+static uintptr_t g_smDiagComp[12]; static int g_smDiagN=0;                   // poll thread fills, game thread reads after g_smDiagReq
+static int sm_bool_prop(uintptr_t o,const char* name){                        // a reflected bool (bitfield-safe), -1 = unreadable
+    int S=calib_fprop_size(); uintptr_t f=(o&&in_range(o,0x30))?find_prop(rdptr(o+OFF_Class),name):0; if(!f||S<0) return -1;
+    uint32_t off=rd32(f+FP_Offset); uint8_t bo=rd8(f+S+1), bm=rd8(f+S+2); return (rd8(o+off+bo)&bm)?1:0; }
+static uintptr_t sm_obj_prop(uintptr_t o,const char* name){                   // an object property by name, 0 = none
+    int off=(o&&in_range(o,0x30))?prop_offset(rdptr(o+OFF_Class),name,0):-1; return off>=0?rdptr(o+(uintptr_t)off):0; }
+static uint64_t sm_name(const char* s){                                       // game thread: an FName (KismetStringLibrary)
+    if(!g_smFnToName||!g_smKSL) return 0; static uint16_t w[64]; static uint8_t b[64] __attribute__((aligned(16)));
+    int oS=prop_offset(g_smFnToName,"InString",0), oR=prop_offset(g_smFnToName,"ReturnValue",0); uint16_t psz=rd16(g_smFnToName+0xB6);
+    if(oS<0||oR<0||psz>sizeof b) return 0; int n=0; for(;s[n]&&n<63;n++) w[n]=(uint16_t)(uint8_t)s[n]; w[n]=0;
+    FStr fs={w,n+1,n+1}; memset(b,0,psz); memcpy(b+oS,&fs,sizeof fs); call_uf(g_smKSL,g_smFnToName,b); uint64_t v; memcpy(&v,b+oR,8);
+    char chk[64]; fname_resolve((uint32_t)v,chk,sizeof chk); return strcmp(chk,s)?0:v; }
+// our item's identity (game thread): Tribe's own RPM item's plain fields if there is one, then always Name =
+// ReadyPlayerMe_Custom and bOwned = 1 (an unowned box makes a press ask to buy it). Read back; false = not added.
+static bool sm_identity(uintptr_t it){
+    if(!it||!obj_alive(it)) return false;
+    if(g_smTribeRpm&&obj_alive(g_smTribeRpm)) em_copy_identity(it,g_smTribeRpm);
+    if(!g_smNameRpm) g_smNameRpm=sm_name("ReadyPlayerMe_Custom");
+    uintptr_t cls=rdptr(it+OFF_Class); int oN=prop_offset(cls,"Name",0); uintptr_t fo=find_prop(cls,"bOwned"); int S=calib_fprop_size();
+    if(!g_smNameRpm||oN<0||!fo||S<0) return false;
+    uint32_t off=rd32(fo+FP_Offset); uint8_t bo=rd8(fo+S+1), bm=rd8(fo+S+2); if(!bm||bo>7) return false;
+    memcpy((void*)(it+(uintptr_t)oN),&g_smNameRpm,8); *(volatile uint8_t*)(it+off+bo)|=bm;
+    uint64_t nm=0; memcpy(&nm,(const void*)(it+(uintptr_t)oN),8); return nm==g_smNameRpm&&(rd8(it+off+bo)&bm); }
+static bool sm_is_tribe_avatar(uintptr_t sk){                                 // one of Tribe's own avatar items (not a prop, not ours)
+    return sk&&sm_item_idx(sk)<0&&in_range(sk,0x30)&&em_is_a(sk,"TribeOculusAvatarSkin"); }
+static bool g_smWeHid=false; static int g_smActorHid=0;                      // the hidden flags that are ours
+static void sm_tribe_avatar_hide(bool hide){                                  // game thread: SetHiddenInGame(hide, propagate) on TribeAvatar
+    if(!hide&&!g_smWeHid) return;                                             // show only undoes our own hide
+    if(!g_fnHid||!g_pawn||!obj_alive(g_pawn)) return;
+    uintptr_t ta=sm_obj_prop(g_pawn,"TribeAvatar"); if(!ta||!obj_alive(ta)||!em_is_a(ta,"TribeAvatarComponent")) return;
+    int h=sm_bool_prop(ta,"bHiddenInGame"); if(h<0) return;
+    if(h==(hide?1:0)){ if(!hide) g_smWeHid=false; return; }
+    call_bool2(ta,g_fnHid,hide?1:0,1); g_smWeHid=hide;
+    static int flips=0; flips++;
+    if(flips<=5||(flips%50)==0) LOGI("[MENU] Tribe's avatar %s (TribeAvatar 0x%lx SetHiddenInGame(%d, propagate) -> bHiddenInGame=%d; flip #%d)",
+        hide?"hidden":"shown",(unsigned long)ta,hide?1:0,sm_bool_prop(ta,"bHiddenInGame"),flips); }
+static void sm_actor_hide(int hide){                                          // game thread: our avatar actor (body, tracked meshes, head)
+    if(!g_isoActor||!obj_alive(g_isoActor)||!g_smFnActHid||hide==g_smActorHid) return;
+    call_lib1(g_isoActor,g_smFnActHid,hide); g_smActorHid=hide;
+    LOGI("[MENU] our character %s",hide?"hidden (Tribe's own avatar is picked)":"shown"); }
+static void sm_write_skin(const char* v){ char p[600]; snprintf(p,sizeof p,"%s/active_skin.txt",OUTDIR);
+    int fd=open(p,O_WRONLY|O_CREAT|O_TRUNC,0666); if(fd>=0){ write(fd,v,strlen(v)); close(fd); } }
+static void sm_pick_tribe(const char* why){                                   // game thread: Tribe's own avatar from now on
+    if(g_smTribeMode) return; g_smTribeMode=1; sm_write_skin("tribe");
+    sm_actor_hide(1); sm_tribe_avatar_hide(false);
+    LOGI("[MENU] Tribe avatar picked (%s): our character off, Tribe's avatar shown; active_skin.txt = tribe",why); }
+static void sm_pick(int idx){                                                 // game thread: one of our boxes
+    if(idx<0||idx>=SM_MAX) return;
+    if(!strcmp(g_smFiles[idx],"tribe")){ sm_pick_tribe("our 'Tribe Avatar' box"); return; }
+    g_smTribeMode=0; sm_load(idx); sm_actor_hide(0); }
+static void sm_select_box(uintptr_t box){                                     // TribeSkinItemWidget.SetSelected(true)
+    if(!g_smFnSetSelected||!box) return; static uint8_t b[16]; uint16_t psz=rd16(g_smFnSetSelected+0xB6); if(psz>sizeof b) return;
+    int o=prop_offset(g_smFnSetSelected,"bInSelected",0); memset(b,0,sizeof b); b[o>=0?o:0]=1; call_uf(box,g_smFnSetSelected,b); }
+static long g_smPressMs=-100000;
+static void sm_pe_2311(uintptr_t self,uintptr_t func,void* parms){            // repl_pe, game thread
+    struct timespec ts; clock_gettime(CLOCK_MONOTONIC,&ts); long ms=ts.tv_sec*1000L+ts.tv_nsec/1000000L;
+    if(func==g_smFnSkinApplied){ uintptr_t sk=*(uintptr_t*)parms; int idx=sm_item_idx(sk); bool pressed=ms-g_smPressMs<1000;
+        if(idx>=0){ static int warned=0; if(warned++<10) LOGI("[MENU] WARNING Tribe applied our box '%s' (it re-applies its Ready Player Me avatar and saves"
+                " [TribeSkins] OculusAvatar=ReadyPlayerMe_Custom)%s",g_smLabels[idx],pressed?"":"; no press seen just before it");
+            if(!pressed&&ue_enter()){ sm_pick(idx); ue_leave(); } }
+        else if(pressed&&sm_is_tribe_avatar(sk)&&ue_enter()){ sm_pick_tribe("Tribe applied its own avatar right after a press"); ue_leave(); }
+        return; }
+    if(!self||!g_smWCls||g_smOffWSkin<0) return;                              // UserWidget.OnMouseButtonDown: on a skin box?
+    int d=0; uintptr_t c=rdptr(self+OFF_Class); while(c&&c!=g_smWCls&&d<8){ c=rdptr(c+OFF_Super); d++; }
+    if(c!=g_smWCls) return;
+    uintptr_t sk=rdptr(self+(uintptr_t)g_smOffWSkin); int idx=sm_item_idx(sk);
+    if(idx>=0){ g_smPressMs=ms; sm_map_widget(self,idx);
+        int sel=-1; if(ue_enter()){ sm_select_box(self); sel=sm_bool_prop(self,"bSelected"); ue_leave(); }
+        LOGI("[MENU] press on our box '%s'%s",g_smLabels[idx],sel==1?": selected before Tribe's check (Tribe won't apply it)":
+             ": NOT selected (Tribe may apply it: watch for WARNING)");
+        if(ue_enter()){ sm_pick(idx); ue_leave(); }
+        return; }
+    if(sm_is_tribe_avatar(sk)){ g_smPressMs=ms; char nm[64]="?"; int on=prop_offset(rdptr(sk+OFF_Class),"Name",0); if(on>=0) fname_resolve(rd32(sk+(uintptr_t)on),nm,sizeof nm);
+        if(ue_enter()){ char w[96]; snprintf(w,sizeof w,"a press on Tribe's '%s' box",nm); sm_pick_tribe(w); ue_leave(); } } }
+// the boxes the list shows now (its EntryWidgetPool), mapped to our items by their Skin (as em_pool_scan)
+static void sm_pool_scan(uintptr_t list){
+    static uintptr_t lcls=0; static int oPool=-1, oAct=-1;
+    if(!list||!g_smWCls||g_smOffWSkin<0) return;
+    uintptr_t cls=rdptr(list+OFF_Class);
+    if(cls!=lcls){ lcls=cls; int S=calib_fprop_size(); uintptr_t f=find_prop(cls,"EntryWidgetPool"), st=(f&&S>0)?rdptr(f+S):0;
+        oPool=f?(int)rd32(f+FP_Offset):-1; oAct=st?prop_offset(st,"ActiveWidgets",0):-1;
+        LOGI("[MENU] the avatar list's boxes: EntryWidgetPool@%d ActiveWidgets@%d%s",oPool,oAct,(oPool<0||oAct<0)?" -> our labels can't be set":""); }
+    if(oPool<0||oAct<0) return;
+    uintptr_t arr=list+(uintptr_t)oPool+(uintptr_t)oAct, data=rdptr(arr); int num=(int)rd32(arr+8);
+    if(!data||num<=0||num>256) return;
+    for(int i=0;i<num;i++){ uintptr_t w=rdptr(data+(uintptr_t)i*8); if(!w||!in_range(w,0x30)) continue;
+        int d=0; uintptr_t c=rdptr(w+OFF_Class); while(c&&c!=g_smWCls&&d<8){ c=rdptr(c+OFF_Super); d++; } if(c!=g_smWCls) continue;
+        int idx=sm_item_idx(rdptr(w+(uintptr_t)g_smOffWSkin)); if(idx>=0||sm_widget_idx(w)>=0) sm_map_widget(w,idx); } }
+static void menu_tick_2311(){                                                 // game thread, ~once a second (menu_tick)
+    static int spawns=0, win=0; static bool tripped=false;
+    if(tripped) return; if(++win>=30){ win=0; spawns=0; }
+    uintptr_t list=g_smList; int n=g_smCount; g_smListLive=(list&&obj_alive(list))?1:0;
+    if(g_smBoxesOff) return;                                                 // tribemod/skin_boxes_off (kill switch)
+    if(!g_smListLive||!g_smRpmCls||!g_smFnSpawn||!g_smFnAddItem||!g_smFnIndexOf||n<=0) return;
+    uintptr_t outer=(g_smTribeRpm&&obj_alive(g_smTribeRpm))?rdptr(g_smTribeRpm+OFF_Outer):list;   // fallback: the list
+    int added=0;
+    for(int i=0;i<n&&i<SM_MAX;i++){
+        if(!obj_alive(g_smItems[i])){
+            if(spawns>=3*n){ tripped=true; LOGI("[MENU] guard: %d respawns in 30 s -> stopped adding boxes (bug guard)",spawns); return; }
+            g_smItems[i]=sm_spawn(g_smRpmCls,outer); spawns++; g_smIdentOk[i]=0; g_smIdentTries[i]=0;
+            LOGI("[MENU] spawned skin object for '%s' = 0x%lx",g_smLabels[i],(unsigned long)g_smItems[i]); }
+        if(g_smItems[i]&&g_smIdentOk[i]<0&&g_smIdentTries[i]<4&&(win%5)==0) g_smIdentOk[i]=0;   // try again (5 s apart)
+        if(g_smItems[i]&&!g_smIdentOk[i]){ g_smIdentTries[i]++; g_smIdentOk[i]=sm_identity(g_smItems[i])?1:-1;
+            LOGI("[MENU] '%s': identity %s",g_smLabels[i],g_smIdentOk[i]>0?"Name=ReadyPlayerMe_Custom bOwned=1":
+                 "NOT set: this box is not added (a press could change your saved Tribe avatar)"); }
+        if(g_smItems[i]&&g_smIdentOk[i]>0){ int ix=sm_list_index(list,g_smItems[i]);
+            if(ix<0){ LOGI("[MENU] adding box '%s' (a crash right after this line: tribemod/skin_boxes_off turns the boxes off)",g_smLabels[i]);
+                sm_list_add(list,g_smItems[i]); ix=sm_list_index(list,g_smItems[i]); LOGI("[MENU] added box '%s' (index %d)",g_smLabels[i],ix); }
+            if(ix>=0) added++; } }
+    g_smAdded=added;
+    sm_pool_scan(list);
+    for(int w=0;w<32;w++) if(g_smW[w]){                                      // keep our labels (Tribe may rewrite NameText)
+        if(!obj_alive(g_smW[w])){ g_smW[w]=0; continue; } int ix=g_smWi[w];
+        if(g_smOffWSkin>=0&&sm_item_idx(rdptr(g_smW[w]+(uintptr_t)g_smOffWSkin))!=ix){ g_smW[w]=0; continue; }   // recycled
+        sm_label_box(g_smW[w],ix); } }
+// the one-time diagnostic (characters doc C11): what the avatar list holds and where every avatar mesh is. Poll thread
+// lists (reads only; never ids or URLs), the game thread adds the render state. Again on tribemod/skin_diag (one-shot).
+static void sm_diag_mesh(const char* what,uintptr_t c){
+    if(!c||!obj_alive(c)){ LOGI("[MENU] diag %s: none",what); return; }
+    char cn[96],mn[96]="(none)",pn[96]="(none)",fp[400]; class_name(c,cn,sizeof cn);
+    uintptr_t m=sm_obj_prop(c,"SkeletalMeshAsset"); if(m&&in_range(m,0x30)) obj_name(m,mn,sizeof mn);
+    uintptr_t par=sm_obj_prop(c,"AttachParent"); if(par&&in_range(par,0x30)) obj_name(par,pn,sizeof pn); full_path(c,fp,sizeof fp);
+    LOGI("[MENU] diag %s: %s 0x%lx mesh=%s parent=%s visible=%d hiddenInGame=%d path=%s",what,cn,(unsigned long)c,mn,pn,
+         sm_bool_prop(c,"bVisible"),sm_bool_prop(c,"bHiddenInGame"),fp);
+    if(g_smDiagN<12) g_smDiagComp[g_smDiagN++]=c; }
+static void sm_diag_poll(uintptr_t list){
+    if(g_smDiagReq){ LOGI("[MENU] diag: the previous one still waits for the game thread"); return; } g_smDiagN=0; refresh_numelements(); char cn[96];
+    if(list&&obj_alive(list)){ uintptr_t ec=sm_obj_prop(list,"EntryWidgetClass"); char en[96]="(none)"; if(ec&&in_range(ec,0x30)) obj_name(ec,en,sizeof en);
+        int o=prop_offset(rdptr(list+OFF_Class),"ListItems",0); uintptr_t d=o>=0?rdptr(list+(uintptr_t)o):0; int n=o>=0?(int)rd32(list+(uintptr_t)o+8):0;
+        LOGI("[MENU] diag: avatar list 0x%lx EntryWidgetClass=%s ListItems@%d n=%d",(unsigned long)list,en,o,n);
+        for(int i=0;d&&i<n&&i<24;i++){ uintptr_t it=rdptr(d+(uintptr_t)i*8); if(!it||!in_range(it,0x30)) continue; class_name(it,cn,sizeof cn);
+            int on=prop_offset(rdptr(it+OFF_Class),"Name",0); char nm[96]="?"; if(on>=0) fname_resolve(rd32(it+(uintptr_t)on),nm,sizeof nm);
+            int oa=prop_offset(rdptr(it+OFF_Class),"AvatarID",0); int an=oa>=0?(int)rd32(it+(uintptr_t)oa+8):0;
+            LOGI("[MENU] diag: item %d %s Name=%s bOwned=%d AvatarID length=%d%s",i,cn,nm,sm_bool_prop(it,"bOwned"),an>0?an-1:0,sm_item_idx(it)>=0?" (ours)":""); } }
+    else LOGI("[MENU] diag: no live avatar list (open Profile > Avatars, then touch tribemod/skin_diag)");
+    uintptr_t p=g_pawn, ta=(p&&obj_alive(p))?sm_obj_prop(p,"TribeAvatar"):0, rpm=0, pawnBody=0;
+    if(!ta) LOGI("[MENU] diag: pawn 0x%lx: no TribeAvatar component (yet)",(unsigned long)p);
+    else { int ot=prop_offset(rdptr(ta+OFF_Class),"CurrentETribeAvatarType",0); int typ=ot>=0?(int)rd8(ta+(uintptr_t)ot):-1;
+        uintptr_t act=sm_obj_prop(ta,"ActiveAvatarComponent"), meta=sm_obj_prop(ta,"MetaAvatar2Component"); rpm=sm_obj_prop(ta,"ReadyPlayerMeComponent");
+        char an[96]="(none)"; if(act&&in_range(act,0x30)) class_name(act,an,sizeof an);
+        LOGI("[MENU] diag: pawn 0x%lx TribeAvatar 0x%lx type=%d (1 RPM, 2 Meta Avatar 2) active=%s rpm=0x%lx meta=0x%lx hiddenInGame=%d",
+             (unsigned long)p,(unsigned long)ta,typ,an,(unsigned long)rpm,(unsigned long)meta,sm_bool_prop(ta,"bHiddenInGame"));
+        if(rpm){ pawnBody=sm_obj_prop(rpm,"AvatarMeshComponent"); sm_diag_mesh("RPM body",pawnBody);
+            sm_diag_mesh("RPM right hand",sm_obj_prop(rpm,"RightHandMeshComponent")); sm_diag_mesh("RPM left hand",sm_obj_prop(rpm,"LeftHandMeshComponent")); }
+        if(meta){ sm_diag_mesh("Meta third person",sm_obj_prop(meta,"ThirdPersonMeshComponent")); sm_diag_mesh("Meta first person",sm_obj_prop(meta,"FirstPersonMeshComponent")); } }
+    char nm2[96],fp[400]; int k=0;                                            // every live AvatarBodyMesh: is the one find_live takes the pawn's?
+    for(uint32_t i=0;i<g_numElements&&k<8;i++){ uintptr_t o=obj_at(i); if(!o) continue; obj_name(o,nm2,sizeof nm2); if(strcmp(nm2,"AvatarBodyMesh")) continue;
+        class_name(o,cn,sizeof cn); if(strcmp(cn,"SkeletalMeshComponent")||(rd32(o+OFF_Flags)&RF_ClassDefaultObject)) continue;
+        full_path(o,fp,sizeof fp); if(strstr(fp,"Default__")) continue; k++;
+        LOGI("[MENU] diag: AvatarBodyMesh #%d 0x%lx %s%s",k,(unsigned long)o,o==pawnBody?"(the pawn's) ":"(another actor's) ",fp);
+        if(g_smDiagN<12&&o!=pawnBody) g_smDiagComp[g_smDiagN++]=o; }
+    LOGI("[MENU] diag: %d AvatarBodyMesh component(s)",k); g_smDiagReq=1; }
+static void sm_diag_game(){
+    int n=g_smDiagN; for(int i=0;i<n&&i<12;i++){ uintptr_t c=g_smDiagComp[i]; if(!c||!obj_alive(c)) continue; int r=-1; double L[3]={0,0,0};
+        uint8_t* rr=g_fnRendered?call_ret(c,g_fnRendered,1,0.5f):0; if(rr) r=(int)*rr;
+        uint8_t* l=g_fnLoc?call_ret(c,g_fnLoc,0,0):0; if(l) memcpy(L,l,24);
+        LOGI("[MENU] diag render: 0x%lx WasRecentlyRendered(0.5)=%d loc=(%.0f,%.0f,%.0f)",(unsigned long)c,r,L[0],L[1],L[2]); } }
+// game thread, every frame from the driver, ~once a second: who is visible. While one of our characters is up, Tribe's
+// avatar is hidden (also from the selfie and stream cameras; tribemod/tribe_avatar_shown keeps it visible); while
+// Tribe's own avatar is picked, ours is hidden and Tribe's shown.
+static void sm_tick_2311(){
+    static int tk=0; if(g_smMode!=1||(++tk%60)!=0) return;
+    if(g_smDiagReq){ sm_diag_game(); g_smDiagReq=0; }
+    bool actorUp=g_isoActor&&obj_alive(g_isoActor);
+    if(actorUp) sm_actor_hide(g_smTribeMode?1:0);
+    if(g_smKeepTribeAvatar||g_smTribeMode||!actorUp) sm_tribe_avatar_hide(false);
+    else sm_tribe_avatar_hide(true); }
 static void em_log_actor(const char* what,uintptr_t a){                      // world location / rotation / scale (layout reference)
     if(!a||!obj_alive(a)||!g_emFnActLoc||!g_emFnActRot) return; double L[3]={0,0,0},R[3]={0,0,0},S[3]={0,0,0};
     uint8_t* r=call_ret(a,g_emFnActLoc,0,0); if(r) memcpy(L,r,24);
@@ -2482,18 +3010,20 @@ static void em_diagnose(const char* pkg){                // why couldn't the lev
         LOGI("[ENV] diagnose: GetCurrentLevelName(game state)='%s'",nm); } }
     // (No synchronous LoadAsset_Blocking test here: on 2026-10-04 loading our cooked material that way ran Tribe out of memory.)
 static void em_hide_screens(bool hide){ for(int i=0;i<2;i++) if(g_emScreens[i]&&obj_alive(g_emScreens[i])) call_lib1(g_emScreens[i],g_emFnHidden,hide?1:0); }
-static bool g_emBackdropOK=false; static int g_emBackdropTries=0;
+static bool g_emBackdropOK=false; static int g_emBackdropTries=0, g_emReReg=0;   // g_emReReg: 2311 re-registrations this load
 static void em_lights_restore();
 static void giant_reset(const char* why);                         // giant intro (below)
+static void show_drop(const char* why);                           // the show bus (below)
 static void em_unload(const char* why){
     em_lights_restore(); g_emBackdropOK=false; g_emOurScreen=0;
     if(g_emVM&&obj_alive(g_emVM)) em_video_fill(false,g_emVM);        // Tribe's own video mapping back
-    giant_reset("stage unloaded");
+    giant_reset("stage unloaded"); show_drop("stage unloaded"); g_emLoadGen++;
     g_emVM=0;
     if(g_emStream&&obj_alive(g_emStream)){ call_lib1(g_emStream,g_emFnSetVisible,0); call_lib1(g_emStream,g_emFnSetLoaded,0); }
     LOGI("[ENV] unloaded our environment (%s)",why); g_emStream=0; g_emActive=-1; g_emState=EM_IDLE; }
-static void em_fail(const char* why){                    // undo: Void screens back, nothing loaded, don't re-apply at next launch,
-    em_hide_screens(false); em_unload(why); em_write_active("");               // and put Tribe back on the environment you came from
+static void em_fail(const char* why){                    // undo: Void screens back, nothing loaded, Tribe back where you came from.
+    em_hide_screens(false); em_unload(why); g_emFailed=1;                      // mod2311: the pick stays in active_env.txt (the
+                                                                               // supervisor tries again; the next launch re-applies it)
     int prev=g_emPrevEnv; g_emPrevEnv=-1;
     if(prev>0&&prev!=(int)g_emVoid&&g_emGameState&&obj_alive(g_emGameState)){ call_lib1(g_emGameState,g_emFnSetEnv,prev);
         LOGI("[ENV] back to the environment you had: %d (%s)",prev,em_env_name(prev)); } }
@@ -2541,12 +3071,46 @@ static double g_gShow=1, g_gSpot=0, g_gTop=0;
 static bool g_gJustLanded=false;                                      // giant_reset("landed") -> the grid's drop restart
 static double g_gDescFrom=545, g_gDescT=60;                           // a descent: from this height, over this long
 static uintptr_t g_gSpotComp=0, g_gFnTime=0, g_gGPS=0; static int g_gTimeDouble=-1;
+// The show collection as a weak handle (the 13:57:37 crash, 2026-10-31: claudedocs/mod_2311_levels.md 4 + S1). g_gColl
+// outlived its stage's unload; the old check passed for whatever took its slot, and KismetMaterialLibrary's
+// SetScalarParameterValue then built a world instance for that object and read 3 as its parameter data. Now the
+// collection is found once per stage load (g_emLoadGen) by the poll thread, adopted and dropped on the game thread, and
+// checked before every write as FWeakObjectPtr::Get does (same slot, same serial: the world's collection instance holds
+// a weak pointer to it, so a loaded MPC has one; not being collected), plus its class and name.
+static uint32_t g_gCollIdx=0, g_gCollNm=0; static int32_t g_gCollSer=0; static uintptr_t g_gCollCls=0;
+static volatile uintptr_t g_gPend=0, g_gPendSpot=0; static volatile int g_gPendGen=-1; static volatile bool g_gPendGiant=false;
+static uint64_t g_gPendN[G_NP];
+static long g_gFrame=0, g_gOkAt=-1; static bool g_gOk=false;          // one check per frame (giant_tick counts the frames)
+static bool show_coll_ok(){
+    if(g_gOkAt==g_gFrame) return g_gOk; g_gOkAt=g_gFrame; g_gOk=false;
+    uintptr_t c=g_gColl; uint32_t idx=g_gCollIdx; if(!c||!g_gCollSer) return false;
+    if(idx>=g_numElements) refresh_numelements(); if(idx>=g_numElements) return false;
+    uintptr_t chunk=rdptr(g_chunks+(uintptr_t)(idx>>16)*8); if(!chunk) return false;
+    uintptr_t item=chunk+(uintptr_t)(idx&0xFFFF)*ITEM_STRIDE;
+    return g_gOk=rdptr(item)==c&&(int32_t)rd32(item+0x10)==g_gCollSer&&!(rd32(item+8)&gc_dead_mask())
+        &&rdptr(c+OFF_Class)==g_gCollCls&&rd32(c+OFF_Name)==g_gCollNm; }
+static void show_drop(const char* why){                              // game thread: forget it (club.cpp / intro.cpp look up again)
+    g_gOkAt=-1; if(!g_gColl) return; g_gColl=0; g_gCollSer=0; memset(g_gN,0,sizeof g_gN); g_gHasGiant=false; g_gSpotComp=0; g_showGen++;
+    LOGI("[GIANT] show bus released (%s)",why); }
+static void show_adopt(){                                            // game thread: take the poll thread's find for this load
+    uintptr_t c=g_gPend; if(!c) return; __sync_synchronize(); int pg=g_gPendGen; g_gPend=0;   // (the poll thread writes the gen, then c)
+    if(pg!=g_emLoadGen||!in_range(c,0x30)) return;                     // an older load's find: the poll thread looks again
+    uint32_t idx=rd32(c+OFF_Index); if(idx>=g_numElements) refresh_numelements();
+    char cn[64]; class_name(c,cn,sizeof cn);
+    if(obj_at(idx)!=c||strcmp(cn,"MaterialParameterCollection")||(item_flags(idx)&gc_dead_mask())){ g_gPendGen=-1;
+        LOGI("[GIANT] show collection 0x%lx is gone or not a collection (%s): looking again",(unsigned long)c,cn); return; }
+    uintptr_t chunk=rdptr(g_chunks+(uintptr_t)(idx>>16)*8); int32_t ser=chunk?(int32_t)rd32(chunk+(uintptr_t)(idx&0xFFFF)*ITEM_STRIDE+0x10):0;
+    if(!ser){ g_gPendGen=-1; LOGI("[GIANT] show collection 0x%lx has no world instance yet (no weak serial): looking again",(unsigned long)c); return; }
+    __sync_synchronize();
+    g_gCollIdx=idx; g_gCollSer=ser; g_gCollCls=rdptr(c+OFF_Class); g_gCollNm=rd32(c+OFF_Name);
+    memcpy(g_gN,g_gPendN,sizeof g_gN); g_gHasGiant=g_gPendGiant; g_gSpotComp=g_gPendSpot; g_gColl=c; g_showGen++; g_gOkAt=-1;
+    LOGI("[GIANT] show bus adopted: 0x%lx (slot %u, serial %d, gen %d)",(unsigned long)c,idx,(int)ser,(int)g_showGen); }
 static const double G_SPOT_CD=6000.0;                                 // candelas at full: the FOH spot is 32 m away
 static const double G_SHOW_LOOP=32*4/(140.0/60.0), G_SHOW_DROP=16*4/(140.0/60.0);   // dino_materials SHOW_LOOP_S, bar 17
 static void giant_lookup(){                                           // POLL thread
     if(!g_gFnSetRel) g_gFnSetRel=find_by_path("/Script/Engine.SceneComponent.K2_SetRelativeLocation",0);
-    if(g_gColl&&obj_alive(g_gColl)) return;
-    if(g_emState!=EM_ACTIVE){ g_gColl=0; return; }                    // the collection only exists while our stage is up
+    int gen=g_emLoadGen;                                                // found once per stage load; show_adopt takes it (game thread)
+    if(g_gPendGen==gen||g_emState!=EM_ACTIVE) return;                  // the collection only exists while our stage is up
     // the show collection of the stage that's up: the Dino Stage's (with the giant intro) or the REACTOR club's (show only)
     // by the active stage's folder under /Game/Mods/ (song14: + Graveyard Shift's MPC_HwShow, the Halloween session's)
     static const char* const SHOWS[][3]={{"dino","/Game/Mods/Dino/MaterialInstances/MPC_DinoGiant.MPC_DinoGiant","MPC_DinoGiant"},
@@ -2571,18 +3135,20 @@ static void giant_lookup(){                                           // POLL th
             char pn[64]; fname_resolve(rd32(f+FF_Name),pn,sizeof pn); if(!strcmp(pn,"ReturnValue")){ ffield_type(f,ty,sizeof ty); break; } }
         g_gTimeDouble=!strcmp(ty,"DoubleProperty")?1:0; }
     // the follow spot's light: the SpotLightComponent on our "DinoGiantSpotLight" actor
-    { refresh_numelements(); char cn[64], on[96]; g_gSpotComp=0;
-      for(uint32_t i=0;i<g_numElements&&!g_gSpotComp;i++){ uintptr_t o=obj_at(i); if(!o) continue;
+    uintptr_t spot=0;
+    { refresh_numelements(); char cn[64], on[96];
+      for(uint32_t i=0;i<g_numElements&&!spot;i++){ uintptr_t o=obj_at(i); if(!o) continue;
         if(rd32(o+OFF_Flags)&(RF_ClassDefaultObject|0x20u|0x40000000u)) continue;
         class_name(o,cn,sizeof cn); if(strcmp(cn,"SpotLightComponent")) continue;
         uintptr_t ow=rdptr(o+OFF_Outer); if(!ow) continue; obj_name(ow,on,sizeof on);
-        if(strstr(on,"DinoGiantSpotLight")) g_gSpotComp=o; } }
-    memcpy(g_gN,n,sizeof n); g_gHasGiant=(dino||!strcmp(SHOWS[si][0],"redeye"))&&n[GP_H]; g_gColl=c; g_showGen++;   // RED EYE: the crane flight
-    if(!g_gHasGiant) LOGI("[GIANT] show bus: %s 0x%lx (gen %d), %d/%d parameters: the light show runs here, no giant intro",
-                          cn,(unsigned long)c,(int)g_showGen,ok,G_NP);
+        if(strstr(on,"DinoGiantSpotLight")) spot=o; } }
+    bool giant=(dino||!strcmp(SHOWS[si][0],"redeye"))&&n[GP_H];       // RED EYE: the crane flight
+    memcpy(g_gPendN,n,sizeof n); g_gPendGiant=giant; g_gPendSpot=spot; g_gPendGen=gen; __sync_synchronize(); g_gPend=c;
+    if(!giant) LOGI("[GIANT] show bus: %s 0x%lx (load %d), %d/%d parameters: the light show runs here, no giant intro",
+                          cn,(unsigned long)c,gen,ok,G_NP);
     else LOGI("[GIANT] ready: MPC_DinoGiant 0x%lx, button at (%.0f,%.0f,%.0f), lift %.0f cm, rise %.0f s, down %.0f s, press %.0f cm; "
          "spot light 0x%lx, show clock %s",
-         (unsigned long)c,G_BTN[0],G_BTN[1],G_BTN[2],g_gCfgH,g_gCfgRise,g_gCfgDesc,g_gCfgPress,(unsigned long)g_gSpotComp,
+         (unsigned long)c,G_BTN[0],G_BTN[1],G_BTN[2],g_gCfgH,g_gCfgRise,g_gCfgDesc,g_gCfgPress,(unsigned long)spot,
          g_gFnTime?(g_gTimeDouble?"double":"float"):"missing"); }
 static void giant_read_cfg(){
     char s[160]; if(!read_trim_file("giant.txt",s,sizeof s)) return;
@@ -2591,11 +3157,11 @@ static void giant_read_cfg(){
     if((p=strstr(s,"rise="))&&sscanf(p+5,"%lf",&v)==1&&v>=1&&v<=120) g_gCfgRise=v;
     if((p=strstr(s,"descend="))&&sscanf(p+8,"%lf",&v)==1&&v>=1&&v<=600) g_gCfgDesc=v;
     if((p=strstr(s,"press="))&&sscanf(p+6,"%lf",&v)==1&&v>=5&&v<=40) g_gCfgPress=v; }
-static void giant_mpc(uintptr_t ctx,int i,float v){ if(g_gColl&&g_mpcFnSetS&&g_mpcLib&&g_gN[i]) mpc_call_on(g_gColl,g_mpcFnSetS,ctx,g_gN[i],&v,false,true); }
+static void giant_mpc(uintptr_t ctx,int i,float v){ if(g_gN[i]&&g_mpcFnSetS&&g_mpcLib&&show_coll_ok()) mpc_call_on(g_gColl,g_mpcFnSetS,ctx,g_gN[i],&v,false,true); }
 // the show bus for the other stage code (club.cpp): a scalar's key on the live show collection (0 = missing; look it up
 // again whenever g_showGen changes) and a write through the same KismetMaterialLibrary call (game thread)
-static uint64_t show_key(const char* name){ return (g_gColl&&obj_alive(g_gColl))?mpc_param_name(g_gColl,"ScalarParameters",28,name):0; }
-static void show_set(uint64_t key,float v){ if(key&&g_gColl&&g_mpcFnSetS&&g_mpcLib&&g_pawn&&obj_alive(g_pawn)) mpc_call_on(g_gColl,g_mpcFnSetS,g_pawn,key,&v,false,true); }
+static uint64_t show_key(const char* name){ return show_coll_ok()?mpc_param_name(g_gColl,"ScalarParameters",28,name):0; }
+static void show_set(uint64_t key,float v){ if(key&&g_mpcFnSetS&&g_mpcLib&&g_pawn&&obj_alive(g_pawn)&&show_coll_ok()) mpc_call_on(g_gColl,g_mpcFnSetS,g_pawn,key,&v,false,true); }
 #define HAVE_SHOW_BUS 1
 static void giant_spot_light(double cd){                              // g_lFnSet: LightComponent.SetIntensity (em_lights)
     if(!g_gSpotComp||!obj_alive(g_gSpotComp)||!g_lFnSet) return;
@@ -2620,7 +3186,7 @@ static void giant_set_rel(double h){                                  // VROrigi
 static void giant_reset(const char* why){                             // back on the floor right now
     if(g_gState==G_DOWN&&!g_gBased) return;
     if(g_gBased){ giant_set_rel(0); g_gBased=false; }
-    if(g_gColl&&obj_alive(g_gColl)&&g_pawn&&obj_alive(g_pawn)){ giant_mpc(g_pawn,GP_H,0); giant_mpc(g_pawn,GP_ROBE,0); giant_mpc(g_pawn,GP_GLOW,0);
+    if(show_coll_ok()&&g_pawn&&obj_alive(g_pawn)){ giant_mpc(g_pawn,GP_H,0); giant_mpc(g_pawn,GP_ROBE,0); giant_mpc(g_pawn,GP_GLOW,0);
         if(strcmp(why,"landed")&&strcmp(why,"song")){ g_gShow=1; g_gSpot=0; g_gTop=0; giant_mpc(g_pawn,GP_SHOW,1); giant_mpc(g_pawn,GP_SPOT,0);
             giant_mpc(g_pawn,GP_TOP,0); giant_spot_light(0); } }
     if(!strcmp(why,"landed")){                                          // the show comes back at its drop (bar 17)
@@ -2705,6 +3271,9 @@ static void song_read_cfg(){                                          // game th
 //   channel fader: BP_ChannelVolumeSlider_C, BP_SliderBase_C.CurrentSliderOffset, -2.2 bottom .. +2.2 top; "Mixer Channel"
 //   filter:        BP_ChannelColorKnob_C, BP_KnobBase_C.CurrentKnobRotationYaw, 0 centre, about +-150 at the ends; "Mixer Channel"
 //   deck channel:  BP_MixerChannelDevice_C.MixerChannel (BP_Deck_C's parent)
+// 0.12.6 (2311), C++: TribeChannelVolumeSlider (-> TribeMixerSliderBase; MixerChannel, TribeSliderBase.CurrentSliderOffset),
+// TribeChannelColorKnob (-> TribeChannelKnobBase.MixerChannel -> TribeMixerKnobBase; TribeKnobBase.CurrentKnobRotationYaw),
+// TribeDeck -> TribeMixerChannelDevice.MixerChannel (super chains and types read from the 2311 library)
 // heard level = fader x filter openness (an open filter counts fully, a filter swept past ~80% of its travel fades out)
 #define MX_CH 8
 static uintptr_t g_mxFader[MX_CH], g_mxFilter[MX_CH];
@@ -2719,8 +3288,9 @@ static double mx_read(uintptr_t a,int sz,bool real){                  // a numer
 static void mix_lookup(){                                             // POLL thread: the mixer's channel faders and filters
     static uintptr_t clsS=0, clsK=0; static int tries=0;
     if(!g_sCls) return;
-    if(!clsS) clsS=find_by_path("/Game/Equipment/Mixer/BP_MixerSliderBase.BP_MixerSliderBase_C",1);
-    if(!clsK) clsK=find_by_path("/Game/Equipment/Mixer/BP_MixerKnobBase.BP_MixerKnobBase_C",1);
+    char mc[48]; class_name(g_sCls,mc,sizeof mc); bool nat=!strcmp(mc,"Class");   // the decks' class is C++ (2311) or a Blueprint (2304)
+    if(!clsS) clsS=find_by_path(nat?"/Script/TribeXR.TribeMixerSliderBase":"/Game/Equipment/Mixer/BP_MixerSliderBase.BP_MixerSliderBase_C",1);
+    if(!clsK) clsK=find_by_path(nat?"/Script/TribeXR.TribeMixerKnobBase":"/Game/Equipment/Mixer/BP_MixerKnobBase.BP_MixerKnobBase_C",1);
     if(!clsS||!clsK){ if((tries++%30)==0) LOGI("[MIX] mixer classes not loaded yet"); return; }
     if(g_mxOffDeckCh==-2){ uintptr_t fc=0; g_mxOffDeckCh=prop_offset(g_sCls,"MixerChannel",&fc); g_mxSzDeckCh=mx_size(fc); }
     uintptr_t fad[MX_CH]={0}, fil[MX_CH]={0}; int nf=0, nk=0; char cn[96];
@@ -2731,7 +3301,8 @@ static void mix_lookup(){                                             // POLL th
         for(uintptr_t c=rdptr(o+OFF_Class); c&&depth<12&&!kind; c=rdptr(c+OFF_Super),depth++) kind=c==clsS?1:c==clsK?2:0;
         if(!kind) continue;
         class_name(o,cn,sizeof cn);
-        bool fader=kind==1&&!strcmp(cn,"BP_ChannelVolumeSlider_C"), filt=kind==2&&!strcmp(cn,"BP_ChannelColorKnob_C");
+        bool fader=kind==1&&(!strcmp(cn,"BP_ChannelVolumeSlider_C")||em_is_a(o,"TribeChannelVolumeSlider")),   // 2304 BP / 2311 C++
+             filt=kind==2&&(!strcmp(cn,"BP_ChannelColorKnob_C")||em_is_a(o,"TribeChannelColorKnob"));
         if(!fader&&!filt) continue;
         uintptr_t cls=rdptr(o+OFF_Class), fc=0; int oc=-1;
         static const char* CHN[]={"Mixer Channel","MixerChannel","Channel","ChannelIndex","Channel Index","Mixer Channel Index","Deck Channel"};
@@ -2850,18 +3421,20 @@ static void bass_tick(double dt,int deck,double t){
     double tau=target>v?0.03:0.15; v+=(target-v)*(1.0-exp(-dt/tau));
     float vf=(float)v; if(fabsf(vf-w)>0.004f){ w=vf; giant_mpc(g_pawn,GP_BASS,vf); }
     if(on!=wasOn){ wasOn=on; LOGI("[BASS] %s",on?"song bass map":"off"); } }
-static void song_lookup(){                                            // POLL thread: Tribe's decks (BP_Deck_C and children)
+static void song_lookup(){                                            // POLL thread: Tribe's decks (TribeDeck / BP_Deck_C, children)
     if(!g_sCls){
-        static int miss=0; uintptr_t c=find_by_path("/Game/Equipment/Deck/BP_Deck.BP_Deck_C",1);
-        if(!c){ if((miss++%30)==0) LOGI("[SONG] BP_Deck_C not loaded yet"); return; }
-        g_sFnPlaying=find_by_path("/Game/Equipment/Deck/BP_Deck.BP_Deck_C.GetIsPlaying",0);
-        g_sFnSecs=find_by_path("/Game/Equipment/Deck/BP_Deck.BP_Deck_C.GetPlaybackSeconds",0);
-        g_sFnName=find_by_path("/Game/Equipment/Deck/BP_Deck.BP_Deck_C.GetCurrentTrackDisplayName",0);
-        char tp[64]="?", ts[64]="?", tn[64]="?", td[64]="?"; uintptr_t fc=0;
+        static int miss=0, natTry=0; uintptr_t c=0;
+        if(natTry<3&&!(c=find_by_path("/Script/TribeXR.TribeDeck",1))) natTry++;               // 0.12.6 (2311): C++, always loaded
+        if(!c) c=find_by_path("/Game/Equipment/Deck/BP_Deck.BP_Deck_C",1);                      // 2304: Blueprint, loads with the rig
+        if(!c){ if((miss++%30)==0) LOGI("[SONG] Tribe's deck class (TribeDeck / BP_Deck_C) not loaded yet"); return; }
+        g_sFnPlaying=em_find_child_func(c,"GetIsPlaying");             // the class's own functions (BP: the same as the old paths)
+        g_sFnSecs=em_find_child_func(c,"GetPlaybackSeconds");
+        g_sFnName=em_find_child_func(c,"GetCurrentTrackDisplayName");
+        char tp[64]="?", ts[64]="?", tn[64]="?", td[64]="?", dn[64]; uintptr_t fc=0; obj_name(c,dn,sizeof dn);
         g_sPlayOut=fn_out(g_sFnPlaying,tp,sizeof tp); g_sSecsOut=fn_out(g_sFnSecs,ts,sizeof ts); g_sNameOut=fn_out(g_sFnName,td,sizeof td);
         g_sOffName=prop_offset(c,"CurrentTrackFileName",&fc); if(fc) fname_resolve(rd32(fc),tn,sizeof tn);
-        LOGI("[SONG] BP_Deck_C 0x%lx: GetIsPlaying out @%d %s, GetPlaybackSeconds out @%d %s, GetCurrentTrackDisplayName out @%d %s, "
-             "CurrentTrackFileName @%d %s",(unsigned long)c,g_sPlayOut,tp,g_sSecsOut,ts,g_sNameOut,td,g_sOffName,tn);
+        LOGI("[SONG] %s 0x%lx: GetIsPlaying out @%d %s, GetPlaybackSeconds out @%d %s, GetCurrentTrackDisplayName out @%d %s, "
+             "CurrentTrackFileName @%d %s",dn,(unsigned long)c,g_sPlayOut,tp,g_sSecsOut,ts,g_sNameOut,td,g_sOffName,tn);
         g_sSecsDouble=!strcmp(ts,"DoubleProperty");
         if(strcmp(tn,"StrProperty")) g_sOffName=-1;
         if(strcmp(td,"StrProperty")) g_sNameOut=-1;
@@ -3009,7 +3582,10 @@ static void show_bars(int cur,int nxt){
     if(cur!=lastCur){ prev=(cur>=0&&lastCur>=0)?lastCur:-1; lastCur=cur; giant_mpc(g_pawn,GP_PREV,(float)prev); }
     if(nxt!=lastNext){ lastNext=nxt; giant_mpc(g_pawn,GP_NEXT,(float)nxt); } }
 static void giant_tick(float dt){                                     // game thread, every frame
-    if(g_emState!=EM_ACTIVE||!g_gColl||!obj_alive(g_gColl)||!g_pawn||!obj_alive(g_pawn)||!g_camComp){
+    g_gFrame++;
+    if(g_gColl&&!show_coll_ok()){ show_drop("the collection went away"); g_gPendGen=-1; }   // and look again
+    if(g_gPend&&g_emState==EM_ACTIVE) show_adopt();
+    if(g_emState!=EM_ACTIVE||!show_coll_ok()||!g_pawn||!obj_alive(g_pawn)||!g_camComp){
         if(g_gState!=G_DOWN) giant_reset("stage not active");
         if(g_sOn){ g_sOn=false; g_sDeckOn=0; g_sAct=nullptr; LOGI("[SONG] off (our stage is not up)"); }
         return; }
@@ -3128,6 +3704,7 @@ static void env_menu_tick(){
     if(!g_envMenuOn||(++tk%60)!=0) return;
     if(++win>=30){ win=0; spawns=0; }                                        // same respawn guard as the avatar boxes
     uintptr_t list=g_emList; int n=g_emCount;
+    g_emListLive=(list&&obj_alive(list))?1:0;
     if(!tripped&&list&&obj_alive(list)&&g_emCls&&g_smFnSpawn&&g_smFnAddItem&&g_smFnIndexOf&&n>0){
         uintptr_t outer=(g_emTribeItem&&obj_alive(g_emTribeItem))?rdptr(g_emTribeItem+OFF_Outer):list;
         for(int i=0;i<n&&i<EM_MAX&&!tripped;i++){
@@ -3141,8 +3718,12 @@ static void env_menu_tick(){
             static int waited=0;                                              // add the box once it carries the Void's identity
             if(g_emItems[i]&&sm_list_index(list,g_emItems[i])<0&&(g_emIdentOf[i]==g_emItems[i]||++waited>15)){
                 sm_list_add(list,g_emItems[i]); LOGI("[ENV] added box '%s'%s",g_emLabels[i],g_emIdentOf[i]==g_emItems[i]?"":" (WITHOUT the Void's identity: not found)"); } }
+        { int k=0; for(int i=0;i<n&&i<EM_MAX;i++) if(g_emItems[i]&&obj_alive(g_emItems[i])&&sm_list_index(list,g_emItems[i])>=0) k++; g_emAdded=k; }
+        if(g_emMode==1) em_pool_scan(list);                                  // 2311: find our boxes in the list's own pool
         for(int w=0;w<32;w++) if(g_emW[w]){                                  // keep our labels (Tribe may rewrite NameText)
-            if(!obj_alive(g_emW[w])){ g_emW[w]=0; continue; } int ix=g_emWi[w]; if(ix>=0&&ix<n) box_set_label(g_emW[w],g_emLabels[ix]); } }
+            if(!obj_alive(g_emW[w])){ g_emW[w]=0; continue; } int ix=g_emWi[w];
+            if(g_emMode==1&&g_emOffWSkin>=0&&em_item_idx(rdptr(g_emW[w]+(uintptr_t)g_emOffWSkin))!=ix){ g_emW[w]=0; continue; }   // 2311: recycled
+            if(ix>=0&&ix<n) box_set_label(g_emW[w],g_emLabels[ix]); } }
     // the game state, straight from the engine (GameplayStatics.GetGameState): a name/path search never finds it on this build
     // World context: our own avatar actor first (spawned into the game world), then the menu list (a UMG widget asks its
     // owning player's world), then the rig. The first BP_Rig_C found can live in a preview world with no game state
@@ -3150,8 +3731,8 @@ static void env_menu_tick(){
     if((!g_emGameState||!obj_alive(g_emGameState))&&g_emFnGetGS&&g_smGS){
         static int oWC=-2; if(oWC==-2) oWC=prop_offset(g_emFnGetGS,"WorldContextObject",0);
         uint16_t psz=rd16(g_emFnGetGS+0xB6), rvo=rd16(g_emFnGetGS+0xB8); static uint8_t b[32]; uintptr_t gs=0;
-        uintptr_t ctx[3]={g_isoActor,g_emList,g_emRig};
-        for(int k=0;k<3&&!gs;k++){ uintptr_t wc=ctx[k]; if(!wc||!obj_alive(wc)||oWC<0||psz>sizeof b||rvo>=psz) continue;
+        uintptr_t ctx[4]={g_pawn,g_isoActor,g_emList,g_emRig};
+        for(int k=0;k<4&&!gs;k++){ uintptr_t wc=ctx[k]; if(!wc||!obj_alive(wc)||oWC<0||psz>sizeof b||rvo>=psz) continue;
             memset(b,0,psz); *(uintptr_t*)(b+oWC)=wc; call_uf(g_smGS,g_emFnGetGS,b); gs=*(uintptr_t*)(b+rvo); }
         static int scanTk=0;
         if(!gs&&++scanTk%3==0){ gs=em_find_gs_by_class(); if(gs) LOGI("[ENV] GetGameState gave nothing for every context; found the game state by class instead"); }
@@ -3159,12 +3740,13 @@ static void env_menu_tick(){
             if(g_emEnvOff<0&&rd8(gs+0x308)<=10){ g_emEnvOff=0x308; LOGI("[ENV] environment property not reflected -> native +0x308 (Ghidra, SetEnvironment impl)"); }
             char cn[96],fp[300]; class_name(gs,cn,sizeof cn); full_path(gs,fp,sizeof fp);
             int cur=em_cur_env(); LOGI("[ENV] game state = 0x%lx class=%s path=%s environment@%d = %d (%s)",(unsigned long)gs,cn,fp,g_emEnvOff,cur,em_env_name(cur)); } }
-    if(g_emUnloadReq){ g_emUnloadReq=0; if(g_emState!=EM_IDLE){ em_hide_screens(false); em_unload("you picked a stock environment"); em_write_active(""); } }
+    if(g_emUnloadReq){ g_emUnloadReq=0; char w[80]; snprintf(w,sizeof w,"stock:%s",g_emStockName[0]?g_emStockName:"?"); em_write_active(w);
+        g_emTribeSwitched=0; if(g_emState!=EM_IDLE){ em_hide_screens(false); em_unload("you picked a stock environment"); } }
     int req=g_emReq;
     if(req>=0){ g_emReq=-1;
         if(req<n&&g_emGameState&&obj_alive(g_emGameState)&&g_emFnSetEnv&&g_emVoid>=0&&g_emFnLoadLvlSoft&&g_emLSD){
             if(g_emState!=EM_IDLE) em_unload("switching");
-            g_emActive=req; em_write_active(g_emLabels[req]);
+            g_emLoadGen++; g_emActive=req; em_write_active(g_emLabels[req]); g_emTribeSwitched=0;
             int before=em_cur_env(); if(before!=(int)g_emVoid) g_emPrevEnv=before;
             int r=call_lib1(g_emGameState,g_emFnSetEnv,(int)g_emVoid);
             LOGI("[ENV] step 1/4: SetEnvironment(Void=%lld) from %d (%s) -> %d",(long long)g_emVoid,before,em_env_name(before),r);
@@ -3189,17 +3771,28 @@ static void env_menu_tick(){
         int ld=call_lib1(g_emStream,g_emFnIsLoaded,-1), vis=call_lib1(g_emStream,g_emFnIsVisible,-1); g_emT++;
         if(g_emT<=10||g_emT%5==0||vis==1) LOGI("[ENV] step 4/4: t=%ds loaded=%d visible=%d",g_emT,ld,vis);
         if(vis==1){ LOGI("[ENV] *** '%s' is IN (visible after %d s) ***",g_emLabels[a],g_emT); g_emState=EM_ACTIVE; away=0;
-            g_emBackdropOK=em_register_backdrop(); g_emBackdropTries=1; em_lights(true); }
+            g_emBackdropOK=em_register_backdrop(); g_emBackdropTries=1; g_emReReg=0; em_lights(true); }
         else if(g_emT>=40){ LOGI("[ENV] gave up after 40 s (loaded=%d visible=%d)",ld,vis); em_fail("timeout"); } }
     else if(st==EM_ACTIVE){
+        if(!g_emStream||!obj_alive(g_emStream)){ LOGI("[ENV] our level '%s' went away (a world change?): unloaded, the supervisor loads it again",g_emLabels[a]);
+            g_emStream=0; em_hide_screens(false); em_unload("our level went away"); g_emFailed=1; return; }
         em_hide_screens(true);                                               // Tribe re-shows its registered backdrop when visuals change
         if(!g_emBackdropOK&&g_emBackdropTries<20&&(++g_emBackdropTries%3)==0) g_emBackdropOK=em_register_backdrop();
+        { static int rc=0; static int oBA=-2;                                // 2311: did the Void register its own backdrop after ours
+          if(g_emMode==1&&g_emBackdropOK&&g_emReReg<6&&g_emVM&&obj_alive(g_emVM)&&(++rc%5)==0){   // (a slow load)? ~5 s, 6 at most
+              if(oBA==-2) oBA=prop_offset(rdptr(g_emVM+OFF_Class),"BackdropStaticMeshActor",0);
+              uintptr_t ba=oBA>=0?rdptr(g_emVM+(uintptr_t)oBA):0;
+              if(oBA>=0&&ba!=g_emOurScreen){ g_emReReg++; g_emBackdropOK=false; g_emBackdropTries=0; char fp[300]="(null)"; if(ba&&obj_alive(ba)) full_path(ba,fp,sizeof fp);
+                  LOGI("[ENV] visuals: Tribe's backdrop is now 0x%lx (%s), not our screen -> registering ours again (%d of 6)",(unsigned long)ba,fp,g_emReReg); } } }
         if(g_emOurScreen&&obj_alive(g_emOurScreen)){ static int lastH=-2; static char lastM[96]; char mn[96];
             int h=em_actor_hidden(g_emOurScreen); em_actor_material(g_emOurScreen,mn,sizeof mn);
             if(h!=lastH||strcmp(mn,lastM)){ LOGI("[ENV] visuals screen: hidden=%d material=%s",h,mn); lastH=h; snprintf(lastM,sizeof lastM,"%s",mn); }
             if(g_emVM&&obj_alive(g_emVM)) em_video_fill(true,g_emVM); }   // Tribe re-applies its mapping when a video opens
         int cur=em_cur_env();                                                // Tribe left the Void by some other route -> ours goes too
-        if(cur>=0&&cur!=(int)g_emVoid){ if(++away>=2){ em_hide_screens(false); em_unload("Tribe switched environment"); em_write_active(""); } }
+        if(cur>=0&&cur!=(int)g_emVoid){ if(++away>=2){ em_hide_screens(false);
+            bool youPicked=mono_now()-g_emPressMs/1000.0<4.0;           // a skin-box press just before: you picked a stock one
+            if(youPicked){ char w[80]; snprintf(w,sizeof w,"stock:%s",em_env_name(cur)); em_write_active(w); em_unload("you picked a stock environment"); }
+            else { g_emTribeSwitched=1; em_unload("Tribe switched environment; your pick stays for the next launch"); } } }
         else away=0; }
 }
 #include "club.cpp"                                                  // the REACTOR club (club session): walking + gate
@@ -3207,7 +3800,52 @@ static void env_menu_tick(){
 #include "camview.cpp"                                               // a stage's extra camera button (Graveyard Shift's Crowd)
 #include "stream.cpp"                                                // Tribe's stream encoder settings (tribemod/stream.txt)
 #include "freeze.cpp"                                                // the freeze recorder (tribemod/freeze_log.txt)
+// ---- the ProcessEvent hook (mod2311) ----
+// Pass-through (just Tribe's own call) until the mod is on (g_mod_on: tribemod readable and executor_on in it), and on
+// every thread but the game thread: the per-frame work, the menu handlers and the loads used to run on whichever thread
+// called ProcessEvent next. The game thread is the one named "GameThread" (the 13:57:37 tombstone: tid 24243, name
+// GameThread); it is learned from its own calls, one name check per 64 calls until found.
+static volatile sig_atomic_t g_mod_on=0;
+static volatile sig_atomic_t g_gtProbe=0;
+static inline bool is_game_thread(){
+    uintptr_t me=(uintptr_t)pthread_self(), gt=g_gtSelf;
+    if(gt) return me==gt;
+    if(((g_gtProbe=g_gtProbe+1)&63)!=0) return false;
+    char nm[17]; memset(nm,0,sizeof nm); if(prctl(PR_GET_NAME,(unsigned long)nm,0,0,0)!=0||strcmp(nm,"GameThread")) return false;
+    g_gtSelf=me; LOGI("[HOOK] the game thread: tid %d (named GameThread); the mod works on it only",my_tid()); return true; }
+// A world change (mod2311): the poll thread saw Tribe's pawn go away (a room join or leave, a level change) and moved
+// g_worldGen on. Everything bound to the old world is dropped here, on the game thread, without calling into it; the poll
+// thread finds the new pawn and this thread wires it (world_wire); a stage you had loaded is loaded again by the
+// supervisor, and our avatar actor is spawned again if it went with the old world.
+static volatile int g_worldGen=0; static int g_worldSeen=0;
+static volatile sig_atomic_t g_worldUp=0; static double g_worldUpAt=-1;   // the supervisor's (world_poll)
+static void head_forget(const char* why){            // our actor went away: its head component with it; the head mesh stays
+    if(g_hdComp) LOGI("[HEAD] the head component went with our avatar actor (%s): a new one is made on the next tick",why);
+    g_hdComp=0; g_hdForA=0; g_hdState=HD_ON; }
+static void world_reset_game(){
+    g_worldSeen=g_worldGen;
+    LOGI("[WORLD] reset (gen %d): the pawn, camera, hands, menus and stage state of the old world are dropped",g_worldSeen);
+    g_pawn=0; g_camComp=0; g_vrOrigin=0; g_mcL=0; g_mcR=0; g_camMgr=0;
+    if(g_isoActor&&!obj_alive(g_isoActor)){ unroot_object(g_isoActor); g_isoActor=0; g_isoComp=0;   // gone with the old world
+        a2_drop_meshes(); g_trackParent=0; head_forget("the world changed"); }
+    if(g_emState!=EM_IDLE){ show_drop("the world changed"); g_emStream=0; g_emActive=-1; g_emState=EM_IDLE; g_emLoadGen++; g_emFailed=1; }
+    g_emGameState=0; g_emScreens[0]=g_emScreens[1]=0; g_emVM=0; g_emOurScreen=0; g_emRig=0; g_emList=0; memset(g_emW,0,sizeof g_emW);
+    g_smList=0; memset(g_smW,0,sizeof g_smW);
+    g_cPawn=g_cVRO=g_cCam=g_cPC=g_cPar=0; g_cBased=false; g_cHaveSet=false;      // walking: nothing is written to the old VROrigin
+    g_gBased=false; g_gState=G_DOWN; g_gH=0; g_walkPause=0; g_lN=0; }            // the lift and the light list: the old world's
 extern "C" void repl_pe(void* self,void* func,void* parms){
+    g_pe_n++;
+    if(!g_mod_on||!is_game_thread()){ orig_pe(self,func,parms); return; }
+    { static double lastRun=0, lastBeat=0; double pnow=mono_now();
+      if(pnow-lastBeat>=0.016){ lastBeat=pnow; freeze_beat(); }        // the game thread is alive (also while a world loads)
+      if(g_worldSeen!=g_worldGen&&ue_enter()){ world_reset_game(); ue_leave(); }
+      if(g_wire_req&&ue_enter()){ g_wire_req=0; world_wire(); ue_leave(); }          // the poll thread found the world
+      // the per-frame work, every 16 ms at most, once the world is up (Tribe's pawn wired), with or without our avatar
+      // actor (mod2311; levels doc S3, load doc 3.4): each part checks its own needs
+      if(g_pawn && (lastRun==0 || pnow-lastRun>=0.016) && ue_enter()){
+          if(!obj_alive(g_pawn)){ lastRun=pnow; ue_leave(); }        // the world is going: the poll thread resets it
+          else { float pdt=(lastRun==0)?0.016f:(float)(pnow-lastRun); if(pdt>0.25f) pdt=0.25f; lastRun=pnow; g_pe_drv++;
+          giant_tick(pdt); club_tick(pdt); intro_tick(pdt); camview_tick(pdt); stream_tick(pdt); follow_update(pdt); bt_frame(pdt); drone_update(pdt); head_tick(pdt); menu_tick(); sm_tick_2311(); env_menu_tick(); perf_frame(pdt); ue_leave(); } } }
     club_pe(self,func,parms);                                        // the club's stick events (inert off its map)
     if(camview_pe(self,func,parms)) return;                          // Tribe's camera buttons give our camera back (camview.cpp)
     if(g_skinTrace) skin_trace_hit((uintptr_t)self,(uintptr_t)func,parms);
@@ -3219,6 +3857,10 @@ extern "C" void repl_pe(void* self,void* func,void* parms){
         else { int idx=em_item_idx(p0);                                       // OnListItemObjectSet: label ours after Tribe fills the box
             if(idx>=0){ orig_pe(self,func,parms); em_map_widget((uintptr_t)self,idx); box_set_label((uintptr_t)self,g_emLabels[idx]); return; }
             em_map_widget((uintptr_t)self,-1); } }                           // a recycled box now shows someone else's item
+    if(g_envMenuOn && func && parms && (func==(void*)g_emFnUWDown||func==(void*)g_emFnSkinApplied))   // 2311 boxes: press / apply
+        em_pe_2311((uintptr_t)self,(uintptr_t)func,parms);                  // (both 0 on 2304)
+    if(g_skinMenuOn && g_smMode==1 && func && parms && (func==(void*)g_smFnUWDown||func==(void*)g_smFnSkinApplied))   // avatar boxes (B)
+        sm_pe_2311((uintptr_t)self,(uintptr_t)func,parms);
     if(g_skinMenuOn && func && (func==(void*)g_smFnObjSet||func==(void*)g_smFnMouseDown||func==(void*)g_smFnListEvt)){
         uintptr_t p0=parms?*(uintptr_t*)parms:0;
         if(func==(void*)g_smFnObjSet){                                       // a box was given an item: label ours after Tribe
@@ -3228,33 +3870,31 @@ extern "C" void repl_pe(void* self,void* func,void* parms){
         if(func==(void*)g_smFnMouseDown){ int idx=sm_widget_idx((uintptr_t)self); if(idx>=0){ sm_load(idx); return; } }   // swallow ours
         if(func==(void*)g_smFnListEvt){ int idx=sm_item_idx(p0); if(idx>=0){ sm_load(idx); return; } } }                  // swallow ours
     // BLOCK Blueprint-level resets of our body while the keeper is on (Tribe setting AvatarBodyMesh to null/other).
-    if(g_keep && !g_in_load && g_fnSet && func==(void*)g_fnSet && (uintptr_t)self==g_body && parms && *(uintptr_t*)parms!=g_mymesh){
+    if(g_keep && !ue_busy() && g_fnSet && func==(void*)g_fnSet && (uintptr_t)self==g_body && parms && *(uintptr_t*)parms!=g_mymesh){
         g_resets_bp++; if(g_resets_bp<=20||(g_resets_bp%100)==0) load_status("BLOCKED BP reset of body -> 0x%lx (#%d)",(unsigned long)*(uintptr_t*)parms,g_resets_bp);
         return;                                                    // swallow it
     }
-    // FOLLOW: our actor's ReceiveTick (TG_PostUpdateWork) drives the body each frame. AActor::Tick always routes
-    // ReceiveTick through ProcessEvent even with no Blueprint implementation. Fallback: the pawn's tick, only while ours is silent.
-    if(g_isoActor && !g_in_load && parms){
-        uintptr_t s=(uintptr_t)self;
-        if(s==g_isoActor && func==(void*)g_fnReceiveTick){ g_isoTicks++; g_in_load=1; giant_tick(*(float*)parms); club_tick(*(float*)parms); intro_tick(*(float*)parms); camview_tick(*(float*)parms); stream_tick(*(float*)parms); freeze_beat(); follow_update(*(float*)parms); bt_frame(*(float*)parms); drone_update(*(float*)parms); head_tick(*(float*)parms); menu_tick(); env_menu_tick(); perf_frame(*(float*)parms); g_in_load=0; }
-        else if(g_isoTicks==0 && s && s==g_fallbackTicker && is_receive_tick(func)){ g_camTicks++; g_in_load=1; giant_tick(*(float*)parms); club_tick(*(float*)parms); intro_tick(*(float*)parms); camview_tick(*(float*)parms); stream_tick(*(float*)parms); freeze_beat(); follow_update(*(float*)parms); bt_frame(*(float*)parms); drone_update(*(float*)parms); head_tick(*(float*)parms); menu_tick(); env_menu_tick(); perf_frame(*(float*)parms); g_in_load=0; }
-    }
+    // (mod2311: the 2304 ReceiveTick driver and the pawn-tick fallback are gone: on 2311 ReceiveTick never passes
+    // ProcessEvent, and the driver above runs every frame once the world is up)
     // keeper: poll thread saw a NATIVE reset -> re-attach our (rooted) mesh here on the game thread
-    if(g_reattach_req && g_keep && !g_in_load){ g_reattach_req=0; g_in_load=1; attach_mesh(g_body,g_mymesh); g_in_load=0; }
-    if(g_iso_req && !g_in_load){ g_iso_req=0; g_in_load=1; spawn_iso_actor(g_mymesh); g_in_load=0;
-        g_reports=0; g_report_ticks=2; }                        // fresh RENDER reports ~1s after the spawn, then every 10s
-    if(g_report_req && g_body && !g_in_load){ g_report_req=0; g_in_load=1; g_reports++; render_report(); g_in_load=0; }
+    if(g_reattach_req && g_keep && ue_enter()){ g_reattach_req=0; attach_mesh(g_body,g_mymesh); ue_leave(); }
+    if(g_iso_req && ue_enter()){ g_iso_req=0;
+        if(g_isoActor&&obj_alive(g_isoActor)){ ue_leave(); }                // already up (a late request): nothing to do
+        else { if(g_isoActor){ unroot_object(g_isoActor); g_isoActor=0; g_isoComp=0; a2_drop_meshes(); g_trackParent=0; head_forget("our actor went away"); }
+        spawn_iso_actor(g_mymesh); g_smActorHid=0; ue_leave();
+        g_reports=0; g_report_ticks=2; } }                      // fresh RENDER reports ~1s after the spawn, then every 10s
+    if(g_report_req && (g_body||g_isoComp) && ue_enter()){ g_report_req=0; g_reports++; render_report(); ue_leave(); }
     if(g_log_pe && g_resolved) pe_log_func((uintptr_t)func);     // diagnostic: capture avatar/skin/menu events
     if(g_logDeck && g_resolved) deck_log_pe((uintptr_t)self,(uintptr_t)func,parms);   // diagnostic: the deck capture (intro.cpp)
     // skin-cycle: after the first load, when Tribe (re)applies the RPM skin from the avatar menu, advance
     // to the next skin + arm a reload. Debounced 2s so init-time / repeated applies don't spin the cycle.
-    if(g_loaded_once && !g_in_load && g_apply_fn && func==(void*)g_apply_fn && parms){
+    if(g_loaded_once && !ue_busy() && g_apply_fn && func==(void*)g_apply_fn && parms){
         long now=(long)time(0);
         if(now-g_last_cycle>=2){ uintptr_t skin=*(uintptr_t*)parms;
             if(is_rpm_skin(skin)){ g_last_cycle=now; advance_skin(); g_load_req=1; } } }
-    if(g_load_req && !g_in_load){ g_in_load=1; g_load_req=0; run_load_guarded(); g_in_load=0; }
-    if(g_bt_req && !g_in_load){ g_bt_req=0; g_in_load=1; run_guarded(bt_start,"body-tracking start"); g_in_load=0; }
-    if(g_bt_poll_req && !g_in_load){ g_bt_poll_req=0; g_in_load=1; run_guarded(bt_poll,"body-tracking poll"); g_in_load=0; }
+    if(g_load_req && ue_enter()){ g_load_req=0; run_load_guarded(); ue_leave(); }
+    if(g_bt_req && ue_enter()){ g_bt_req=0; run_guarded(bt_start,"body-tracking start"); ue_leave(); }
+    if(g_bt_poll_req && ue_enter()){ g_bt_poll_req=0; run_guarded(bt_poll,"body-tracking poll"); ue_leave(); }
     orig_pe(self,func,parms);
 }
 
@@ -3390,7 +4030,7 @@ static void cam_log_rt(const char* label, uintptr_t rt){
 }
 static void cam_probe_tick(){
     static uintptr_t lastStick=1, lastRT=1; static bool specDone=false;
-    uintptr_t st=find_live_class_sub("BP_SelfieStick_C"), cap=0, rt=0;
+    uintptr_t st=find_live_class_sub("SelfieStick"), cap=0, rt=0;          // BP_SelfieStick_C (2304), TribeSelfieStick (2311)
     if(st){ uintptr_t scls=rdptr(st+OFF_Class); int oc=prop_offset(scls,"CaptureComponent2D",0); cap=oc>=0?rdptr(st+oc):0;
         if(cap){ uintptr_t ccls=rdptr(cap+OFF_Class); int ot=prop_offset(ccls,"TextureTarget",0); rt=ot>=0?rdptr(cap+ot):0; } }
     if(st!=lastStick || rt!=lastRT){
@@ -3460,21 +4100,25 @@ static void drone_poll(){
         if(g_offRelLoc<0||g_offRelRot<0){ uintptr_t sc=find_by_path("/Script/Engine.SceneComponent",1);   // mount pose (also set by a2)
             if(sc){ g_offRelLoc=prop_offset(sc,"RelativeLocation",0); g_offRelRot=prop_offset(sc,"RelativeRotation",0); } }
         if(!g_droneCap){
-            if(tgt==0){ uintptr_t st=find_live_class_sub("BP_SelfieStick_C");
+            if(tgt==0){ uintptr_t st=find_live_class_sub("SelfieStick");   // BP_SelfieStick_C (2304), TribeSelfieStick (2311)
                 if(st){ int oc=prop_offset(rdptr(st+OFF_Class),"CaptureComponent2D",0); g_droneCap=oc>=0?rdptr(st+oc):0; } }
             else g_droneCap=find_live("NewSceneCaptureComponent2D","SceneCaptureComponent2D","SpectatorCameraAutoCam");
             capTgt=tgt; static int quiet=0;                               // armed by an intro alone: a miss is said once a minute
-            if(g_droneCap||on||(quiet++%30)==0) LOGI("[DRONE] resolve (%s): capture=0x%lx setWorld=0x%lx setRel=0x%lx relLoc@%d relRot@%d%s",tgt?"Auto cam":"selfie stick",
+            if(g_droneCap||(quiet++%30)==0) LOGI("[DRONE] resolve (%s): capture=0x%lx setWorld=0x%lx setRel=0x%lx relLoc@%d relRot@%d%s",tgt?"Auto cam":"selfie stick",
                 (unsigned long)g_droneCap,(unsigned long)g_fnSetWorldLR,(unsigned long)g_fnSetRelLR,g_offRelLoc,g_offRelRot,
                 g_droneCap?"":(tgt?"  (Auto cam not found)":"  (take the selfie stick out)"));
             drone_dump_enum_once(); }
-        if(tgt==1 && !g_dronePC){ g_dronePC=find_live_class_sub("TribePlayerControllerBP_C");
+        if(tgt==1 && !g_dronePC){ g_dronePC=find_live_class_sub("TribePlayerControllerBP_C");   // 2304 only on purpose: on 2311 the
+            // native controller's raw +0x974 (PC_AUTOCAM_NEXTCUT) is unverified, so target=auto there flies without parking the cuts
             LOGI("[DRONE] player controller=0x%lx",(unsigned long)g_dronePC); drone_dump_pc_once(g_dronePC); } }
     int want=(on&&g_droneCap&&g_fnSetWorldLR)?1:0;
     if(want!=g_droneOn){ g_droneOn=want; LOGI("[DRONE] %s",want?(tgt?"ON: flying the Auto cam (select the Auto angle)":
         "ON: flying the selfie-stick camera"):"OFF"); } }
 // ---- extra avatar-menu boxes: poll-thread side (resolve functions, read skins/, find the live AvatarList) ----
 static uintptr_t sm_find_avatar_list(){                 // the LIVE W_ProfileMenu AvatarList (not the /Game class template)
+    if(g_smMode==1){                                     // 2311: the live TribeProfileMenuWidget's AvatarList (@0x398, a UListView)
+        uintptr_t m=em_find_live("TribeProfileMenuWidget"); uintptr_t l=sm_obj_prop(m,"AvatarList");
+        if(l&&obj_alive(l)&&em_is_a(l,"ListView")) return l; }
     char nm[96],cn[96],fp[400];
     for(uint32_t i=0;i<g_numElements;i++){ uintptr_t o=obj_at(i); if(!o) continue;
         obj_name(o,nm,sizeof nm); if(strcmp(nm,"AvatarList")) continue;
@@ -3488,9 +4132,12 @@ static void sm_read_skins(){                            // one box per tribemod/
     while((e=readdir(d))&&n<SM_MAX){ size_t L=strlen(e->d_name); if(L>4&&L<120&&!strcasecmp(e->d_name+L-4,".glb")){ strcpy(names[n],e->d_name); n++; } }
     closedir(d);
     for(int i=0;i<n;i++) for(int j=i+1;j<n;j++) if(strcmp(names[i],names[j])>0){ char t[128]; strcpy(t,names[i]); strcpy(names[i],names[j]); strcpy(names[j],t); }
+    bool tribeBox=g_smMode==1&&n<SM_MAX; if(tribeBox) strcpy(names[n++],"tribe");   // 2311: the last box is "Tribe Avatar"
     bool same=(n==g_smCount); for(int i=0;same&&i<n;i++) if(strcmp(names[i],g_smFiles[i])) same=false;
     if(same) return;
-    for(int i=0;i<n;i++){ strcpy(g_smFiles[i],names[i]); size_t L=strlen(names[i])-4; int k=0;
+    for(int i=0;i<n;i++){ strcpy(g_smFiles[i],names[i]);
+        if(!strcmp(names[i],"tribe")){ snprintf(g_smLabels[i],sizeof g_smLabels[i],"Tribe Avatar"); continue; }
+        size_t L=strlen(names[i])-4; int k=0;
         for(size_t c=0;c<L&&k<63;c++){ char ch=names[i][c]; g_smLabels[i][k++]=(ch=='_')?' ':ch; } g_smLabels[i][k]=0;
         if(g_smLabels[i][0]>='a'&&g_smLabels[i][0]<='z') g_smLabels[i][0]-=32; }
     g_smCount=n; for(int i=0;i<n;i++) LOGI("[MENU] box %d: '%s' -> skins/%s",i,g_smLabels[i],g_smFiles[i]); }
@@ -3501,30 +4148,63 @@ static uintptr_t find_in_outer(const char* name,const char* outerName){
         obj_name(o,nm,sizeof nm); if(strcmp(nm,name)) continue;
         obj_name(rdptr(o+OFF_Outer),on,sizeof on); if(!strcmp(on,outerName)) return o; }
     return 0; }
-static uintptr_t sm_find_live_rpm_skin(){              // any live (non-CDO) BP_ReadyPlayerMeAvatarSkin_C -> outer for ours
+static uintptr_t sm_find_live_rpm_skin(){              // any live (non-CDO) RPM skin item that isn't ours -> outer + identity
     char cn[96],fp[400];
     for(uint32_t i=0;i<g_numElements;i++){ uintptr_t o=obj_at(i); if(!o||sm_item_idx(o)>=0) continue;
-        class_name(o,cn,sizeof cn); if(strcmp(cn,"BP_ReadyPlayerMeAvatarSkin_C")) continue;
+        class_name(o,cn,sizeof cn); if(strcmp(cn,"BP_ReadyPlayerMeAvatarSkin_C")&&strcmp(cn,"TribeReadyPlayerMeAvatarSkin")) continue;   // 2304 / 2311
         if(rd32(o+OFF_Flags)&RF_ClassDefaultObject) continue; full_path(o,fp,sizeof fp); if(strstr(fp,"Default__")) continue;
         return o; }
     return 0; }
 static void menu_resolve_engine_fns(){                  // shared by the avatar + environment boxes; engine functions are always loaded
-    if(g_smFnAddItem) return;
-    g_smFnAddItem =find_by_path("/Script/UMG.ListView.AddItem",0);
-    g_smFnIndexOf =find_by_path("/Script/UMG.ListView.GetIndexForItem",0);
-    g_smFnSpawn   =find_by_path("/Script/Engine.GameplayStatics.SpawnObject",0);
-    g_smGS        =find_by_path("/Script/Engine.Default__GameplayStatics",0);
-    g_smFnStr2Txt =find_by_path("/Script/Engine.KismetTextLibrary.Conv_StringToText",0);
-    g_smKTL       =find_by_path("/Script/Engine.Default__KismetTextLibrary",0);
-    g_smFnSetText =find_by_path("/Script/UMG.TextBlock.SetText",0);
-    LOGI("[MENU] engine fns: AddItem=0x%lx GetIndexForItem=0x%lx SpawnObject=0x%lx GS=0x%lx Str2Text=0x%lx KTL=0x%lx SetText=0x%lx",
+    if(g_smFnAddItem&&g_smFnIndexOf&&g_smFnSpawn&&g_smGS&&g_smFnStr2Txt&&g_smKTL&&g_smFnSetText) return;
+    if(!g_resolved) return;                              // mod2311: nothing to find before the object array (13:40: all 0)
+    if(!g_smFnAddItem) g_smFnAddItem =find_by_path("/Script/UMG.ListView.AddItem",0);      // each missing one is retried
+    if(!g_smFnIndexOf) g_smFnIndexOf =find_by_path("/Script/UMG.ListView.GetIndexForItem",0);
+    if(!g_smFnSpawn)   g_smFnSpawn   =find_by_path("/Script/Engine.GameplayStatics.SpawnObject",0);
+    if(!g_smGS)        g_smGS        =find_by_path("/Script/Engine.Default__GameplayStatics",0);
+    if(!g_smFnStr2Txt) g_smFnStr2Txt =find_by_path("/Script/Engine.KismetTextLibrary.Conv_StringToText",0);
+    if(!g_smKTL)       g_smKTL       =find_by_path("/Script/Engine.Default__KismetTextLibrary",0);
+    if(!g_smFnSetText) g_smFnSetText =find_by_path("/Script/UMG.TextBlock.SetText",0);
+    static int lastN=-1; int n=!!g_smFnAddItem+!!g_smFnIndexOf+!!g_smFnSpawn+!!g_smGS+!!g_smFnStr2Txt+!!g_smKTL+!!g_smFnSetText;
+    if(n!=lastN){ lastN=n;                               // logged when the count changes (it was every 2 s while missing)
+    LOGI("[MENU] engine fns (%d/7): AddItem=0x%lx GetIndexForItem=0x%lx SpawnObject=0x%lx GS=0x%lx Str2Text=0x%lx KTL=0x%lx SetText=0x%lx",n,
         (unsigned long)g_smFnAddItem,(unsigned long)g_smFnIndexOf,(unsigned long)g_smFnSpawn,(unsigned long)g_smGS,
-        (unsigned long)g_smFnStr2Txt,(unsigned long)g_smKTL,(unsigned long)g_smFnSetText); }
+        (unsigned long)g_smFnStr2Txt,(unsigned long)g_smKTL,(unsigned long)g_smFnSetText); } }
+// 2311 (poll thread): the C++ menu's lookups, the live AvatarList, Tribe's RPM item, the one-time diagnostic, ON/OFF
+static void sm_poll_2311(int tick){
+    if(!g_smRpmCls) g_smRpmCls=find_by_path("/Script/TribeXR.TribeReadyPlayerMeAvatarSkin",1);
+    if(!g_smWCls){ g_smWCls=find_by_path("/Script/TribeXR.TribeSkinItemWidget",1); g_smOffWSkin=g_smWCls?prop_offset(g_smWCls,"Skin",0):-1; }
+    if(!g_smFnUWDown) g_smFnUWDown=find_by_path("/Script/UMG.UserWidget.OnMouseButtonDown",0);
+    if(!g_smFnSkinApplied&&g_smWCls) g_smFnSkinApplied=em_find_child_func(g_smWCls,"OnSkinApplied");
+    if(!g_smFnSetSelected&&g_smWCls) g_smFnSetSelected=em_find_child_func(g_smWCls,"SetSelected");
+    if(!g_smFnToName) g_smFnToName=find_by_path("/Script/Engine.KismetStringLibrary.Conv_StringToName",0);
+    if(!g_smKSL)      g_smKSL=find_by_path("/Script/Engine.Default__KismetStringLibrary",0);
+    if(!g_smFnActHid) g_smFnActHid=find_by_path("/Script/Engine.Actor.SetActorHiddenInGame",0);
+    if(!g_fnHid)      g_fnHid=find_by_path("/Script/Engine.SceneComponent.SetHiddenInGame",0);
+    if(!g_fnRendered) g_fnRendered=find_by_path("/Script/Engine.PrimitiveComponent.WasRecentlyRendered",0);
+    sm_read_skins();
+    if(g_smList&&!obj_alive(g_smList)){ g_smList=0; LOGI("[MENU] avatar list went away"); }
+    if(!g_smList&&(tick%3)==2){ static bool told=false; g_smList=sm_find_avatar_list();
+        if(g_smList||!told){ told=!g_smList; LOGI("[MENU] live avatar list = 0x%lx%s",(unsigned long)g_smList,g_smList?" (TribeProfileMenuWidget.AvatarList)":" (open Profile > Avatars)"); } }
+    if((!g_smTribeRpm||!obj_alive(g_smTribeRpm))&&g_smList&&(tick%3)==0){ uintptr_t r=sm_find_live_rpm_skin();
+        if(r!=g_smTribeRpm){ g_smTribeRpm=r; LOGI("[MENU] Tribe's RPM skin object = 0x%lx",(unsigned long)r); } }
+    if(g_smList&&!g_smDiagDone&&g_pawn){ g_smDiagDone=1; sm_diag_poll(g_smList); }
+    int want=(g_smFnAddItem&&g_smFnIndexOf&&g_smFnSpawn&&g_smGS&&g_smRpmCls&&g_smWCls&&g_smOffWSkin>=0&&g_smFnUWDown&&g_smFnSetSelected
+              &&g_smFnToName&&g_smKSL&&g_smFnActHid)?1:0;
+    if(want!=g_skinMenuOn){ g_skinMenuOn=want;
+        LOGI("[MENU] 2311 menu (C++) %s: TribeReadyPlayerMeAvatarSkin=0x%lx TribeSkinItemWidget=0x%lx Skin@%d press=0x%lx apply=0x%lx SetSelected=0x%lx ToName=0x%lx",
+             want?"ON":"waiting for lookups",(unsigned long)g_smRpmCls,(unsigned long)g_smWCls,g_smOffWSkin,(unsigned long)g_smFnUWDown,
+             (unsigned long)g_smFnSkinApplied,(unsigned long)g_smFnSetSelected,(unsigned long)g_smFnToName); } }
 static void skin_menu_poll(){
+    g_smKeepTribeAvatar=file_present("tribe_avatar_shown")?1:0;              // kill switch: Tribe's avatar stays visible
+    { int bo=file_present("skin_boxes_off")?1:0; if(bo!=g_smBoxesOff){ g_smBoxesOff=bo; LOGI("[MENU] avatar boxes %s (tribemod/skin_boxes_off)",bo?"OFF":"on"); } }
+    if(g_smMode==1&&file_present("skin_diag")){ char dp[600]; snprintf(dp,sizeof dp,"%s/skin_diag",OUTDIR); unlink(dp); sm_diag_poll(g_smList); }   // one-shot
     bool on=file_present("skin_menu");
     if(!on){ if(g_skinMenuOn){ g_skinMenuOn=0; LOGI("[MENU] OFF"); } return; }
+    if(!g_resolved||!g_smMode) return;                   // mod2311: the lookups need the object array (all 0 before it)
     static int tick=0; tick++;
     menu_resolve_engine_fns();
+    if(g_smMode==1){ sm_poll_2311(tick); return; }
     bool missing=!g_smRpmCls||!g_smFnObjSet||!g_smFnMouseDown||!g_smFnListEvt;
     if(missing&&(tick%3)==1){                            // Blueprint classes load lazily (menus: when first opened) -> retry
         if(!g_smRpmCls)     g_smRpmCls=find_by_path("/Game/Visuals/Skins/OculusAvatar/BP_ReadyPlayerMeAvatarSkin.BP_ReadyPlayerMeAvatarSkin_C",1);
@@ -3542,6 +4222,12 @@ static void skin_menu_poll(){
     if(want!=g_skinMenuOn){ g_skinMenuOn=want; LOGI("[MENU] %s",want?"ON":"waiting for lookups"); } }
 // ---- custom environments: poll-thread side (resolve, read envs.txt, find the live list / game state / Void screens) ----
 static uintptr_t em_find_env_list(){                    // the LIVE W_VisualsMenu EnvironmentList (not the /Game class template)
+    if(g_emMode==1){                                     // 2311: the live TribeVisualsMenuWidget's EnvironmentList (a C++ property)
+        uintptr_t m=em_find_live("TribeVisualsMenuWidget"); int o=m?prop_offset(rdptr(m+OFF_Class),"EnvironmentList",0):-1;
+        uintptr_t l=o>=0?rdptr(m+(uintptr_t)o):0;
+        if(l&&obj_alive(l)&&em_is_a(l,"ListView")) return l;
+        static int told=0; if(m&&(told++%30)==0){ char cn[96]="-"; if(l&&in_range(l,0x30)) class_name(l,cn,sizeof cn);
+            LOGI("[ENV] TribeVisualsMenuWidget 0x%lx: EnvironmentList@%d = 0x%lx (%s), not a live ListView yet",(unsigned long)m,o,(unsigned long)l,cn); } }
     char nm[96],cn[96],fp[400];
     for(uint32_t i=0;i<g_numElements;i++){ uintptr_t o=obj_at(i); if(!o) continue;
         obj_name(o,nm,sizeof nm); if(strcmp(nm,"EnvironmentList")) continue;
@@ -3550,9 +4236,9 @@ static uintptr_t em_find_env_list(){                    // the LIVE W_VisualsMen
         return o; }
     return 0; }
 static uintptr_t em_find_live_env_item(){              // any live (non-CDO) BP_EnvironmentSkin_C that isn't ours -> outer for ours
-    char cn[96],fp[400];
+    char cn[96],fp[400];                                 // (2311: TribeEnvironmentSkin)
     for(uint32_t i=0;i<g_numElements;i++){ uintptr_t o=obj_at(i); if(!o||em_item_idx(o)>=0) continue;
-        class_name(o,cn,sizeof cn); if(strcmp(cn,"BP_EnvironmentSkin_C")) continue;
+        class_name(o,cn,sizeof cn); if(strcmp(cn,"TribeEnvironmentSkin")&&strcmp(cn,"BP_EnvironmentSkin_C")) continue;
         if(rd32(o+OFF_Flags)&RF_ClassDefaultObject) continue; full_path(o,fp,sizeof fp); if(strstr(fp,"Default__")) continue;
         return o; }
     return 0; }
@@ -3571,12 +4257,15 @@ static void em_read_envs(){                             // tribemod/envs.txt: "L
     g_emCount=n; for(int i=0;i<n;i++) LOGI("[ENV] box %d: '%s' -> %s",i,g_emLabels[i],g_emPaths[i]); }
 static uintptr_t em_find_void_item(){                    // Tribe's own list item whose Name (environment-table row) is Environment_Void
     static int oName=-2; if(oName==-2) oName=g_emCls?prop_offset(g_emCls,"Name",0):-2; if(oName<0) return 0;
-    char cn[96],nm[128]; refresh_numelements();
+    static int oType=-2; if(oType==-2) oType=(g_emMode==1&&g_emCls)?prop_offset(g_emCls,"EnvironmentType",0):-1;   // 2311: also by its enum
+    char cn[96],nm[128]; refresh_numelements(); uintptr_t byType=0;
     for(uint32_t i=0;i<g_numElements;i++){ uintptr_t o=obj_at(i); if(!o||em_item_idx(o)>=0) continue;
-        class_name(o,cn,sizeof cn); if(strcmp(cn,"BP_EnvironmentSkin_C")) continue;
+        class_name(o,cn,sizeof cn); if(strcmp(cn,"TribeEnvironmentSkin")&&strcmp(cn,"BP_EnvironmentSkin_C")) continue;   // 2311 / 2304
         if(rd32(o+OFF_Flags)&RF_ClassDefaultObject) continue;
-        fname_resolve(rd32(o+(uintptr_t)oName),nm,sizeof nm); if(!strcmp(nm,"Environment_Void")) return o; }
-    return 0; }
+        fname_resolve(rd32(o+(uintptr_t)oName),nm,sizeof nm); if(!strcmp(nm,"Environment_Void")) return o;
+        if(oType>=0&&g_emVoid>=0&&!byType&&rd8(o+(uintptr_t)oType)==(uint8_t)g_emVoid) byType=o; }
+    if(byType){ fname_resolve(rd32(byType+(uintptr_t)oName),nm,sizeof nm); LOGI("[ENV] no item named Environment_Void; the one with EnvironmentType=Void is '%s'",nm); }
+    return byType; }
 // ---- mixer probe v2 (read-only; only while tribemod/probe_on exists). Which Blueprint variables hold the channel
 // faders, the crossfader and the headphone cues? (The user cues the next song "with the volume down with the headphone
 // on so the crowd cant hear", so the lights must follow the channel the crowd hears.) Probe v1 filled its 48 slots with
@@ -3587,10 +4276,12 @@ static uintptr_t em_find_void_item(){                    // Tribe's own list ite
 #define PR_P 160
 struct ProbeCls { const char* path; uintptr_t cls; int np; int po[PR_P]; uint8_t pt[PR_P]; char pn[PR_P][48]; int ni;
                   uintptr_t in[PR_I]; double last[PR_I][PR_P]; float quiet[PR_I][PR_P]; uint8_t moves[PR_I][PR_P]; bool seen[PR_I]; };
-static const char* PR_PATH[PR_C]={"/Game/Equipment/Deck/BP_Deck.BP_Deck_C","/Game/Equipment/Mixer/BP_Console.BP_Console_C",
+static const char* PR_PATH[PR_C]={"/Script/TribeXR.TribeDeck","/Script/TribeXR.TribeConsole","/Script/TribeXR.TribeMixerChannelDevice",
+                                  "/Script/TribeXR.TribeMixerSliderBase","/Script/TribeXR.TribeMixerKnobBase"};   // 0.12.6 (2311): C++
+static const char* PR_PATH_BP[PR_C]={"/Game/Equipment/Deck/BP_Deck.BP_Deck_C","/Game/Equipment/Mixer/BP_Console.BP_Console_C",
                                   "/Game/Equipment/BP_MixerChannelDevice.BP_MixerChannelDevice_C",
                                   "/Game/Equipment/Mixer/BP_MixerSliderBase.BP_MixerSliderBase_C",
-                                  "/Game/Equipment/Mixer/BP_MixerKnobBase.BP_MixerKnobBase_C"};   // knobs: the user's filters
+                                  "/Game/Equipment/Mixer/BP_MixerKnobBase.BP_MixerKnobBase_C"};   // 2304; knobs: the user's filters
 static ProbeCls g_pr[PR_C];                                           // zero-initialised (.bss); paths set on first use
 static bool probe_engine_base(const char* cn){
     static const char* stop[]={"Actor","Pawn","Character","Object","ActorComponent","SceneComponent","PrimitiveComponent",
@@ -3621,7 +4312,8 @@ static void probe_poll(){                                             // POLL th
     static int tick=0, lines=0; tick++;
     for(int k=0;k<PR_C;k++) if(!g_pr[k].path) g_pr[k].path=PR_PATH[k];
     if((tick%20)==1){                                                  // every 10 s: find the classes and their instances
-        for(int k=0;k<PR_C;k++) if(!g_pr[k].cls) g_pr[k].cls=find_by_path(g_pr[k].path,1);
+        for(int k=0;k<PR_C;k++) if(!g_pr[k].cls){ g_pr[k].cls=find_by_path(PR_PATH[k],1); g_pr[k].path=PR_PATH[k];
+            if(!g_pr[k].cls){ g_pr[k].cls=find_by_path(PR_PATH_BP[k],1); g_pr[k].path=PR_PATH_BP[k]; } }   // 2311 C++, else the 2304 BP
         refresh_numelements(); int cnt[PR_C]={0}; uintptr_t got[PR_C][PR_I];
         for(uint32_t i=0;i<g_numElements;i++){ uintptr_t o=obj_at(i); if(!o) continue;
             if(rd32(o+OFF_Flags)&(RF_ClassDefaultObject|0x20u|0x40000000u)) continue;
@@ -3649,11 +4341,12 @@ static void probe_poll(){                                             // POLL th
                 if(!first&&lines++<6000) LOGI("[PROBE] %s #%d %s = %.4f",strrchr(pc->path,'.')+1,j,pc->pn[v],x);
                 pc->last[j][v]=x; pc->quiet[j][v]=0; }
             pc->seen[j]=true; } } }
+static int g_stgTries=0, g_stgWantIdx=-1, g_stgSettle=0; static bool g_stgGaveUp=false; static char g_stgWant[64]="";   // [READY]
 static void env_menu_poll(){
     bool on=file_present("env_menu");
     if(!on){ if(g_envMenuOn){ g_envMenuOn=0; LOGI("[ENV] OFF"); } return; }
     if(!g_resolved) return;                              // engine objects not up yet (Tribe waits for the headset to be worn)
-    static int tick=0, settle=0, lastEnv=-2; static bool autoDone=false; tick++;
+    static int tick=0, settle=0, lastEnv=-2; tick++;
     menu_resolve_engine_fns();
     if((tick%4)==1) mpc_lookup();                        // Tribe's video mapping collection (for our big screen)
     if((tick%4)==3) giant_lookup();                      // giant intro: MPC_DinoGiant + the VROrigin setter
@@ -3689,7 +4382,18 @@ static void env_menu_poll(){
         LOGI("[ENV] fns: LoadLevelInstanceBySoftObjectPtr=0x%lx LSD=0x%lx IsLoaded=0x%lx IsVisible=0x%lx SetLoaded=0x%lx SetVisible=0x%lx Hidden=0x%lx SetEnvironment=0x%lx Void=%lld",
             (unsigned long)g_emFnLoadLvlSoft,(unsigned long)g_emLSD,(unsigned long)g_emFnIsLoaded,(unsigned long)g_emFnIsVisible,(unsigned long)g_emFnSetLoaded,
             (unsigned long)g_emFnSetVisible,(unsigned long)g_emFnHidden,(unsigned long)g_emFnSetEnv,(long long)g_emVoid); }
-    bool missing=!g_emCls||!g_emFnObjSet||!g_emFnMouseDown||!g_emFnListEvt;
+    if(!g_emMode){                                       // which menu: Tribe 0.12.6's C++ one (2311) or the Blueprint one (2304)
+        static int tries=0; refresh_numelements(); uintptr_t c=find_by_path("/Script/TribeXR.TribeEnvironmentSkin",1);
+        if(c){ g_emWCls=find_by_path("/Script/TribeXR.TribeSkinItemWidget",1); g_emOffWSkin=g_emWCls?prop_offset(g_emWCls,"Skin",0):-1;
+            g_emFnUWDown=find_by_path("/Script/UMG.UserWidget.OnMouseButtonDown",0);
+            g_emFnSkinApplied=g_emWCls?em_find_child_func(g_emWCls,"OnSkinApplied"):0;
+            g_emCls=c; g_emMode=1;
+            LOGI("[ENV] 2311 menu (C++): TribeEnvironmentSkin=0x%lx TribeSkinItemWidget=0x%lx Skin@%d | press UserWidget.OnMouseButtonDown=0x%lx"
+                 " | apply TribeSkinItemWidget.OnSkinApplied=0x%lx%s",(unsigned long)c,(unsigned long)g_emWCls,g_emOffWSkin,(unsigned long)g_emFnUWDown,
+                 (unsigned long)g_emFnSkinApplied,(g_emWCls&&g_emOffWSkin>=0&&(g_emFnUWDown||g_emFnSkinApplied))?"":
+                 " -> our boxes can't see a press: load a stage with active_env.txt or env_autotest"); }
+        else if(g_worldUp&&++tries>=3){ g_emMode=2; LOGI("[ENV] Blueprint menu (2304)"); } }
+    bool missing=g_emMode==2&&(!g_emCls||!g_emFnObjSet||!g_emFnMouseDown||!g_emFnListEvt);   // 2311: none of these exist
     if(missing&&(tick%3)==1){                            // Blueprint classes load lazily (the visuals menu: when first opened) -> retry
         if(!g_emCls)         g_emCls=find_by_path("/Game/Visuals/Skins/Environment/BP_EnvironmentSkin.BP_EnvironmentSkin_C",1);
         if(!g_emFnObjSet)    g_emFnObjSet=find_in_outer("OnListItemObjectSet","W_SkinItem_C");
@@ -3707,22 +4411,58 @@ static void env_menu_poll(){
         LOGI("[ENV] Tribe's environment object = 0x%lx",(unsigned long)g_emTribeItem); }
     if((!g_emVoidItem||!obj_alive(g_emVoidItem))&&g_emCls&&g_emList&&(tick%3)==0){ uintptr_t v=em_find_void_item();
         if(v!=g_emVoidItem){ g_emVoidItem=v; LOGI("[ENV] Tribe's 'The Void' list item = 0x%lx%s",(unsigned long)v,v?"":" (not found yet)"); } }
-    if(!g_emRig&&(tick%5)==0){ g_emRig=find_live_class_sub("BP_Rig_C"); if(g_emRig) LOGI("[ENV] DJ rig actor = 0x%lx",(unsigned long)g_emRig); }
+    if(!g_emRig&&(tick%5)==0&&g_emMode){                 // 2311: exactly TribeRig (TribeRigSkin / TribeRigSaveGame contain it)
+        g_emRig=g_emMode==1?em_find_live_pl("TribeRig"):find_live_class_sub("BP_Rig_C"); if(g_emRig) LOGI("[ENV] DJ rig actor = 0x%lx",(unsigned long)g_emRig); }
     if(g_emState!=EM_IDLE){                              // the Void's two screens (only while we switch to / sit on the Void)
         static const char* scr[2]={"SM_BackdropScreen","SM_BackdropScreen_ChromaKey"};
         refresh_numelements();                           // the Void's actors were just created: past the cached object count
         for(int i=0;i<2;i++) if(!g_emScreens[i]||!obj_alive(g_emScreens[i])){ g_emScreens[i]=find_live(scr[i],"StaticMeshActor","Environment_Void");
-            if(g_emScreens[i]) LOGI("[ENV] Void %s = 0x%lx",scr[i],(unsigned long)g_emScreens[i]); } }
+            if(g_emScreens[i]) LOGI("[ENV] Void %s = 0x%lx",scr[i],(unsigned long)g_emScreens[i]); }
+        // 2311 (Environment_Void.umap changed): if the backdrop isn't found by name, take what the Void registered as Tribe's
+        // backdrop (TribeVisualsManager.BackdropStaticMeshActor), only if it sits in the Void's level (never ours, never the
+        // environment we came from)
+        if(g_emMode==1&&(!g_emScreens[0]||!obj_alive(g_emScreens[0]))){
+            static uintptr_t vmc=0; if(!vmc||!obj_alive(vmc)) vmc=em_find_live("TribeVisualsManager");
+            int o=vmc?prop_offset(rdptr(vmc+OFF_Class),"BackdropStaticMeshActor",0):-1; uintptr_t a=o>=0?rdptr(vmc+(uintptr_t)o):0;
+            if(a&&a!=g_emOurScreen&&obj_alive(a)){ char fp[400]; full_path(a,fp,sizeof fp);
+                if(strstr(fp,"Environment_Void")&&!strstr(fp,"/Mods/")){ g_emScreens[0]=a;
+                    LOGI("[ENV] Void backdrop (not found by name): the visuals manager's BackdropStaticMeshActor 0x%lx (%s)",(unsigned long)a,fp); } } }
+        static int chromaMiss=0; if(g_emMode==1&&!g_emScreens[1]&&++chromaMiss==10)
+            LOGI("[ENV] Void SM_BackdropScreen_ChromaKey not found by name (2311 map changed?): it stays as Tribe has it"); }
     // re-apply the saved choice once per launch, after Tribe's own saved environment has settled (same value for ~8 s)
     int cur=em_cur_env(); if(cur!=lastEnv){ lastEnv=cur; settle=0; } else settle++;
-    if(!autoDone&&g_envMenuOn&&g_emGameState&&(cur>0||g_emEnvOff<0)&&settle>=4&&g_emState==EM_IDLE){
-        autoDone=true; char saved[64];
-        if(read_trim_file("active_env.txt",saved,sizeof saved)){ int n=g_emCount;
-            for(int i=0;i<n;i++) if(!strcmp(saved,g_emLabels[i])){ g_emReq=i; LOGI("[ENV] auto: re-applying '%s' (Tribe settled on %d %s)",saved,cur,em_env_name(cur)); break; } } }
+    { static int sk=0; if(++sk==400){ int shown=0; refresh_numelements();
+        for(uint32_t i=0;i<g_numElements && shown<40;i++){ uintptr_t o=obj_at(i); if(!o) continue;
+            char cn[128], fp[400]; class_name(o,cn,sizeof cn);
+            if(!(strstr(cn,"Skin")||strstr(cn,"Rpm")||strstr(cn,"ReadyPlayer")||strstr(cn,"AvatarList")||strstr(cn,"AvatarItem"))) continue;
+            if(rd32(o+OFF_Flags)&RF_ClassDefaultObject) continue;
+            full_path(o,fp,sizeof fp); if(strstr(fp,"Default__")) continue;
+            shown++; LOGI("[SKIN] diag %d: class %s, path %s", shown, cn, fp); }
+        LOGI("[SKIN] diag: %d skin-like objects listed", shown); } }
+    // the stage you picked last (mod2311, notes 9 + 18): a mod stage's label is loaded once Tribe's own environment has
+    // held still (~8 s; the world is needed, our avatar is not); "stock:<name>" is Tribe's to restore. A failed load (or
+    // our level going away) is tried again 15 s later, 3 more times; nothing here deletes active_env.txt.
+    { static char lastWant[64]="\x01"; static double nextAt=0;
+      char want[64]=""; bool have=read_trim_file("active_env.txt",want,sizeof want);
+      int wi=-1; if(have) for(int i=0;i<g_emCount;i++) if(!strcmp(want,g_emLabels[i])){ wi=i; break; }
+      if(strcmp(want,lastWant)){ snprintf(lastWant,sizeof lastWant,"%s",want); g_stgTries=0; g_stgGaveUp=false; nextAt=0; }   // a new pick
+      snprintf(g_stgWant,sizeof g_stgWant,"%s",want); g_stgWantIdx=wi; g_stgSettle=settle;
+      if(g_emFailed){ g_emFailed=0;
+          if(g_stgTries>=4){ if(!g_stgGaveUp){ g_stgGaveUp=true; LOGI("[ENV] auto: '%s' failed %d times: giving up this launch",want,g_stgTries); } }
+          else { nextAt=mono_now()+15.0; LOGI("[ENV] auto: the load did not hold; trying again in 15 s (%d of 4 tries used)",g_stgTries); } }
+      { static double inSince=-1; bool in=g_emState==EM_ACTIVE&&g_emActive==wi&&wi>=0;   // held 60 s: a later loss gets fresh tries
+        if(!in) inSince=-1; else if(inSince<0) inSince=mono_now(); else if(mono_now()-inSince>=60.0) g_stgTries=0; }
+      if(wi>=0&&!g_stgGaveUp&&!g_emTribeSwitched&&g_emState==EM_IDLE&&g_emReq<0&&g_envMenuOn&&g_emGameState&&(cur>0||g_emEnvOff<0)
+         &&settle>=4&&mono_now()>=nextAt&&g_stgTries<4){
+          static int total=0; if(++total>12){ if(total==13) LOGI("[ENV] auto: 12 loads this launch: no more until the next launch"); g_stgGaveUp=true; return; }
+          g_stgTries++; nextAt=mono_now()+60.0; g_emReq=wi;
+          LOGI("[ENV] auto: applying '%s' (try %d; Tribe settled on %d %s)",want,g_stgTries,cur,em_env_name(cur)); } }
     // tribemod/env_autotest (one-shot): load the first environment without a click, once Tribe has settled (unattended tests)
     if(file_present("env_autotest")&&g_envMenuOn&&g_emGameState&&settle>=3&&g_emState==EM_IDLE&&g_emCount>0){
         char ap[600]; snprintf(ap,sizeof ap,"%s/env_autotest",OUTDIR); unlink(ap); g_emReq=0;
         LOGI("[ENV] autotest: loading '%s' without a click (Tribe settled on %d %s)",g_emLabels[0],cur,em_env_name(cur)); }
+    { static int lk=0; if(++lk==200) LOGI("[ENV] lookups: AddItem=0x%lx IndexOf=0x%lx Spawn=0x%lx GS=0x%lx LoadLvlSoft=0x%lx LSD=0x%lx envMenu=%d",
+        (unsigned long)g_smFnAddItem,(unsigned long)g_smFnIndexOf,(unsigned long)g_smFnSpawn,(unsigned long)g_smGS,(unsigned long)g_emFnLoadLvlSoft,(unsigned long)g_emLSD,(int)g_envMenuOn); }
     int want=(g_smFnAddItem&&g_smFnIndexOf&&g_smFnSpawn&&g_smGS&&g_emFnLoadLvlSoft&&g_emLSD)?1:0;     // boxes also need the lazy BP lookups
     if(want!=g_envMenuOn){ g_envMenuOn=want; LOGI("[ENV] %s",want?"ON":"waiting for lookups"); } }
 // poll thread: resolve A2 (retarget) functions/offsets/enums + load this rig's saved calibration
@@ -3781,12 +4521,164 @@ static void a2_resolve(){
 }
 #include "usmap.cpp"                                                 // the .usmap dump: Tribe's type mappings, for reading its assets offline
 #include "native.cpp"                                                // the native dump: Tribe's C++ classes, functions and vtables, for Ghidra
+// ===================== the supervisor (mod2311; claudedocs/mod_2311_plan.md section 2) =====================
+// Runs on the poll thread every 0.5 s: the mod switching on, the object array, the world, the character; the stage is in
+// env_menu_poll. Every part waits for exactly what it needs, retries with a limit, and logs one line when it changes.
+// The [READY] line sums them up (logcat, tribemod/ready.txt, one result line per launch in tribemod/ready_history.txt).
+static int g_hookState=0;                            // 1 hooked + verified, 2 hooked, mod asleep until tribemod is readable,
+static char g_hookWhy[120]="not tried";              // 3 safe mode (executor_on absent), -1 failed (g_hookWhy)
+static double g_t0=0;                                // when the constructor ran (CLOCK_MONOTONIC)
+// ---- the mod switching on: in pass-through until tribemod/executor_on can be read (the first launch after an install)
+static void modon_poll(){
+    if(g_mod_on||g_hookState!=2) return;
+    static int tk=0; if((tk++%2)!=0) return;
+    int st=tribemod_state();
+    if(st==1){ g_mod_on=1; g_hookState=1; snprintf(g_hookWhy,sizeof g_hookWhy,"%s","ok");
+        LOGI("[HOOK] tribemod/ is readable now (%.1f s after the library loaded): the mod is on",mono_now()-g_t0); }
+    else if(st==0){ static bool said=false; if(!said){ said=true; LOGI("[HOOK] tribemod/ is readable but executor_on is absent: the mod stays off (safe mode)"); }
+        g_hookState=3; snprintf(g_hookWhy,sizeof g_hookWhy,"%s","executor_on absent"); } }
+// ---- the world: Tribe's local pawn (via the camera manager), found here, wired on the game thread (world_wire)
+static void world_poll(){
+    if(!g_resolved||!g_mod_on) return;
+    static int tk=0; tk++;
+    uintptr_t p=g_pawn;
+    if(p){
+        char cn[64]="?"; bool ok=obj_alive(p); if(ok){ class_name(p,cn,sizeof cn); ok=!strcmp(cn,"TribePawn")||!strcmp(cn,"TribePawnBP_C"); }
+        if(!ok){ if(g_worldSeen==g_worldGen){ g_worldUp=0; g_worldCamMgr=0; g_worldPawnHint=0; g_worldGen=g_worldGen+1;
+                LOGI("[WORLD] Tribe's pawn 0x%lx went away (a level or room change): everything world-bound is dropped and wired again (gen %d)",(unsigned long)p,(int)g_worldGen); }
+            return; }
+        if(!g_worldUp){ g_worldUp=1; g_worldUpAt=mono_now(); LOGI("[WORLD] up: pawn 0x%lx (%s), %.1f s after the library loaded (gen %d)",(unsigned long)p,cn,g_worldUpAt-g_t0,(int)g_worldGen); }
+        return; }
+    if(g_worldSeen!=g_worldGen||g_wire_req||(tk%4)!=1) return;          // every 2 s until there is a pawn
+    if(g_fpsz<0) calib_fprop_size();                                    // here, so the game thread's first call doesn't scan
+    if(!g_fnLoc)        g_fnLoc       =find_by_path("/Script/Engine.SceneComponent.K2_GetComponentLocation",0);
+    if(!g_fnGetRot)     g_fnGetRot    =find_by_path("/Script/Engine.SceneComponent.K2_GetComponentRotation",0);
+    if(!g_fnSetActorLR) g_fnSetActorLR=find_by_path("/Script/Engine.Actor.K2_SetActorLocationAndRotation",0);
+    if(!g_fnCamLoc)     g_fnCamLoc    =find_by_path("/Script/Engine.PlayerCameraManager.GetCameraLocation",0);
+    refresh_numelements();
+    uintptr_t cm=g_worldCamMgr; if(!cm||!obj_alive(cm)) cm=find_live_class_sub("CameraManager");
+    uintptr_t pawn=cm?pawn_of_cam_mgr(cm):0;
+    g_worldCamMgr=cm; g_worldPawnHint=pawn;
+    if(pawn){ g_wire_req=1; LOGI("[WORLD] found Tribe's pawn 0x%lx (camera manager 0x%lx): wiring it on the game thread",(unsigned long)pawn,(unsigned long)cm); }
+    else { static int said=0; if((said++%15)==0) LOGI("[WORLD] waiting for Tribe's pawn (camera manager 0x%lx)",(unsigned long)cm); } }
+// ---- the character: active_skin.txt says what to show; a mod file is loaded once Tribe's avatar body is there (or 30 s
+// after the world is up without it), a failed load is tried 3 more times 10 s apart, our avatar actor is spawned 2 s
+// later and again (5 tries, 5 s apart) if it is missing; "tribe" = Tribe's own avatar, nothing of ours loads
+static int g_avTries=0, g_avReqSeq=-1, g_avSeenSeq=0, g_avSpawnTries=0; static double g_avNextAt=0, g_avSpawnAt=0;
+static bool g_avGaveUp=false; static char g_avWhy[120]="waiting for the world", g_avSkin[128]="";
+static void avatar_poll(){
+    if(!g_resolved||!g_mod_on) return;
+    static int tk=0; tk++;
+    double now=mono_now();
+    char sk[128]=""; bool haveSk=read_trim_file("active_skin.txt",sk,sizeof sk); bool tribe=haveSk&&!strcmp(sk,"tribe");
+    snprintf(g_avSkin,sizeof g_avSkin,"%s",haveSk?sk:"(none)");
+    if(!g_smMode&&(tk%4)==1){ static int misses=0; refresh_numelements();   // which avatar menu (step B); "2304" only once the
+        if(find_by_path("/Script/TribeXR.TribeReadyPlayerMeAvatarSkin",1)) g_smMode=1;   // world is up and the class is still missing
+        else if(g_worldUp&&++misses>=3) g_smMode=2;
+        if(g_smMode) LOGI("[MENU] avatar menu kind: %s",g_smMode==1?"2311 (C++: TribeProfileMenuWidget, TribeSkinItemWidget, TribeReadyPlayerMeAvatarSkin)":"2304 (Blueprints)"); }
+    g_smTribeMode=tribe?1:0;                                             // Tribe's own avatar picked last (the menu writes it)
+    if(g_loadSeq!=g_avSeenSeq){ g_avSeenSeq=g_loadSeq;                   // a load finished (ours or a pick's)
+        bool mine=g_avReqSeq>=0; g_avReqSeq=-1;
+        if(g_loadOk==1){ g_avTries=0; g_avGaveUp=false; g_avSpawnTries=0; g_avSpawnAt=now+2.0; snprintf(g_avWhy,sizeof g_avWhy,"loaded %s",g_skinLoaded);
+            LOGI("[AVATAR] %s loaded (%.1f s after the library loaded)",g_skinLoaded,now-g_t0); }
+        else if(mine){ if(g_avTries>=4){ g_avGaveUp=true; snprintf(g_avWhy,sizeof g_avWhy,"gave up: %s",g_loadWhy); LOGI("[AVATAR] gave up after %d tries: %s",g_avTries,g_loadWhy); }
+            else { g_avNextAt=now+10.0; snprintf(g_avWhy,sizeof g_avWhy,"retry in 10 s: %s",g_loadWhy); LOGI("[AVATAR] the load failed (%s): trying again in 10 s",g_loadWhy); } } }
+    if(tribe){ snprintf(g_avWhy,sizeof g_avWhy,"%s","Tribe's own avatar"); return; }
+    if(!file_present("auto_load")){ snprintf(g_avWhy,sizeof g_avWhy,"%s","off (no auto_load)"); return; }
+    if(!g_worldUp){ if(!g_loaded_once) snprintf(g_avWhy,sizeof g_avWhy,"%s","waiting for the world"); return; }
+    if(g_avReqSeq>=0) return;                                            // a load is on its way
+    if(!g_loaded_once&&!g_avGaveUp&&g_avTries<4&&now>=g_avNextAt&&!g_load_req&&(tk%4)==0){
+        refresh_numelements(); uintptr_t body=find_live("AvatarBodyMesh","SkeletalMeshComponent","ReadyPlayerMeComponent");
+        bool late=g_worldUpAt>0&&now-g_worldUpAt>=30.0;
+        if(body||late){ g_avTries++; g_avReqSeq=g_loadSeq; g_load_req=1; snprintf(g_avWhy,sizeof g_avWhy,"loading %s (try %d)",sk,g_avTries);
+            LOGI("[AVATAR] loading %s (try %d)%s",haveSk?sk:"(glb_path.txt / custom.glb)",g_avTries,body?"":": Tribe's avatar body never appeared, 30 s after the world"); }
+        else snprintf(g_avWhy,sizeof g_avWhy,"%s","waiting for Tribe's avatar body (30 s at most)"); }
+    if(g_loaded_once&&g_mymesh&&file_present("auto_actor")){
+        bool alive=g_isoActor&&obj_alive(g_isoActor);
+        if(alive){ g_avSpawnTries=0; return; }
+        if(!g_iso_req&&now>=g_avSpawnAt&&g_avSpawnTries<5){ g_avSpawnTries++; g_avSpawnAt=now+5.0; g_iso_req=1;
+            LOGI("[AVATAR] spawning our avatar actor (try %d)",g_avSpawnTries); }
+        else if(g_avSpawnTries>=5){ snprintf(g_avWhy,sizeof g_avWhy,"%s","our avatar actor could not be spawned (5 tries)"); } } }
+// ---- [READY]
+static void ready_write_file(const char* name,const char* text,bool append){
+    char p[600], t[640]; snprintf(p,sizeof p,"%s/%s",OUTDIR,name);
+    if(append){ FILE* f=fopen(p,"a"); if(f){ fputs(text,f); fclose(f); chmod(p,0666); } return; }
+    snprintf(t,sizeof t,"%s.tmp",p); FILE* f=fopen(t,"w"); if(!f) return; fputs(text,f); fclose(f); chmod(t,0666); rename(t,p); }
+static void ready_history(const char* what){        // one line per event, the file capped at 200 lines (the last 150 kept)
+    char p[600]; snprintf(p,sizeof p,"%s/ready_history.txt",OUTDIR);
+    struct stat st; if(stat(p,&st)==0&&st.st_size>16*1024){ FILE* f=fopen(p,"r");
+        if(f){ static char buf[64*1024]; size_t n=fread(buf,1,sizeof buf-1,f); fclose(f); buf[n]=0; int lines=0; for(size_t i=0;i<n;i++) if(buf[i]=='\n') lines++;
+            if(lines>200){ int skip=lines-150; size_t i=0; for(;i<n&&skip>0;i++) if(buf[i]=='\n') skip--; ready_write_file("ready_history.txt",buf+i,false); } } }
+    time_t now=time(0); struct tm tmv; localtime_r(&now,&tmv); char ts[32]; strftime(ts,sizeof ts,"%Y-%m-%d %H:%M:%S",&tmv);
+    char line[700]; snprintf(line,sizeof line,"%s pid=%d step=%s %s\n",ts,(int)getpid(),MOD2311_STEP,what); ready_write_file("ready_history.txt",line,true); }
+static void ready_poll(){
+    static double nextAt=0; static bool wroteStart=false, done=false, failed=false; static int lastAll=-1;
+    double now=mono_now(), t=now-g_t0;
+    if(!wroteStart&&tribemod_state()>=0){ wroteStart=true; ready_history("start"); }
+    char miss[400]=""; int nm=0; bool all=true;
+    auto need=[&](bool ok,const char* part,const char* why){ if(ok) return; all=false;
+        if(nm<6){ int k=(int)strlen(miss); snprintf(miss+k,sizeof miss-k,"%s%s(%s)",nm?",":"",part,why); } nm++; };
+    // hook
+    char hook[140]; bool hookOk=g_hookState==1&&g_mod_on&&g_gtSelf;
+    if(hookOk) snprintf(hook,sizeof hook,"1");
+    else if(g_hookState==1||g_hookState==2) snprintf(hook,sizeof hook,"%s",g_mod_on?"1(no game thread yet)":"wait(tribemod not readable yet)");
+    else if(g_hookState==3) snprintf(hook,sizeof hook,"off(executor_on absent)");
+    else snprintf(hook,sizeof hook,"0(%s)",g_hookWhy);
+    need(hookOk,"hook",hook);
+    need(g_worldUp,"world",g_resolved?"no pawn yet":"objects not resolved");
+    // character
+    char sk[128]=""; bool haveSk=read_trim_file("active_skin.txt",sk,sizeof sk); bool tribe=haveSk&&!strcmp(sk,"tribe");
+    bool wantAv=!tribe&&file_present("auto_load"), wantActor=file_present("auto_actor");
+    bool avOk=g_loaded_once&&(!wantActor||(g_isoActor&&obj_alive(g_isoActor)));
+    char av[160]; if(tribe) snprintf(av,sizeof av,"tribe"); else if(!wantAv) snprintf(av,sizeof av,"off"); else if(avOk) snprintf(av,sizeof av,"1");
+    else snprintf(av,sizeof av,"0(%s)",g_avWhy);
+    if(wantAv) need(avOk,"avatar",g_avWhy);
+    const char* skin=tribe?"tribe":(g_skinLoaded[0]?g_skinLoaded:(haveSk?sk:"-"));
+    // stage
+    char stg[160]; bool wantStage=g_stgWantIdx>=0, stgOk=wantStage&&g_emState==EM_ACTIVE&&g_emActive==g_stgWantIdx;
+    if(!g_stgWant[0]) snprintf(stg,sizeof stg,"none");
+    else if(!strncmp(g_stgWant,"stock:",6)) snprintf(stg,sizeof stg,"%s",g_stgWant);
+    else if(!wantStage) snprintf(stg,sizeof stg,"\"%s\"(not in envs.txt)",g_stgWant);
+    else if(stgOk) snprintf(stg,sizeof stg,"\"%s\"",g_stgWant);
+    else if(g_stgGaveUp) snprintf(stg,sizeof stg,"gave-up(\"%s\" failed %d times)",g_stgWant,g_stgTries);
+    else if(g_emTribeSwitched) snprintf(stg,sizeof stg,"off(Tribe switched environment)");
+    else if(g_emState!=EM_IDLE) snprintf(stg,sizeof stg,"loading(\"%s\" step %d, try %d)",g_stgWant,(int)g_emState,g_stgTries);
+    else if(!g_envMenuOn) snprintf(stg,sizeof stg,"waiting(lookups)");
+    else if(!g_emGameState) snprintf(stg,sizeof stg,"waiting(game state)");
+    else snprintf(stg,sizeof stg,"waiting(settle %d/4, try %d)",g_stgSettle,g_stgTries);
+    if(g_stgWant[0]&&strncmp(g_stgWant,"stock:",6)) need(stgOk,"stage",stg);
+    // stream: Tribe's size pair = stream.txt's size
+    char strm[80]="off"; int ix=g_stIdx;
+    if(ix>=0&&g_stCfg[ix].has[ST_W]){ int w=0,h=0; if(g_base){ w=(int)rd32(g_base+ST_DIMS_VADDR); h=(int)rd32(g_base+ST_DIMS_VADDR+4); }
+        bool ok=w==g_stCfg[ix].v[ST_W]&&h==g_stCfg[ix].v[ST_H];
+        if(ok) snprintf(strm,sizeof strm,"%dx%d",w,h); else snprintf(strm,sizeof strm,"pending(%dx%d, want %dx%d%s)",w,h,g_stCfg[ix].v[ST_W],g_stCfg[ix].v[ST_H],g_stMgr?"":", no manager");
+        need(ok,"stream",strm); }
+    // menus: the stage boxes, once Tribe's environment list exists (it may need Visuals > Environments opened once)
+    char menus[128]; bool envOn=file_present("env_menu");
+    if(!envOn) snprintf(menus,sizeof menus,"env:off");
+    else if(!g_emListLive) snprintf(menus,sizeof menus,"env:list-not-open");
+    else { snprintf(menus,sizeof menus,"env%d/%d",(int)g_emAdded,(int)g_emCount); need(g_emAdded>=g_emCount,"menus",menus); }
+    { int k2=(int)strlen(menus); bool smOn=file_present("skin_menu");      // the avatar boxes (step B), once the list exists
+      if(!smOn||g_smBoxesOff) snprintf(menus+k2,sizeof menus-k2,",avatar:off");
+      else if(g_smMode!=1||!g_smListLive) snprintf(menus+k2,sizeof menus-k2,",avatar:list-not-open");
+      else { snprintf(menus+k2,sizeof menus-k2,",avatar%d/%d",(int)g_smAdded,(int)g_smCount); need(g_smAdded>=g_smCount,"menus",menus); } }
+    char line[1200];
+    int k=snprintf(line,sizeof line,"[READY] %s step=%s pid=%d t=%.1fs hook=%s world=%d avatar=%s skin=%s stage=%s stream=%s menus=%s gen=%d skips=%ld",
+        all?"all=1":(t>=180.0?"FAIL":"all=0"),MOD2311_STEP,(int)getpid(),t,hook,(int)g_worldUp,av,skin,stg,strm,menus,(int)g_worldGen,g_callSkips);
+    if(!all&&k>0&&k<(int)sizeof line) snprintf(line+k,sizeof line-k," missing=%s",miss);
+    bool changed=(int)all!=lastAll; lastAll=all;
+    if(changed||now>=nextAt){ LOGI("%s",line); char l2[1210]; snprintf(l2,sizeof l2,"%s\n",line); ready_write_file("ready.txt",l2,false);
+        nextAt=now+((all||t>=180.0)?60.0:2.0); }
+    if(all&&!done){ done=true; char h[600]; snprintf(h,sizeof h,"READY t=%.1f skin=%s stage=%s",t,skin,stg); ready_history(h); load_status("%s",line); }
+    if(!all&&!done&&!failed&&t>=180.0){ failed=true; char h[700]; snprintf(h,sizeof h,"FAIL t=%.1f missing=%s",t,miss); ready_history(h); load_status("%s",line); } }
 static void* dump_thread(void*){
     LOGI("dumper thread up; base=0x%lx; poll %s/dump_now",(unsigned long)g_base,OUTDIR);
     char cmd[600]; snprintf(cmd,sizeof cmd,"%s/dump_now",OUTDIR);
     char lcmd[600]; snprintf(lcmd,sizeof lcmd,"%s/load_avatar",OUTDIR);
-    bool auto_done=false; int tick=0;
-    for(;;){ g_log_pe = file_present("log_pe")?1:0;               // toggle the ProcessEvent diagnostic
+    for(;;){ modon_poll();                                        // mod2311: the supervisor (see above)
+        { static int rk=0; if(!g_resolved&&g_mod_on&&(rk++%4)==0) ensure_resolved(); }   // the object array, every 2 s until found
+        world_poll(); avatar_poll(); ready_poll();
+        g_log_pe = file_present("log_pe")?1:0;                   // toggle the ProcessEvent diagnostic
         g_logDeck = file_present("log_deck")?1:0;                // the deck capture (intro.cpp)
         int fd=open(cmd,O_RDONLY); if(fd>=0){ close(fd); unlink(cmd); LOGI("dump_now seen; dumping...");
         install_guard(); do_dump(); remove_guard(); }
@@ -3801,24 +4693,16 @@ static void* dump_thread(void*){
             if(g_resolved){ LOGI("native_now: dumping..."); install_guard(); native_dump(); remove_guard(); } } }
         // manual load_avatar trigger: resolve globals here (heavy scan, off the game thread), then arm the PE-drain.
         int lf=open(lcmd,O_RDONLY); if(lf>=0){ close(lf); unlink(lcmd); LOGI("load_avatar seen; arming executor...");
-            ensure_resolved(); if(g_resolved && orig_pe){ g_load_req=1; load_status("armed; waiting for next ProcessEvent on game thread"); }
+            ensure_resolved(); if(g_resolved && orig_pe && g_mod_on){ g_load_req=1; load_status("armed; waiting for next ProcessEvent on game thread"); }
             else load_status("NOT armed (resolved=%d pe=%p)",(int)g_resolved,g_pe_addr); }
-        // AUTO-load once per launch: when tribemod/auto_load exists, wait for the live pawn body, then arm.
-        // Checked every ~2s; the heavy find_live scan runs on THIS background thread, not the game thread.
-        if(!auto_done && orig_pe && ((++tick & 3)==0) && file_present("auto_load")){
-            ensure_resolved();
-            if(g_resolved){ refresh_numelements(); uintptr_t body=find_live("AvatarBodyMesh","SkeletalMeshComponent","ReadyPlayerMeComponent");
-                if(body){ g_load_req=1; auto_done=true; load_status("auto-load: pawn ready (body=0x%lx numel=%u) -> armed",(unsigned long)body,g_numElements); } } }
+        // (the auto-load and the avatar actor's spawn are avatar_poll's now, with retries; mod2311)
         // ISO trigger: tribemod/iso_here (one-shot) -> spawn our own actor in front of the HMD on the game thread.
         { char ip[600]; snprintf(ip,sizeof ip,"%s/iso_here",OUTDIR); int fi=open(ip,O_RDONLY);
           if(fi>=0){ close(fi); unlink(ip); if(g_mymesh){ g_iso_req=1; load_status("iso_here seen -> spawning our actor"); } else load_status("iso_here: no mesh loaded yet"); } }
-        // AUTO avatar actor: once per launch, ~2 s after the mesh loads, if tribemod/auto_actor exists -> spawn + follow.
-        { static int aa=-1; if(aa==-1 && g_loaded_once && g_mymesh && !g_isoActor && file_present("auto_actor")) aa=4;
-          if(aa>0 && --aa==0){ g_iso_req=1; load_status("auto_actor: spawning our following avatar"); } }
         // ROUTE A body tracking (flag tribemod/body_tracking): ~3 s after the world is up, resolve HERE (heavy scans stay off
         // the game thread), then start + poll on the game thread: +1 s, +3 s, +10 s, then every 30 s (24 polls max).
         { static int bt=-1, pt=0;
-          if(bt==-1 && orig_pe && (g_loaded_once||auto_done) && file_present("body_tracking")) bt=6;
+          if(bt==-1 && orig_pe && g_loaded_once && file_present("body_tracking")) bt=6;
           if(bt>0 && --bt==0){ if(bt_resolve()){ a2_resolve(); g_bt_req=1; load_status("BT: armed; starting on the game thread"); } else load_status("BT: resolve failed; not started"); }
           { char rp[600]; snprintf(rp,sizeof rp,"%s/bt_recalibrate",OUTDIR); int fr=open(rp,O_RDONLY);     // one-shot: redo the T-pose
             if(fr>=0){ close(fr); unlink(rp); if(g_ucPath[0]) unlink(g_ucPath); g_a2Recal=1; load_status("A2: bt_recalibrate seen -> your calibration deleted; stand still with straight arms once"); } }
@@ -3841,7 +4725,7 @@ static void* dump_thread(void*){
         { static int dtk=0; if((++dtk % 4)==0) drone_poll(); }
         { static int hdk=0; if((++hdk % 2)==1) head_poll(); }              // detachable head: functions, selfie camera, head.txt (~1 s)
         { static int cvk=0; if((++cvk % 2)==0) camview_poll(); }           // a stage's camera button: its file, Tribe's visuals menu (~1 s)
-        { static int stk=0; if((++stk % 2)==1) stream_poll(); }            // the stream encoder: stream.txt, Tribe's video-call manager (~1 s)
+        { static int stk=0; if((++stk % 2)==1){ stream_poll(); g_stOnPoll=1; stream_tick(1.0f); g_stOnPoll=0; } }            // the stream encoder: stream.txt, Tribe's video-call manager (~1 s)
         freeze_poll();                                                     // the freeze recorder: starts once, after the game thread's first tick
         // Skin-menu trace switch (checked here, not per ProcessEvent call)
         { int st=file_present("skin_trace")?1:0; if(st!=g_skinTrace){ g_skinTrace=st; LOGI("[SKIN] trace %s",st?"ON":"OFF"); } }
@@ -3863,14 +4747,61 @@ static void* dump_thread(void*){
     return nullptr;
 }
 
+// ---- the ProcessEvent hook, installed once, in the library constructor (mod2311; claudedocs/mod_2311_load.md 3.1) ----
+// libhook is a DT_NEEDED of libUnreal, so this runs while libUnreal is being loaded, before its own initializers and
+// before any thread of ours or Tribe's exists: nothing can be running ProcessEvent while it is patched. Never patched
+// again later (combo_peretry's retry thread re-patched it under a running game thread). The checks read the code
+// directly once maps_rx has found it r-x, not through the shared range table (whose rebuild raced this read on 14:26).
+// tribemod/ state: 1 readable with executor_on, 0 readable without it (safe mode: no hook), -1 not readable yet (the
+// first launch after an install: hooked anyway, in pass-through until the poll thread can read executor_on).
+static int tribemod_state(){
+    char ef[600]; snprintf(ef,sizeof ef,"%s/executor_on",OUTDIR); int e=open(ef,O_RDONLY);
+    if(e>=0){ close(e); return 1; }
+    int err=errno; DIR* d=opendir(OUTDIR); int n=0;
+    if(d){ struct dirent* x; while((x=readdir(d))) if(x->d_name[0]!='.'){ n++; break; } closedir(d); }
+    return (err==ENOENT&&d&&n>0)?0:-1; }
+static bool pe_patch_ok(uintptr_t pe){               // And64InlineHook's three forms, each pointing at repl_pe
+    const volatile uint32_t* w=(const volatile uint32_t*)pe; uintptr_t rp=(uintptr_t)repl_pe; uint64_t tgt=0;
+    if(w[0]==0xD503201Fu&&w[1]==0x58000051u&&w[2]==0xD61F0220u){ memcpy(&tgt,(const void*)(pe+12),8); return tgt==rp; }   // NOP; LDR X17,#8; BR X17
+    if(w[0]==0x58000051u&&w[1]==0xD61F0220u){ memcpy(&tgt,(const void*)(pe+8),8); return tgt==rp; }                      // LDR X17,#8; BR X17
+    if((w[0]&0xFC000000u)==0x14000000u){ int64_t off=(int64_t)(w[0]&0x03FFFFFFu); if(off&0x02000000) off-=0x04000000; return pe+(uintptr_t)(off*4)==rp; }   // B
+    return false; }
+static void pe_hook_ctor(int ts){
+    uintptr_t pe=g_base+RVA_PE_GHIDRA+PE_SKEW;
+    if(ts==0){ g_hookState=3; snprintf(g_hookWhy,sizeof g_hookWhy,"%s","executor_on absent");
+        LOGI("[HOOK] tribemod/executor_on is absent: safe mode, ProcessEvent left alone"); return; }
+    bool written=false;                               // once ProcessEvent jumps to repl_pe, orig_pe must stay valid
+    for(int k=1;k<=5;k++){
+        if(!maps_rx(pe,20)){ snprintf(g_hookWhy,sizeof g_hookWhy,"ProcessEvent's code @%p is not mapped r-x",(void*)pe); usleep(20*1000); continue; }
+        uint32_t w0=*(const volatile uint32_t*)pe;
+        if(w0!=0xA9BA7BFDu){ snprintf(g_hookWhy,sizeof g_hookWhy,"first word 0x%08x @%p is not ProcessEvent's stp x29,x30,[sp,#-0x60]!",w0,(void*)pe); break; }
+        g_pe_addr=(void*)pe; A64HookFunction(g_pe_addr,(void*)repl_pe,(void**)&orig_pe);
+        written=*(const volatile uint32_t*)pe!=0xA9BA7BFDu;   // (And64InlineHook leaves orig_pe NULL only when it wrote nothing)
+        if(orig_pe&&pe_patch_ok(pe)){ g_hookState=(ts==1)?1:2; snprintf(g_hookWhy,sizeof g_hookWhy,"%s",ts==1?"ok":"tribemod not readable yet");
+            const volatile uint32_t* w=(const volatile uint32_t*)pe;
+            LOGI("[HOOK] ProcessEvent hooked @%p verified (try %d; words %08x %08x %08x; trampoline %p)%s",(void*)pe,k,w[0],w[1],w[2],(void*)orig_pe,
+                 ts==1?"":": pass-through until tribemod/ can be read");
+            return; }
+        const volatile uint32_t* w=(const volatile uint32_t*)pe;
+        snprintf(g_hookWhy,sizeof g_hookWhy,"the patch did not verify (words %08x %08x %08x, trampoline %p)",w[0],w[1],w[2],(void*)orig_pe);
+        if(written) break;                                              // something was written: never patch a second time
+        orig_pe=0; usleep(20*1000); }
+    g_hookState=-1; if(!written) orig_pe=0;                             // written: repl_pe passes every call straight through
+    LOGI("[HOOK] FAILED: %s%s; the mod stays off this launch",g_hookWhy,written?" (patched: every call passes straight through)":""); }
+
 __attribute__((constructor))
 static void on_load(){
-    LOGI("dumper libhook constructor");
-    // ensure outdir exists (app-writable external files dir), then upsert the ini BEFORE PreInit.
+    g_t0=mono_now();
+    LOGI("dumper libhook constructor (mod2311 step %s)",MOD2311_STEP);
+    // ensure outdir exists (app-writable external files dir), then upsert the ini BEFORE PreInit (skipped while unreadable)
     mkdir(OUTDIR,0777);
-    ini_upsert();                       // the one state change; synchronous; no base needed
+    int ts=tribemod_state();
+    ini_upsert();
     for(int i=0;i<100 && !g_base;i++){ g_base=find_lib_base("libUnreal.so"); if(!g_base) usleep(50*1000); }
-    if(!g_base){ LOGI("FAILED to find libUnreal.so base"); return; }
+    if(!g_base){ g_hookState=-1; snprintf(g_hookWhy,sizeof g_hookWhy,"%s","libUnreal.so not found"); LOGI("FAILED to find libUnreal.so base"); return; }
+    pe_hook_ctor(ts);                    // first, while no thread can be inside ProcessEvent
+    if(g_hookState==1||g_hookState==2) st_hook_send();   // Tribe's two encoder re-sends (stream.cpp), same moment, same checks
+    g_mod_on=(g_hookState==1)?1:0;
     pthread_attr_t a; pthread_attr_init(&a); pthread_attr_setstacksize(&a,8*1024*1024); pthread_attr_setdetachstate(&a,PTHREAD_CREATE_DETACHED);
     pthread_t th; pthread_create(&th,&a,dump_thread,nullptr); pthread_attr_destroy(&a);
     LOGI("dumper thread spawned (base=0x%lx)",(unsigned long)g_base);
@@ -3878,14 +4809,4 @@ static void on_load(){
     pthread_attr_t sa; pthread_attr_init(&sa); pthread_attr_setstacksize(&sa,256*1024); pthread_attr_setdetachstate(&sa,PTHREAD_CREATE_DETACHED);
     pthread_t sh; pthread_create(&sh,&sa,httpd_thread,nullptr); pthread_attr_destroy(&sa);
     LOGI("httpd thread spawned (127.0.0.1:%d)",HTTP_PORT);
-    // Phase 3: install the ProcessEvent hook (game-thread drain point for the direct-load executor).
-    // Runtime PE = base + Ghidra_rva + skew (calibrated 0x1000). Installed but INERT until load_avatar arms g_load_req.
-    // SAFETY: only install if tribemod/executor_on exists (PE is a hot path); remove the flag + relaunch = clean/no-hook.
-    { char ef[600]; snprintf(ef,sizeof ef,"%s/executor_on",OUTDIR); int e=open(ef,O_RDONLY);
-      if(e>=0){ close(e); uintptr_t pe=g_base+RVA_PE_GHIDRA+PE_SKEW; uint32_t w0;
-        bool prol=sr(pe,&w0,4) && ((w0&0xFF000000)==0xA9000000 || (w0&0xFFC00000)==0xD1000000); // stp/sub-sp prologue guard
-        if(prol){ g_pe_addr=(void*)pe; A64HookFunction(g_pe_addr,(void*)repl_pe,(void**)&orig_pe);
-            LOGI("ProcessEvent hook installed @%p (orig=%p)",g_pe_addr,(void*)orig_pe); }
-        else LOGI("ProcessEvent @%p NOT a prologue (w=0x%08x); hook SKIPPED",(void*)pe,w0); }
-      else LOGI("executor_on absent; PE hook not installed (safe mode)"); }
 }

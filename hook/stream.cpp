@@ -1,3 +1,4 @@
+#include <sys/mman.h>
 // stream.cpp: Tribe's stream encoder settings (the Halloween session, 2026-10-27). dumper.cpp includes it after camview.cpp
 // and calls stream_poll (poll thread, ~1 s) and stream_tick (game thread, after camview_tick). Inert unless
 // tribemod/stream.txt exists. Logs [STREAM].
@@ -51,49 +52,70 @@
 // a successful joinChannelEx, so it comes back at every join. A mid-stream re-join with Tribe's live flags still on would
 // keep Tribe's settings for the rest of that stream. So this file hooks it (checked against its first 16 bytes): the hook
 // runs it, then counts it, and the game thread puts ours back about 1 s later (re-reading the connection from the log).
+// Tribe 0.12.6 (versionCode 2311; port 2026-10-31, claudedocs/mod_fix_port.md): same Agora library (md5 81b006ac) and the
+// same calls; addresses moved. Addresses below are 2311's (the 2304 value in each comment). The engine pointer is at
+// manager +0x570; the size pair at vaddr 0x8B092C4 (FUN_05b7ecb0 returns it; a static init still writes 848x480); the
+// re-send is FUN_05b80e7c (callers: the join step FUN_05b80590 and a reconnect lambda), and 2311 adds a second re-send,
+// FUN_05b81f18, run on a call role change (its caller stores the role at +0xa40, then updateChannelMediaOptionsEx): it
+// sends the same 15 fps / standard settings, so it is hooked the same way. The frame producer is now inside the push
+// (FUN_05b7bb5c).
 struct StCfg { int v[8]; int has[8]; };              // fps, kbps, encoder, compression, degradation, capture, width, height
 enum { ST_FPS, ST_KBPS, ST_ENC, ST_COMP, ST_DEGR, ST_CAP, ST_W, ST_H };
 static StCfg g_stCfg[2]; static volatile sig_atomic_t g_stIdx=-1, g_stGen=0;
 static volatile uintptr_t g_stMgr=0;                  // the live TribeVideoCallManager (poll thread)
 static uintptr_t g_stFnStreaming=0, g_stAgoraLo=0, g_stAgoraHi=0;
 static volatile int g_stInCallOff=-1; static volatile uint8_t g_stInCallMask=0;
-static volatile uintptr_t g_stPC=0;                   // Tribe's player controller (poll thread): the stream camera's timer
+static volatile uintptr_t g_stPC=0, g_stPCCls=0;      // Tribe's player controller (poll thread): the stream camera's timer
 // the live connection, read by the poll thread from Agora's log after the game thread saw a call go live
 static char g_stChan[2][72]; static volatile uint32_t g_stUid[2]; static volatile sig_atomic_t g_stConnIdx=-1;
 static volatile sig_atomic_t g_stLiveSeq=0, g_stConnSeq=-1;
-#define ST_ENGINE_OFF 0x550                           // TribeVideoCallManager -> IRtcEngine* (StartCallWithParameters)
+#define ST_ENGINE_OFF 0x570                           // TribeVideoCallManager -> IRtcEngine* (call start; 2304: 0x550)
 #define ST_SETVEC_SLOT 0xf0                           // IRtcEngine::setVideoEncoderConfiguration (Tribe's own call)
 #define ST_SETVECEX_SLOT 0x928                        // IRtcEngineEx::setVideoEncoderConfigurationEx (libagora 4.5.2)
-#define ST_DIMS_VADDR 0x7F02DC4                       // libUnreal: the capture/stream width, height (two ints)
-#define ST_DIMS_OFFCALL_VADDR 0x7F02740               // libUnreal: the capture's size when no stream runs (two ints)
+#define ST_DIMS_VADDR 0x8B092C4                       // libUnreal: the capture/stream width, height (two ints; 2304: 0x7F02DC4)
+#define ST_DIMS_OFFCALL_VADDR 0x8B08CF0               // libUnreal: the capture's size when no stream runs (2304: 0x7F02740)
 #define ST_TRIBE_W 848
 #define ST_TRIBE_H 480
 #define ST_PC_CAPTURE 0x888                           // TribePlayerController: the active SceneCaptureComponent2D
 #define ST_PC_TIMER 0x914                             // TribePlayerController: seconds to the stream camera's next capture
-#define ST_TRIBE_SEND_VADDR 0x50D4CE4                 // libUnreal FUN_051d3ce4: Tribe's own setVideoEncoderConfigurationEx
+#define ST_TRIBE_SEND_VADDR 0x5A81E7C                 // libUnreal FUN_05b80e7c: Tribe's own setVideoEncoderConfigurationEx (2304: 0x50D4CE4)
+#define ST_TRIBE_ROLE_VADDR 0x5A82F18                 // libUnreal FUN_05b81f18: the same, on a call role change (new in 2311)
 // the first 16 bytes of the two functions in libagora-rtc-sdk.so 4.5.2 (vaddr 0x180f150 and 0x180f31c)
 static const uint8_t ST_SETVEC_HEAD[16]={0xff,0x83,0x04,0xd1,0xfc,0x67,0x0d,0xa9,0xf8,0x5f,0x0e,0xa9,0xf6,0x57,0x0f,0xa9};
 static const uint8_t ST_SETVECEX_HEAD[16]={0xff,0xc3,0x06,0xd1,0xfc,0x6f,0x15,0xa9,0xfa,0x67,0x16,0xa9,0xf8,0x5f,0x17,0xa9};
-// ... and of Tribe's re-send in libUnreal.so 0.12.5.1 (sub sp / stp x29,x30 / add x29 / str x21: nothing PC-relative)
-static const uint8_t ST_TRIBE_SEND_HEAD[16]={0xff,0x03,0x02,0xd1,0xfd,0x7b,0x05,0xa9,0xfd,0x43,0x01,0x91,0xf5,0x33,0x00,0xf9};
+// ... and of Tribe's two re-sends in libUnreal.so 0.12.6 (sub sp / stp x29,x30 / add x29 / stp: nothing PC-relative)
+static const uint8_t ST_TRIBE_SEND_HEAD[16]={0xff,0x43,0x02,0xd1,0xfd,0x7b,0x06,0xa9,0xfd,0x83,0x01,0x91,0xf6,0x57,0x07,0xa9};
+static const uint8_t ST_TRIBE_ROLE_HEAD[16]={0xff,0xc3,0x01,0xd1,0xfd,0x7b,0x05,0xa9,0xfd,0x43,0x01,0x91,0xf4,0x4f,0x06,0xa9};
 // the engine comes from Android's allocator, whose pointers carry a tag in the top byte (0xb4...): the CPU ignores it,
 // but /proc/self/maps (sr's range check) has the untagged addresses. Read through the untagged address; call with the
 // pointer as Tribe has it. (combo16 read 0 here and never called: 2026-10-27 16:03:36.)
 #define ST_UNTAG(p) ((uintptr_t)(p) & 0x00FFFFFFFFFFFFFFull)
 
-// Tribe's re-send, hooked: run it, then count it for the game thread (it runs on Tribe's join thread, not the game thread)
-static volatile sig_atomic_t g_stTribeSends=0;
+// Tribe's re-sends, hooked: run each, then count it for the game thread (they run on Tribe's call threads, not the game
+// thread). Both take only the manager (x0) and return nothing (2311 disassembly).
+static volatile sig_atomic_t g_stTribeSends=0, g_stTribeRoles=0;
 static void (*st_orig_send)(void* mgr)=0;
+static void (*st_orig_role)(void* mgr)=0;
 static void st_repl_send(void* mgr){ st_orig_send(mgr); __sync_fetch_and_add(&g_stTribeSends,1); }
-static void st_hook_send(){                           // poll thread, once, long before the first join
+static void st_repl_role(void* mgr){ st_orig_role(mgr); __sync_fetch_and_add(&g_stTribeRoles,1); }
+// mod2311: hooked from the library constructor, next to ProcessEvent, before any thread runs (they used to be patched from
+// the poll thread with Tribe already running, after an mprotect and a rebuild of the shared range table there). The
+// first 16 bytes are read directly once the page is known to be r-x (maps_rx); both heads checked in the 2311 store
+// library by backup/mod2311_build/tools/verify_2311.py.
+static void st_hook_one(uintptr_t vaddr,const uint8_t* head,void* repl,void** orig,const char* what){
+    uintptr_t f=g_base+vaddr; uint8_t h[16]={0};
+    if(!maps_rx(f,16)){ LOGI("[STREAM] Tribe's encoder re-send (%s) @0x%lx: its page is not r-x: NOT hooked",what,(unsigned long)f); return; }
+    memcpy(h,(const void*)f,16);
+    if(memcmp(h,head,16)){
+        LOGI("[STREAM] Tribe's encoder re-send (%s) @0x%lx: head %02x%02x%02x%02x is not the expected one: NOT hooked (ours still follows each call's start)",
+             what,(unsigned long)f,h[0],h[1],h[2],h[3]); return; }
+    A64HookFunction((void*)f,repl,orig);              // patches only once its trampoline is ready
+    LOGI("[STREAM] Tribe's encoder re-send (%s) @0x%lx %s",what,(unsigned long)f,
+         *orig?"hooked: ours follows it about 1 s later":"NOT hooked (the hook library failed)"); }
+static void st_hook_send(){                           // the constructor, once (after the ProcessEvent hook)
     static bool done=false; if(done||!g_base) return; done=true;
-    uintptr_t f=g_base+ST_TRIBE_SEND_VADDR; uint8_t h[16]={0};
-    if(!sr(f,h,16)||memcmp(h,ST_TRIBE_SEND_HEAD,16)){
-        LOGI("[STREAM] Tribe's encoder re-send @0x%lx: head %02x%02x%02x%02x is not the expected one: NOT hooked (ours still follows each call's start)",
-             (unsigned long)f,h[0],h[1],h[2],h[3]); return; }
-    A64HookFunction((void*)f,(void*)st_repl_send,(void**)&st_orig_send);      // patches only once its trampoline is ready
-    LOGI("[STREAM] Tribe's encoder re-send @0x%lx %s",(unsigned long)f,
-         st_orig_send?"hooked: ours follows it about 1 s later":"NOT hooked (the hook library failed)"); }
+    st_hook_one(ST_TRIBE_SEND_VADDR,ST_TRIBE_SEND_HEAD,(void*)st_repl_send,(void**)&st_orig_send,"join");
+    st_hook_one(ST_TRIBE_ROLE_VADDR,ST_TRIBE_ROLE_HEAD,(void*)st_repl_role,(void**)&st_orig_role,"role change"); }
 
 static bool st_word(const char* v,const char* const* names,const int* vals,int n,int* out){
     for(int i=0;i<n;i++) if(!strcasecmp(v,names[i])){ *out=vals[i]; return true; }
@@ -136,25 +158,37 @@ static bool st_conn_from_file(const char* path,char* chan,size_t cap,uint32_t* u
     if(c[k]!='"'||!k) return false;
     memcpy(chan,c,k); chan[k]=0; *uid=(uint32_t)strtoul(u+11,0,10); return true; }
 
+// one-time diagnostic: the Tribe video-call and player-controller objects in the object array (passes at ~30 s and ~120 s)
+static void st_diag_objects(){
+    refresh_numelements(); int shown=0, tot=0;
+    for(uint32_t i=0;i<g_numElements && shown<16;i++){ uintptr_t o=obj_at(i); if(!o) continue;
+        char cn[128], fp[400]; class_name(o,cn,sizeof cn);
+        if(!strstr(cn,"VideoCall") && !strstr(cn,"PlayerController")) continue;
+        full_path(o,fp,sizeof fp); if(strstr(fp,"Default__")) continue; tot++; shown++;
+        LOGI("[STREAM] diag object %u: class %s, path %s, flags 0x%x, alive %d", (unsigned)i, cn, fp, (unsigned)rd32(o+OFF_Flags), obj_alive(o)?1:0); }
+    LOGI("[STREAM] diag objects: %d matched, %u in the array", tot, (unsigned)g_numElements); }
 // ---- POLL thread (~1 s): the file, the manager, the live connection
 static void stream_poll(){
     char p[600]; snprintf(p,sizeof p,"%s/stream.txt",OUTDIR); struct stat st; static long lastKey=-2;
     long key=stat(p,&st)==0?(long)st.st_mtime*1000003L+(long)st.st_size:-1;
-    if(key!=lastKey){ lastKey=key;
-        if(key==-1){ if(g_stIdx>=0) LOGI("[STREAM] tribemod/stream.txt is gone: Tribe's own encoder settings from the next call"); g_stIdx=-1; }
+    if(key!=lastKey){
+        if(key==-1){ lastKey=key; if(g_stIdx>=0) LOGI("[STREAM] tribemod/stream.txt is gone: Tribe's own encoder settings from the next call"); g_stIdx=-1; }
         else { char text[2048]; size_t n=0; FILE* f=fopen(p,"rb"); if(f){ n=fread(text,1,sizeof text-1,f); fclose(f); } text[n]=0;
+          if(!f||n==0){ static int w=0; if((w++%30)==0) LOGI("[STREAM] tribemod/stream.txt could not be read yet: trying again"); }   // mod2311:
+          else { lastKey=key;                                                           // remembered only once read (load doc 2e)
             int nx=g_stIdx==0?1:0; st_parse(&g_stCfg[nx],text); __sync_synchronize(); g_stIdx=nx; g_stGen=g_stGen+1;
             const StCfg* c=&g_stCfg[nx];
             LOGI("[STREAM] stream.txt: fps %d%s, kbps %d%s, encoder %d%s, compression %d%s, degradation %d%s, capture %d%s, size %dx%d%s (Tribe's for '-')",
                  c->v[ST_FPS],c->has[ST_FPS]?"":" -",c->v[ST_KBPS],c->has[ST_KBPS]?"":" -",c->v[ST_ENC],c->has[ST_ENC]?"":" -",
                  c->v[ST_COMP],c->has[ST_COMP]?"":" -",c->v[ST_DEGR],c->has[ST_DEGR]?"":" -",c->v[ST_CAP],c->has[ST_CAP]?"":" -",
-                 c->v[ST_W],c->v[ST_H],c->has[ST_W]?"":" -"); } }
+                 c->v[ST_W],c->v[ST_H],c->has[ST_W]?"":" -"); } } }
+    { static int tkn=0; if((++tkn % 60)==0) LOGI("[STREAM] diag ticks: ProcessEvent calls %ld, per-frame runs %ld", g_pe_n, g_pe_drv); }
     if(g_stIdx<0) return;
-    st_hook_send();
+    { static int dpn=0; if(++dpn==30||dpn==120) st_diag_objects(); }
     if(!g_stAgoraHi){ static int tries=0; if((tries++%30)==0) st_find_agora(); }
     if(!g_stFnStreaming) g_stFnStreaming=find_by_path("/Script/TribeXR.TribeVideoCallManager.GetIsChannelStreaming",0);
     uintptr_t m=g_stMgr; static int tk=0;
-    if((!m||!obj_alive(m))&&(tk++%5)==0){ refresh_numelements(); m=find_live_class_sub("TribeVideoCallManager");
+    if((!m||!obj_alive(m))&&(tk++%5)==0){ refresh_numelements(); m=em_find_live_pl("TribeVideoCallManager");
         if(m&&m!=g_stMgr){ uintptr_t cls=rdptr(m+OFF_Class); int S=calib_fprop_size(); uintptr_t fb=find_field(cls,"bInVideoCallReplicated");
             int off=-1; uint8_t bo=0, bm=0;
             if(S>0&&fb){ off=(int)rd32(fb+FP_Offset); bo=rd8(fb+S+1); bm=rd8(fb+S+2); if(off<0||off>0x4000||bo>7||!bm) off=-1; }
@@ -164,9 +198,9 @@ static void stream_poll(){
                  g_stInCallOff>=0?"found":"MISSING",(unsigned long)g_stFnStreaming); }
         g_stMgr=m; }
     uintptr_t pc=g_stPC; static int pk=0;
-    if((!pc||!obj_alive(pc))&&(pk++%5)==0){ refresh_numelements(); pc=find_live_class_sub("TribePlayerController");
+    if((!pc||!obj_alive(pc))&&(pk++%5)==0){ refresh_numelements(); pc=em_find_live_pl("TribePlayerController");
         if(pc&&pc!=g_stPC){ char cn[96]; class_name(pc,cn,sizeof cn); LOGI("[STREAM] Tribe's player controller 0x%lx (%s)",(unsigned long)pc,cn); }
-        g_stPC=pc; }
+        g_stPCCls=pc?rdptr(pc+OFF_Class):0; g_stPC=pc; }
     int ls=g_stLiveSeq;                               // a call went live: which connection did Tribe join?
     if(ls>0&&ls!=g_stConnSeq){ static int miss=0; char base[600], p1[640], p2[640], ch[72]; uint32_t uid=0;
         snprintf(base,sizeof base,"%s",OUTDIR); char* sl=strrchr(base,'/'); if(sl) *sl=0;   // .../files (tribemod's parent)
@@ -195,7 +229,7 @@ static void st_size_offcall(const StCfg* c){
 // ---- GAME thread, every frame while live: the stream camera's next capture at most (N - 0.75) frames away
 static void st_capture_clamp(int rate,float dt){
     static double fdt=1.0/72; if(dt>0.f&&dt<0.1f) fdt+=(dt-fdt)*0.05;    // the frame time, smoothed
-    uintptr_t pc=g_stPC; if(!pc||!obj_alive(pc)) return;
+    uintptr_t pc=g_stPC; if(!pc||!obj_alive(pc)||rdptr(pc+OFF_Class)!=g_stPCCls) return;   // (mod2311: the class too)
     static uintptr_t okComp=0, badComp=0; uintptr_t comp=rdptr(pc+ST_PC_CAPTURE);
     if(!comp||comp==badComp) return;
     if(comp!=okComp){ char cn[96]; class_name(comp,cn,sizeof cn);             // the layout check, once per camera
@@ -209,27 +243,29 @@ static void st_capture_clamp(int rate,float dt){
     if(v>lim) *tp=(float)lim; }
 
 // ---- GAME thread: 3 s after a call starts (once the live connection is known, at most 15 s), and when stream.txt changes
+static volatile sig_atomic_t g_stOnPoll=0;   // 1 while stream_tick runs from stream_poll (the poll thread): no UE calls then
 static void stream_tick(float dt){
     int ix=g_stIdx; if(ix<0) return;
     uintptr_t m=g_stMgr; if(!m||!obj_alive(m)) return;
     static uintptr_t lastEng=0; static bool wasLive=false, applied=false; static double t=0, chk=0, next=3.0;
-    static int doneGen=-1, inCall=0, streaming=0, tries=0, seenSends=0; static const char* why="after the call started";
-    if(dt>0.f&&dt<0.25f){ t+=dt; chk+=dt; }
+    static int doneGen=-1, inCall=0, streaming=0, tries=0, seenSends=0, seenRoles=0; static const char* why="after the call started";
+    if(dt>0.f&&dt<2.f){ t+=dt; chk+=dt; }
     if(chk>=0.5){ chk=0;                              // Tribe's own flags, twice a second
         int o=g_stInCallOff; inCall=(o>=0)?((rd8(m+o)&g_stInCallMask)?1:0):0;
-        uint8_t* r=g_stFnStreaming?call_ret(m,g_stFnStreaming,0,0):0; streaming=(r&&*r)?1:0; }
+        uint8_t* r=(!g_stOnPoll&&g_stFnStreaming)?call_ret(m,g_stFnStreaming,0,0):0; streaming=(r&&*r)?1:0; }
     bool live=inCall||streaming;
     uintptr_t eng=rdptr(m+ST_ENGINE_OFF);
     if(eng!=lastEng||(live&&!wasLive)){
         if(live&&eng){ g_stLiveSeq=g_stLiveSeq+1; LOGI("[STREAM] a call is live (in call %d, streaming %d), engine 0x%lx",inCall,streaming,(unsigned long)eng); }
         lastEng=eng; applied=false; t=0; next=3.0; tries=0; why="after the call started"; }
     if(!live&&wasLive){ LOGI("[STREAM] the call ended"); applied=false; }
-    int sends=g_stTribeSends;                         // Tribe re-sent its settings (it joined): ours again in about 1 s
-    if(sends!=seenSends){ seenSends=sends;
-        if(live&&eng){ g_stLiveSeq=g_stLiveSeq+1; applied=false; t=0; next=1.0; tries=0; why="after Tribe's own re-send";
-            LOGI("[STREAM] Tribe sent its own encoder settings (it joined; #%d): ours again in about 1 s",sends); } }
+    int sends=g_stTribeSends, roles=g_stTribeRoles;   // Tribe re-sent its settings (it joined, or a role change): ours again in about 1 s
+    if(sends!=seenSends||roles!=seenRoles){ bool join=sends!=seenSends; seenSends=sends; seenRoles=roles;
+        if(live&&eng){ g_stLiveSeq=g_stLiveSeq+1; applied=false; t=0; next=1.0; tries=0;
+            why=join?"after Tribe's own re-send":"after Tribe's role-change re-send";
+            LOGI("[STREAM] Tribe sent its own encoder settings (%s; #%d): ours again in about 1 s",join?"it joined":"a role change",join?sends:roles); } }
     wasLive=live;
-    if(live&&g_stCfg[ix].has[ST_CAP]) st_capture_clamp(g_stCfg[ix].v[ST_CAP],dt);
+    if(!g_stOnPoll&&live&&g_stCfg[ix].has[ST_CAP]) st_capture_clamp(g_stCfg[ix].v[ST_CAP],dt);
     if(!live) st_size_offcall(&g_stCfg[ix]);       // never during a call: an old-size readback could be in flight
     if(!live||!eng) return;
     if(applied){ if(doneGen==g_stGen) return; }      // applied: again only when stream.txt changes
