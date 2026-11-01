@@ -1,0 +1,2 @@
+# Keep text files LF in the working copy too: the shell scripts break under bash with CRLF.
+* text=auto eol=lf

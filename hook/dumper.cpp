@@ -23,6 +23,7 @@
 #include <time.h>
 #include <math.h>
 #include <cstdarg>
+#include <cctype>
 #include <dlfcn.h>
 #include "vendor/And64InlineHook.hpp"
 static inline pid_t my_tid(){ return (pid_t)syscall(SYS_gettid); }
@@ -131,15 +132,34 @@ static bool validate_chain(uintptr_t Q){
 static bool try_objects_field(uintptr_t A){
     uintptr_t Q=rdptr(A); if(!validate_chain(Q)) return false;
     uint32_t ncReal=count_chunks(Q); if(ncReal==0) return false;
-    for(uint32_t d=0x10; d<=0x24; d+=4){ uint32_t ne=rd32(A+d);
+    // UE 5.4 FChunkedFixedUObjectArray: Objects@0, PreAllocatedObjects@8, MaxElements@0x10, NumElements@0x14,
+    // MaxChunks@0x18, NumChunks@0x1C. Take NumElements at +0x14 first (even early, when it's still small): the old slide
+    // could skip it and lock onto a constant 16384 further on (2026-10-06: nothing past 16384 objects was ever found).
+    { uint32_t ne=rd32(A+0x14), nc=rd32(A+0x1C);
+      if(ne>=1000&&ne<=5000000&&((ne+65535)/65536)==ncReal&&(nc==0||nc==ncReal)){
+          g_chunks=Q; g_numElements=ne; g_numChunks=ncReal; g_ne_off=0x14; g_objarray=A-0x10; g_ne_addr=A+0x14; return true; } }
+    for(uint32_t d=0x10; d<=0x1C; d+=4){ uint32_t ne=rd32(A+d);           // fallback slide, never past NumChunks
         if(ne<10000||ne>5000000) continue;
         if(((ne+65535)/65536)!=ncReal) continue;
         g_chunks=Q; g_numElements=ne; g_numChunks=ncReal; g_ne_off=d; g_objarray=A-0x10; g_ne_addr=A+d; return true; }
     return false;
 }
 // re-read the LIVE object count (it grows as the world/pawn spawn; find_* bound by g_numElements must track it)
+static uintptr_t raw_item_obj(uint32_t idx){                         // the item's Object, NOT bounded by g_numElements
+    uintptr_t chunk=rdptr(g_chunks+(uintptr_t)(idx>>16)*8); if(!chunk) return 0;
+    return rdptr(chunk+(uintptr_t)(idx&0xFFFF)*ITEM_STRIDE); }
 static void refresh_numelements(){ if(!g_ne_addr) return; uint32_t cur=rd32(g_ne_addr);
-    if(cur>=1000 && cur<=5000000){ g_numElements=cur; g_numChunks=(cur+65535)/65536; } }
+    if(cur>=1000 && cur<=5000000){ g_numElements=cur; g_numChunks=(cur+65535)/65536; }
+    // self-heal: if a live object sits right past the count, the counter address is stale (see try_objects_field).
+    // Re-read +0x14 from the array head; failing that, count the items directly.
+    uintptr_t nx=raw_item_obj(g_numElements); if(!nx||!in_range(nx,0x30)||rd32(nx+OFF_Index)!=g_numElements) return;
+    static int healed=0;
+    uintptr_t A=g_objarray+0x10; uint32_t ne=rd32(A+0x14);
+    if(ne>g_numElements&&ne<=5000000&&g_ne_off!=0x14){ g_ne_addr=A+0x14; g_ne_off=0x14; g_numElements=ne; g_numChunks=(ne+65535)/65536;
+        if(healed++<5) LOGI("[R2] object count was stale: switched to NumElements@+0x14 = %u",ne); return; }
+    uint32_t n=g_numElements; while(n<5000000){ uintptr_t o=raw_item_obj(n); if(!o||!in_range(o,0x30)) break; n++; }
+    if(n>g_numElements){ if(healed++<5) LOGI("[R2] object count was stale (%u): counted %u live items",g_numElements,n);
+        g_numElements=n; g_numChunks=(n+65535)/65536; } }
 // try a FUObjectArray head candidate: Objects is at head+ObjObjects+0x00 (slide ObjObjects offset)
 static bool try_objarray(uintptr_t head){
     static const uint32_t ooCand[]={0x10,0x00,0x08,0x18,0x20,0x28};
@@ -654,7 +674,7 @@ static void do_dump(){
 static const char* INI_PATH =
   "/data/data/com.TribeXR.TribeXR/files/UnrealGame/TribeXR/TribeXR/Saved/Config/Android/GameUserSettings.ini";
 static void ini_status(const char* msg){ char p[600]; snprintf(p,sizeof p,"%s/ini_upsert.log",OUTDIR);
-    FILE* f=fopen(p,"a"); if(f){ fprintf(f,"%s\n",msg); fclose(f);} LOGI("[INI] %s",msg); }
+    FILE* f=fopen(p,"a"); if(f){ fprintf(f,"%s\n",msg); fclose(f); chmod(p,0666);} LOGI("[INI] %s",msg); }
 // Stage the avatar into the loader's cache slot so the spawn-time read is a cache HIT (local glTF load,
 // no HTTP). Cache path (from Ghidra FUN_0514ec88 + FUN_050f584c): <ext files>/Documents/rpmavatar-<clean>.
 // Only the app UID can write Documents/ (drwxr-s---), so this must run in the constructor. Copies from
@@ -742,7 +762,7 @@ static void ini_upsert(){
 // If-None-Match -> 304. Read-only w.r.t. the game; started from the constructor so it's up before load.
 static const int HTTP_PORT = 8787;
 static void httpd_log(const char* fmt,...){ char m[512]; va_list ap; va_start(ap,fmt); vsnprintf(m,sizeof m,fmt,ap); va_end(ap);
-    LOGI("[HTTPD] %s",m); char p[600]; snprintf(p,sizeof p,"%s/httpd.log",OUTDIR); FILE* f=fopen(p,"a"); if(f){ fprintf(f,"%s\n",m); fclose(f); } }
+    LOGI("[HTTPD] %s",m); char p[600]; snprintf(p,sizeof p,"%s/httpd.log",OUTDIR); FILE* f=fopen(p,"a"); if(f){ fprintf(f,"%s\n",m); fclose(f); chmod(p,0666); } }
 
 // ---- compact MD5 (public-domain style) for the ETag (uppercase hex), matching the python server ----
 struct MD5C{ uint32_t a,b,c,d; uint64_t len; uint8_t buf[64]; uint32_t n; };
@@ -884,7 +904,7 @@ struct FStr { uint16_t* data; int32_t num; int32_t max; };
 static uint16_t g_fpath[600];
 static void build_fstr(FStr* s,const char* a){ int i=0; for(;a[i]&&i<599;i++) g_fpath[i]=(uint16_t)(uint8_t)a[i]; g_fpath[i]=0; s->data=g_fpath; s->num=i+1; s->max=i+1; }
 static void load_status(const char* fmt,...){ char m[512]; va_list ap; va_start(ap,fmt); vsnprintf(m,sizeof m,fmt,ap); va_end(ap);
-    LOGI("[LOAD] %s",m); char p[600]; snprintf(p,sizeof p,"%s/load_result.txt",OUTDIR); FILE* f=fopen(p,"a"); if(f){ fprintf(f,"%s\n",m); fclose(f);} }
+    LOGI("[LOAD] %s",m); char p[600]; snprintf(p,sizeof p,"%s/load_result.txt",OUTDIR); FILE* f=fopen(p,"a"); if(f){ fprintf(f,"%s\n",m); fclose(f); chmod(p,0666);} }   // readable over adb
 
 // resolve name pool + object array + UStruct offsets from params.txt (heavy scan; run off the game thread)
 static void ensure_resolved(){
@@ -1174,6 +1194,7 @@ static uintptr_t spawn_iso_actor(uintptr_t mesh){
     load_status("iso: mesh set on our own actor (comp=0x%lx); following the HMD from its next tick",(unsigned long)comp);
     return comp;
 }
+static void head_skin_loaded(const char* skin,uintptr_t libCDO,uintptr_t fnLoad);   // head.cpp: heads/<skin>.glb after a skin load
 static void do_load(){
     load_status("=== do_load (game tid=%d) ===",my_tid());
     refresh_numelements();                                       // catch objects spawned since resolve (the pawn)
@@ -1188,7 +1209,7 @@ static void do_load(){
         (unsigned long)fnLoad,(unsigned long)fnMesh,(unsigned long)fnErr,(unsigned long)fnSet,(unsigned long)libCDO,(unsigned long)body);
     if(!fnLoad||!fnMesh||!fnSet||!libCDO){ load_status("missing UFunction/CDO; abort"); return; }
     // skin selection: active_skin.txt names a file in tribemod/skins/ ; else glb_path.txt (full path); else custom.glb
-    char path[512]; char skin[256];
+    char path[512]; char skin[256]="";
     if(read_trim_file("active_skin.txt",skin,sizeof skin)) snprintf(path,sizeof path,"%s/skins/%s",OUTDIR,skin);
     else if(!read_trim_file("glb_path.txt",path,sizeof path)) snprintf(path,sizeof path,"%s/custom.glb",OUTDIR);
     // 1) glTFLoadAssetFromFilename(path,false,LoaderConfig)
@@ -1236,6 +1257,7 @@ static void do_load(){
         (unsigned long)mesh,(unsigned long)body,(int)rooted,(unsigned long)g_fnLeader,(unsigned long)g_camMgr);
     g_reports=0; g_report_ticks=6;                               // first RENDER report ~3s after attach (poll ticks are 0.5s)
     g_loaded_once=1;                                             // enable the menu-select skin-cycle trigger
+    head_skin_loaded(skin,libCDO,fnLoad);                        // detachable head: heads/<skin>.glb, if there is one
     load_status("=== do_load done (materials on, visible, kept) ===");
 }
 static void run_guarded(void (*fn)(),const char* what){
@@ -1415,6 +1437,7 @@ static Q4 qslerp(Q4 a,Q4 b,double t){ double c=a.x*b.x+a.y*b.y+a.z*b.z+a.w*b.w; 
     if(c>0.9995) return qnorm(Qm(a.x+(b.x-a.x)*t,a.y+(b.y-a.y)*t,a.z+(b.z-a.z)*t,a.w+(b.w-a.w)*t));
     double th=acos(c), s=sin(th), k0=sin((1-t)*th)/s, k1=sin(t*th)/s; return Qm(a.x*k0+b.x*k1,a.y*k0+b.y*k1,a.z*k0+b.z*k1,a.w*k0+b.w*k1); }
 static Q4 qyaw(double deg){ double h=deg*M_PI/360.0; return Qm(0,0,sin(h),cos(h)); }
+#include "gait.h"                                                    // the walk cycle on the tracked legs (a2_gait)
 static Q4 rot2q(const double* r){                                // FRotator(Pitch,Yaw,Roll)::Quaternion(), UE5
     double k=M_PI/360.0, SP=sin(fmod(r[0],360.0)*k), CP=cos(fmod(r[0],360.0)*k), SY=sin(fmod(r[1],360.0)*k), CY=cos(fmod(r[1],360.0)*k),
            SR=sin(fmod(r[2],360.0)*k), CR=cos(fmod(r[2],360.0)*k);
@@ -1441,6 +1464,8 @@ static bool g_rbOK=false, g_rbTried=false, g_calOK=false, g_a2Live=false, g_a2Fa
 static volatile sig_atomic_t g_a2Recal=0, g_a2CalNow=0;
 static double g_btScale=1.0, g_thM=180.0, g_avEyeH=0, g_tposeHold=0; static Q4 g_offHeadCam={0,0,0,1}; static V3 g_hipsCur={0,0,0};
 static int iHips=-1,iHead=-1,iNeck=-1,iLA=-1,iLF=-1,iLH=-1,iRA=-1,iRF=-1,iRH=-1; static bool g_ikL=false, g_ikR=false;
+static int g_gaitBone[8]={-1,-1,-1,-1,-1,-1,-1,-1}; static double g_gaitLeg=0;   // Left/Right UpLeg, Leg, Foot, ToeBase; hip-ankle cm
+static Gait g_gait; static V3 g_gaitHipOff={0,0,0};                // the walk cycle's state; the hips' dip this frame
 static uintptr_t g_pmA=0, g_pmB=0, g_trackParent=0;
 static bool g_handShown[2]={false,false};                      // model hand shown (controller) vs Tribe's tracked hand
 static uintptr_t g_fnNumBones=0,g_fnBoneName=0,g_fnParentBone=0,g_fnRefPose=0,g_fnHideBone=0,g_fnSetSkinned=0,g_fnAddComp=0,g_fnSetOwner=0,
@@ -1505,6 +1530,9 @@ static bool a2_build_rest(){
     iHips=rb_find("Hips"); iHead=rb_find("Head"); iNeck=rb_find("Neck"); iLA=rb_find("LeftArm"); iLF=rb_find("LeftForeArm"); iLH=rb_find("LeftHand");
     iRA=rb_find("RightArm"); iRF=rb_find("RightForeArm"); iRH=rb_find("RightHand");
     if(iLA<0||iRA<0||iHead<0||g_rb_par[0]>=0){ load_status("A2: rig lacks LeftArm/RightArm/Head (%d bones, %d/%d mapped) -> can't be body-tracked",n,mapped,BM_N); return false; }
+    { static const char* const GB[8]={"LeftUpLeg","LeftLeg","LeftFoot","LeftToeBase","RightUpLeg","RightLeg","RightFoot","RightToeBase"};
+      for(int k=0;k<8;k++) g_gaitBone[k]=rb_find(GB[k]);
+      g_gaitLeg=(g_gaitBone[1]>=0&&g_gaitBone[2]>=0)?vlen(g_rb_lt[g_gaitBone[1]])+vlen(g_rb_lt[g_gaitBone[2]]):0; }
     g_ikL=iLF>=0&&iLH>=0&&g_rb_par[iLF]==iLA&&g_rb_par[iLH]==iLF;      // wrist IK needs Arm > ForeArm > Hand directly
     g_ikR=iRF>=0&&iRH>=0&&g_rb_par[iRF]==iRA&&g_rb_par[iRH]==iRF;
     g_thM=yaw_of_left(V(g_rb_ct[iLA].x-g_rb_ct[iRA].x,g_rb_ct[iLA].y-g_rb_ct[iRA].y,0));
@@ -1620,6 +1648,42 @@ struct FingerSeg{ int b, j0, j1; V3 dloc; };                      // dloc = the 
 static FingerSeg g_fseg[2][16]; static int g_nfseg[2]={0,0};
 static Q4 g_handFix[2]={{0,0,0,1},{0,0,0,1}}; static bool g_handFrameOK[2]={false,false};
 static uintptr_t g_inLib=0, g_fnHandValid=0, g_fnHandConf=0, g_fnUnhideBone=0; static int64_t g_handType[2]={1,2}, g_confHigh=1;
+// Which hand Tribe actually draws decides, not the Quest's signal: IsHandPositionValid can stay valid=1/High while you hold
+// a controller (observed 2026-10-05: wrist 12 cm from the controller, valid=1). By then Tribe has hidden its tracked hand,
+// so the model's stayed hidden too -> no hands. The model hand is now shown exactly when Tribe's
+// TribeControllers_C.OculusXRHandComponent for that side is not visible (the Quest signal is only a fallback).
+static uintptr_t g_fnCompVisible=0, g_ohCls=0, g_ctlCls=0; static int g_offSkelType=-1, g_offOwningPawn=-2;
+static volatile uintptr_t g_tribeHand[2]={0,0};                      // set by the poll thread, read on the game thread
+static volatile bool g_tribeHandSeen=false;                          // found at least once -> never fall back to the Quest signal
+static const uint32_t RF_MirroredGarbage=0x40000000;                 // destroyed, awaiting GC (UE 5.4 ObjectMacros.h)
+static bool obj_alive(uintptr_t o);
+// Tribe destroys and respawns TribeControllers_C at every hands<->controllers switch (seen: 6 hand meshes at once, old + new),
+// so a cached mesh goes stale right when it matters: skip garbage, prefer the newest, re-find twice a second.
+static bool th_ok(uintptr_t c){ if(!c||!obj_alive(c)||(rd32(c+OFF_Flags)&RF_MirroredGarbage)) return false;
+    uintptr_t owner=rdptr(c+OFF_Outer); return owner&&!(rd32(owner+OFF_Flags)&RF_MirroredGarbage); }
+static void a2_find_tribe_hands(){                                   // poll thread: the local player's two tracked-hand meshes
+    if(!g_ohCls){ g_ohCls=find_by_path("/Script/OculusXRInput.OculusXRHandComponent",1); if(!g_ohCls) return;
+        g_offSkelType=prop_offset(g_ohCls,"SkeletonType",0); g_fnCompVisible=find_by_path("/Script/Engine.SceneComponent.IsVisible",0); }
+    if(g_offOwningPawn==-2){ g_ctlCls=find_by_path("/Game/Pawn/TribeControllers.TribeControllers_C",1);
+        if(g_ctlCls) g_offOwningPawn=prop_offset(g_ctlCls,"OwningPawn",0); }
+    if(th_ok(g_tribeHand[0])&&th_ok(g_tribeHand[1])) return;
+    refresh_numelements(); char cn[96]; uintptr_t found[2]={0,0}, any[2]={0,0}; int seen=0;
+    for(uint32_t i=0;i<g_numElements;i++){ uintptr_t o=obj_at(i); if(!o||rdptr(o+OFF_Class)!=g_ohCls) continue;
+        if(rd32(o+OFF_Flags)&(RF_ClassDefaultObject|RF_MirroredGarbage)) continue;
+        uintptr_t owner=rdptr(o+OFF_Outer); if(!owner||(rd32(owner+OFF_Flags)&RF_MirroredGarbage)) continue;   // outer = its actor
+        class_name(owner,cn,sizeof cn); if(strcmp(cn,"TribeControllers_C")) continue;
+        uint8_t t=0; if(g_offSkelType>=0) sr(o+g_offSkelType,&t,1);
+        int s=(t==(uint8_t)g_handType[0])?0:(t==(uint8_t)g_handType[1])?1:-1; if(s<0) continue;
+        seen++; any[s]=o;                                                // last = newest
+        if(g_offOwningPawn<0||!g_pawn||rdptr(owner+g_offOwningPawn)==g_pawn) found[s]=o; }   // not another player's hand
+    if(!found[0]&&!found[1]){ found[0]=any[0]; found[1]=any[1]; }    // our pawn pointer went stale (respawned pawn): solo = ours
+    if(found[0]&&found[1]) g_tribeHandSeen=true;
+    if(found[0]!=g_tribeHand[0]||found[1]!=g_tribeHand[1]){ g_tribeHand[0]=found[0]; g_tribeHand[1]=found[1];
+        load_status("A2 hands: Tribe's tracked-hand meshes L=0x%lx R=0x%lx (%d live on controllers; SkeletonType@%d OwningPawn@%d IsVisible=0x%lx)",
+            (unsigned long)found[0],(unsigned long)found[1],seen,g_offSkelType,g_offOwningPawn,(unsigned long)g_fnCompVisible); } }
+static int a2_tribe_hand_visible(int s){                             // game thread: 1 visible, 0 hidden, -1 unknown
+    uintptr_t c=g_tribeHand[s]; if(!g_fnCompVisible||!th_ok(c)) return -1;
+    uint8_t* r=call_ret(c,g_fnCompVisible,0,0); return r?(*r?1:0):-1; }
 static bool g_mv[BT_NJ];                                             // Meta joint bIsValid, this frame
 static const int HJ[2][4]={{19,30,25,40},{45,56,51,66}};            // Meta: wrist, middle/index/little proximal (knuckles)
 static Q4 quat_axes(V3 x,V3 y,V3 z){                                 // rotation taking (1,0,0),(0,1,0),(0,0,1) to x,y,z
@@ -1653,12 +1717,14 @@ static int a2_hand_call(uintptr_t fn,int64_t hand){                  // OculusXR
 static void a2_update_hand_modes(){
     for(int s=0;s<2;s++){ int h=s?iRH:iLH; if(h<0) continue;
         int valid=a2_hand_call(g_fnHandValid,g_handType[s]), conf=a2_hand_call(g_fnHandConf,g_handType[s]);
-        bool want=!(valid==1&&(conf<0||conf==(int)g_confHigh));    // hand tracking doesn't have this hand -> show the model's
+        int tv=a2_tribe_hand_visible(s);                             // mirror what Tribe draws; Quest signal only as a fallback
+        if(tv<0&&g_tribeHandSeen) continue;                          // Tribe is respawning its controllers: hold, re-found soon
+        bool want=tv>=0?tv==0:!(valid==1&&(conf<0||conf==(int)g_confHigh));
         if(want==g_handShown[s]) continue;
         g_handShown[s]=want; uintptr_t ms[2]={g_pmA,g_pmB};
         for(int m=0;m<2;m++) if(ms[m]){ if(want) a2_unhide_bone(ms[m],h); else a2_hide_bone(ms[m],h); }
-        load_status("A2 hands: %s -> %s (hand tracking valid=%d confidence=%d)",s?"right":"left",
-            want?"MODEL hand shown (controller)":"Tribe's tracked hand (model hand hidden)",valid,conf); } }
+        load_status("A2 hands: %s -> %s (Tribe's tracked hand %s; Quest hand tracking valid=%d confidence=%d)",s?"right":"left",
+            want?"MODEL hand shown":"Tribe's tracked hand (model hand hidden)",tv<0?"unknown":tv?"visible":"hidden",valid,conf); } }
 // ---- space alignment (advisor: "make sure the body and HMD stay aligned after a recenter"). The camera's pose is
 // base-corrected by the plugin (BaseOrientation^-1 * (P - BaseOffset)); TryGetBodyState's joints are NOT. After a UE-level
 // recenter the body sits beside you (measured: eyes-vs-MetaHead 17/17 cm instead of 7.5/0). Apply the same correction to
@@ -1689,7 +1755,23 @@ static void a2_ik_arm(int a,int f,int h,V3 W,V3 P,Q4* tq,const Q4* cq,const V3* 
 static void a2_fk(const Q4* tq,const bool* dv,Q4* cq,V3* ct){          // Hips takes Meta's hip position even if it isn't the root
     for(int i=0;i<g_rb_n;i++){ int p=g_rb_par[i];
         cq[i]=dv[i]?tq[i]:(p<0?g_rb_lq[i]:qnorm(qmul(cq[p],g_rb_lq[i])));
-        ct[i]=(i==iHips&&dv[i])?g_hipsCur:(p<0?g_rb_lt[i]:vadd(ct[p],qrot(cq[p],g_rb_lt[i]))); } }
+        ct[i]=(i==iHips&&dv[i])?vadd(g_hipsCur,g_gaitHipOff):(p<0?g_rb_lt[i]:vadd(ct[p],qrot(cq[p],g_rb_lt[i]))); } }
+// the walk cycle (gait.h, the user 2026-10-10): while the mod's walking carries VROrigin (the meshes' parent), swing the
+// tracked legs about the body's left-right axis and dip the hips; the arms and the rest stay tracked. Component space =
+// VROrigin's frame (the meshes hang on it unrotated); the walking is measured in the world from VROrigin's motion.
+static void a2_gait(Q4* tq,const bool* dv,float dt){
+    g_gaitHipOff=V(0,0,0);
+    double P[3], R[3]; if(g_gaitLeg<1||!g_trackParent||!obj_alive(g_trackParent)||!get_vec3(g_trackParent,g_fnLoc,P)||!get_vec3(g_trackParent,g_fnGetRot,R)) return;
+    V3 f=V(cos(g_thM*M_PI/180.0),sin(g_thM*M_PI/180.0),0);           // the avatar's rest facing, turned as the tracked hips are
+    if(iHips>=0&&dv[iHips]){ V3 h=qrot(qmul(tq[iHips],qinv(g_rb_cq[iHips])),f); h.z=0; if(vlen(h)>0.2) f=vnorm(h); }
+    double w=gait_update(&g_gait,V(P[0],P[1],P[2]),R[1],qrot(qyaw(R[1]),f),g_gaitLeg*g_btScale,dt);
+    if(w<=0) return;
+    V3 k=gait_lateral(f); const int* b=g_gaitBone;
+    #define GB_(i) ((b[i]>=0&&dv[b[i]])?&tq[b[i]]:(Q4*)0)
+    gait_leg(GB_(0),GB_(1),GB_(2),GB_(3),k,g_gait.phase,w);
+    gait_leg(GB_(4),GB_(5),GB_(6),GB_(7),k,g_gait.phase+0.5,w);
+    #undef GB_
+    g_gaitHipOff=V(0,0,gait_dip(&g_gait,g_gaitLeg)); }
 static void a2_set_bone(uintptr_t comp,int i,Q4 q,V3 t){
     static int oN=-2,oX=-1,oS=-1; static uint16_t psz=0;
     if(oN==-2){ oN=prop_offset(g_fnSetBoneXf,"BoneName",0); oX=prop_offset(g_fnSetBoneXf,"InTransform",0); oS=prop_offset(g_fnSetBoneXf,"BoneSpace",0); psz=rd16(g_fnSetBoneXf+0xB6);
@@ -1698,6 +1780,7 @@ static void a2_set_bone(uintptr_t comp,int i,Q4 q,V3 t){
     memset(b,0,psz); memcpy(b+oN,&g_rb_fn[i],8); double* x=(double*)(b+oX);
     x[0]=q.x; x[1]=q.y; x[2]=q.z; x[3]=q.w; x[4]=t.x; x[5]=t.y; x[6]=t.z; x[8]=x[9]=x[10]=1; if(oS>=0) b[oS]=(uint8_t)g_boneCS;
     call_uf(comp,g_fnSetBoneXf,b); }
+static void head_capture_fk(const Q4* cq,const V3* ct);               // head.cpp: the DH bones' pose, every frame
 static void a2_drive(const Q4* mq,const V3* mp,Q4 camQ,V3 camP,float dt){
     static Q4 tq[RB_MAX], cq[RB_MAX]; static V3 ct[RB_MAX]; static bool dv[RB_MAX]; static double logT=0, usSum=0; static int usN=0;
     struct timespec t0,t1; clock_gettime(CLOCK_MONOTONIC,&t0);
@@ -1708,6 +1791,7 @@ static void a2_drive(const Q4* mq,const V3* mp,Q4 camQ,V3 camP,float dt){
     V3 hipT=vmul(mp[1],is); g_hipsCur=init?hipT:vadd(g_hipsCur,vmul(vsub(hipT,g_hipsCur),a));
     if(iHead>=0){ Q4 hc=qnorm(qmul(camQ,g_offHeadCam)); Q4 dH=dv[iHead]?qmul(hc,qinv(tq[iHead])):QI;       // head = HMD
         tq[iHead]=hc; dv[iHead]=true; if(iNeck>=0&&dv[iNeck]) tq[iNeck]=qnorm(qmul(qslerp(QI,dH,0.5),tq[iNeck])); }   // neck: half the seam
+    a2_gait(tq,dv,dt);                                               // the stick's walk on the legs (before any FK)
     a2_fk(tq,dv,cq,ct);
     double eL=-1,eR=-1;
     if(g_ikL&&dv[iLA]&&dv[iLF]) a2_ik_arm(iLA,iLF,iLH,vmul(mp[19],is),vmul(mp[11],is),tq,cq,ct,&eL);
@@ -1725,6 +1809,7 @@ static void a2_drive(const Q4* mq,const V3* mp,Q4 camQ,V3 camP,float dt){
                 Q4 prov=qnorm(qmul(cq[p],g_rb_lq[b])); Q4 q=qnorm(qmul(qbetween(qrot(prov,f.dloc),tgt),prov));
                 tq[b]=q; dv[b]=true; cq[b]=q; ct[b]=vadd(ct[p],qrot(cq[p],g_rb_lt[b])); } }
         a2_fk(tq,dv,cq,ct); }
+    head_capture_fk(cq,ct);                                          // the pose A renders this frame, DH bones included
     for(int i=0;i<g_rb_n;i++) if(dv[i]){ a2_set_bone(g_pmA,i,cq[i],ct[i]); if(g_pmB) a2_set_bone(g_pmB,i,cq[i],ct[i]); }
     { static int good=0; if(g_a2Marker && ++good>=120){ a2_marker(false); load_status("A2: 120 frames driven OK (crash guard cleared)"); } }
     clock_gettime(CLOCK_MONOTONIC,&t1); usSum+=(t1.tv_sec-t0.tv_sec)*1e6+(t1.tv_nsec-t0.tv_nsec)/1e3; usN++;
@@ -1734,9 +1819,10 @@ static void a2_drive(const Q4* mq,const V3* mp,Q4 camQ,V3 camP,float dt){
         int rA=-1,rB=-1; uint8_t* r=call_ret(g_pmA,g_fnRendered,1,0.5f); if(r) rA=*r; if(g_pmB){ r=call_ret(g_pmB,g_fnRendered,1,0.5f); if(r) rB=*r; }
         double wc[2]={-1,-1}; uintptr_t mc[2]={g_mcL,g_mcR}; int wj[2]={19,45};
         for(int s2=0;s2<2;s2++){ double l[3]; if(mc[s2]&&sr(mc[s2]+g_offRelLoc,l,24)) wc[s2]=vlen(vsub(V(l[0],l[1],l[2]),mp[wj[s2]])); }
-        load_status("A2 live: dt=%.4f drive=%.0f us (%d bones/mesh) hands L%s R%s | align=%s (head err raw %.1f / corrected %.1f) eyes-vs-MetaHead fwd/right/up=(%.1f,%.1f,%.1f) | Meta wrist-to-controller L%.0f R%.0f cm | wristIK L%.1f R%.1f | rendered A=%d B=%d",
+        load_status("A2 live: dt=%.4f drive=%.0f us (%d bones/mesh) hands L%s R%s | align=%s (head err raw %.1f / corrected %.1f) eyes-vs-MetaHead fwd/right/up=(%.1f,%.1f,%.1f) | Meta wrist-to-controller L%.0f R%.0f cm | wristIK L%.1f R%.1f | rendered A=%d B=%d | gait w %.2f %.0f cm/s %s leg %.0f cm",
             dt,usN?usSum/usN:0.0,nset,g_handShown[0]?"=model":"=tribe",g_handShown[1]?"=model":"=tribe",
-            g_align?"base":"raw",g_errRaw,g_errAl,d.x,d.y,d.z,wc[0],wc[1],eL*g_btScale,eR*g_btScale,rA,rB); usSum=0; usN=0; } }
+            g_align?"base":"raw",g_errRaw,g_errAl,d.x,d.y,d.z,wc[0],wc[1],eL*g_btScale,eR*g_btScale,rA,rB,
+            g_gait.w,g_gait.speed,g_gait.sign<0?"back":"fwd",g_gaitLeg); usSum=0; usN=0; } }
 // skin changed (do_load put the new mesh on our actor's component): drop the old tracked meshes and rebuild for the new
 // rig. Fresh components (not an asset swap) because a same-bone-count asset swap keeps the old rig's hidden-bone indices.
 static void a2_drop_meshes(){
@@ -1797,7 +1883,27 @@ static void bt_frame(float dt){
 // (drone_poll); this game-thread tick moves it. Orbit center = your head through a 1.5 s low-pass (head-bobbing to the
 // beat doesn't shake the shot).
 static volatile sig_atomic_t g_droneOn=0, g_droneTarget=0, g_dRset=0, g_dHset=0;    // target 0 = selfie stick, 1 = Auto cam
+// The giant intro (giant_tick, further down) runs while g_gState != G_DOWN; the drone then holds the crowd's view of it
+// (the user: "when i press that button, the camera goes into the crowd in the middle and watches from there while im
+// up and down. this camera angle only happens when i press that button"). World cm, mid-crowd just above the heads.
+enum { G_DOWN, G_RISING, G_UP, G_DESC };
+static int g_gState=G_DOWN;
+static const double G_CAM[3]={0.0,-1200.0,240.0};   // v2: 12 m out, low (the user: "a little too far back. i cant see my face")
 static uintptr_t g_droneCap=0, g_fnSetWorldLR=0, g_fnSetRelLR=0, g_dronePC=0;
+// a stage's stream intro (hook/intro.cpp) flies the same camera through the drone's takeoff and landing: while g_introCam
+// is 1, drone_update takes its pose from g_introP / g_introA (world cm). g_introArmed (an intro file is up) has drone_poll
+// resolve the camera before the first press; g_introDark holds the show at ShowLevel 0 (giant_tick).
+// head.cpp reads g_introCam too (head.txt intro=hold: no auto takeoff while the intro owns the camera), so this stays
+// declared above #include "head.cpp".
+static volatile sig_atomic_t g_introCam=0, g_introArmed=0, g_introDark=0;
+static double g_introP[3], g_introA[3];
+// a stage's extra camera on a new camera-menu button (hook/camview.cpp, the Halloween session): while g_viewCam is 1,
+// drone_update takes its pose from g_viewP / g_viewA (world cm; a stage intro still wins, the reel waits); g_viewArmed (the
+// stage that's up has camview.<folder>.txt) has drone_poll resolve the camera. g_dShotFov: the playing reel shot's fov=
+// (0: Tribe's), which camview.cpp applies to the capture.
+static volatile sig_atomic_t g_viewCam=0, g_viewArmed=0;
+static double g_viewP[3], g_viewA[3];
+static volatile float g_dShotFov=0;
 // Tribe's Auto cam is a beat-synced CUT camera (decompiled TribePlayerController, NOTES 3i): +0x97c BPM, +0x978 beats
 // per cut, +0x980 AutoCamMode (1 = Slow, doubles the beats), +0x970 cut interval s, +0x974 SECONDS UNTIL THE NEXT CUT
 // (counts down; each cut resets it to the interval). Holding +0x974 huge while we fly it stops Tribe yanking the camera.
@@ -1814,12 +1920,80 @@ static void set_comp_xform(uintptr_t fn,uintptr_t comp,const double loc[3],const
     uint16_t psz=rd16(fn+0xB6); static uint8_t b[1024]; if(cL[s]<0||cR[s]<0||psz>sizeof b) return;
     memset(b,0,psz); memcpy(b+cL[s],loc,24); memcpy(b+cR[s],rot,24); if(cS[s]>=0) b[cS[s]]=0; if(cT[s]>=0) b[cT[s]]=1;
     call_uf(comp,fn,b); }
+// ---- path mode (drone.txt "mode=path"): a looping reel of shots, cut broadcast-style. Source: tribemod/drone_path.txt
+// (re-read when it changes) or the built-in festival reel. World cm: Tribe's DJ rig sits at the origin and the crowd is
+// toward -Y (the stage behind you, +Y). One shot per line:
+//   fly   <secs> <x,y,z> <x,y,z> [look=dj|x,y,z]          ease from A to B, aiming at you or at a fixed point
+//   orbit <secs> [r=cm] [h=cm vs head] [deg=sweep] [start=deg]   circle your (smoothed) head; start -90 = crowd side
+// either may end with fov=<deg>: the capture's horizontal FOV during that shot (camview.cpp applies it; none = Tribe's)
+struct DShot{ int orbit, lookDJ; float secs; double a[3], b[3], look[3], r, h, deg, start; float fov; };
+#define DSHOT_MAX 40
+static DShot g_dShots[2][DSHOT_MAX]; static volatile sig_atomic_t g_dShotN[2]={0,0}, g_dShotCur=0, g_dPathGen=0, g_dMode=0;
+static const char* DRONE_REEL =
+    "# overview: high above the back of the crowd, pushing in on the stage\n"
+    "fly 12 0,-5200,1800 0,-3000,1100 look=0,600,900\n"
+    "# low pass across the crowd, the stage in view\n"
+    "fly 10 -3500,-2600,450 3500,-1800,450 look=0,400,700\n"
+    "# over the crowd toward you\n"
+    "fly 8 0,-2200,700 0,-700,330 look=dj\n"
+    "# close orbit around you\n"
+    "orbit 15 r=260 h=30 deg=360 start=-90\n"
+    "# over your shoulder: the crowd ahead\n"
+    "fly 8 -250,380,260 250,380,260 look=0,-3000,200\n"
+    "# low hero angle from the stage lip, looking up past you\n"
+    "fly 8 -400,-380,60 400,-380,60 look=0,300,900\n"
+    "# tighter arc the other way\n"
+    "orbit 10 r=170 h=10 deg=-140 start=-20\n"
+    "# crane up from the pit\n"
+    "fly 10 0,-900,150 0,-900,2200 look=0,300,900\n";
+static bool parse_xyz(const char* s,double o[3]){ return sscanf(s,"%lf,%lf,%lf",&o[0],&o[1],&o[2])==3
+    && fabs(o[0])<200000 && fabs(o[1])<200000 && fabs(o[2])<200000; }
+static bool em_active_folder(char* out,size_t n);   // the active stage's folder under /Game/Mods/, lowercase (env menu)
+static void drone_load_path(){                       // poll thread: parse into the idle buffer, then flip
+    // the reel follows the stage (the club's walls are where the festival reel flies): drone_path.<folder>.txt while one
+    // of our stages is up, else drone_path.txt, else the built-in festival reel
+    static long lastKey=-2; char p[600], name[96]="drone_path.txt", fol[48]; struct stat st;
+    if(em_active_folder(fol,sizeof fol)){ char nm[96]; snprintf(nm,sizeof nm,"drone_path.%s.txt",fol);
+        snprintf(p,sizeof p,"%s/%s",OUTDIR,nm); if(stat(p,&st)==0) snprintf(name,sizeof name,"%s",nm); }
+    snprintf(p,sizeof p,"%s/%s",OUTDIR,name);
+    long key=stat(p,&st)==0?(long)st.st_mtime*1000003L+(long)st.st_size:-1;
+    { uint32_t h=2166136261u; for(const char* q=name; *q; q++) h=(h^(uint8_t)*q)*16777619u; key=key*31L+(long)(h&0xffffu); }
+    if(key==lastKey) return; lastKey=key;
+    static char text[8192]; text[0]=0;
+    if(key!=-1){ FILE* f=fopen(p,"r"); if(f){ size_t n=fread(text,1,sizeof text-1,f); text[n]=0; fclose(f); } }
+    const char* src=text[0]?text:DRONE_REEL; int idle=1-g_dShotCur, n=0, bad=0; double total=0;
+    char buf[8192]; snprintf(buf,sizeof buf,"%s",src); char* save=0;
+    for(char* line=strtok_r(buf,"\n",&save); line&&n<DSHOT_MAX; line=strtok_r(0,"\n",&save)){
+        line[strcspn(line,"\r#")]=0; char* tk[12]; int nt=0; char* s2=0;
+        for(char* t=strtok_r(line," \t",&s2); t&&nt<12; t=strtok_r(0," \t",&s2)) tk[nt++]=t;
+        if(nt<2) continue;
+        DShot sh; memset(&sh,0,sizeof sh); sh.secs=(float)atof(tk[1]); sh.lookDJ=1; sh.r=260; sh.h=30; sh.deg=360; sh.start=-90;
+        if(sh.secs<1) sh.secs=1; if(sh.secs>120) sh.secs=120;
+        int i=2;
+        if(!strcmp(tk[0],"orbit")) sh.orbit=1;
+        else if(!strcmp(tk[0],"fly")&&nt>=4&&parse_xyz(tk[2],sh.a)&&parse_xyz(tk[3],sh.b)) i=4;
+        else { bad++; continue; }
+        for(;i<nt;i++){ char* eq=strchr(tk[i],'='); if(!eq) continue; *eq=0; const char* v=eq+1;
+            if(!strcmp(tk[i],"look")) sh.lookDJ=!strcmp(v,"dj")?1:(parse_xyz(v,sh.look)?0:1);
+            else if(!strcmp(tk[i],"r")) sh.r=fmin(fmax(atof(v),50),3000);
+            else if(!strcmp(tk[i],"h")) sh.h=fmin(fmax(atof(v),-200),2000);
+            else if(!strcmp(tk[i],"deg")) sh.deg=fmin(fmax(atof(v),-1080),1080);
+            else if(!strcmp(tk[i],"start")) sh.start=atof(v);
+            else if(!strcmp(tk[i],"fov")) sh.fov=(float)fmin(fmax(atof(v),10),120); }
+        g_dShots[idle][n++]=sh; total+=sh.secs; }
+    g_dShotN[idle]=n; g_dShotCur=idle; g_dPathGen++;
+    LOGI("[DRONE] path: %d shot(s), %.0f s loop, from %s%s",n,total,text[0]?name:"the built-in festival reel",
+        bad?" (some lines not understood: use fly/orbit)":""); }
 static void drone_update(float dt){
     static bool flying=false, parked=false, haveRel=false, haveLast=false;
     static uintptr_t flyCap=0; static int flyTgt=0;
     static double relL[3], relR[3], C[3], th=0, t=0, rS=300, hS=80, lastP[3], logT=0;
+    static bool pathReset=true; static int pathGen=-1, si=0; static double st=0;        // path-mode playhead
     uintptr_t pc=g_dronePC, cap=g_droneCap;
-    bool active=g_droneOn && cap && g_fnSetWorldLR && g_camComp && g_fnLoc;
+    bool intro=g_introCam!=0;                                        // a stage's stream intro flies it too (intro.cpp)
+    bool view=g_viewCam!=0&&!intro;                                  // a camera-menu view holds it (camview.cpp)
+    bool active=(g_droneOn||intro||view) && cap && g_fnSetWorldLR && g_camComp && g_fnLoc;
+    g_dShotFov=0;                                                    // set again below while a reel shot with fov= plays
     if(flying && (!active || cap!=flyCap)){                        // landing: drone off, or the camera/target changed
         if(haveRel && g_fnSetRelLR){ set_comp_xform(g_fnSetRelLR,flyCap,relL,relR);
             LOGI("[DRONE] landed: camera back on its %s mount",flyTgt?"Auto-cam":"selfie-stick"); }
@@ -1837,26 +2011,53 @@ static void drone_update(float dt){
         memcpy(C,H,24); double dx=P0[0]-H[0], dy=P0[1]-H[1];
         rS=sqrt(dx*dx+dy*dy); if(rS<50) rS=50; if(rS>2000) rS=2000;
         hS=P0[2]-H[2]; if(hS<-200) hS=-200; if(hS>600) hS=600;
-        th=atan2(dy,dx)*180.0/M_PI; t=0; logT=0; flying=true; flyCap=cap; flyTgt=tgt;
+        th=atan2(dy,dx)*180.0/M_PI; t=0; logT=0; flying=true; flyCap=cap; flyTgt=tgt; pathReset=true;
         LOGI("[DRONE] takeoff (%s) from (%.0f,%.0f,%.0f): %.0f cm out, %.0f cm vs your head, angle %.0f deg",
             tgt?"Auto cam":"selfie stick",P0[0],P0[1],P0[2],rS,hS,th); }
     if(flyTgt==1&&pc){ float* cd=(float*)(pc+PC_AUTOCAM_NEXTCUT); float v=*cd;   // Auto cam only: park its cut timer
         if((v>0.0f&&v<600.0f)||v>1e8f){ if(!parked) LOGI("[DRONE] parking Tribe's Auto-cam cuts (next-cut timer was %.2fs)",v);
             *cd=1e9f; parked=true; } }
     double k=dt/1.5; if(k>1) k=1; for(int i=0;i<3;i++) C[i]+=(H[i]-C[i])*k;  // smoothed orbit center
-    double r=g_dRset?(double)g_dR:rS, h=g_dHset?(double)g_dH:hS;              // drone.txt overrides the stick's start pose
-    th=fmod(th+g_dSpeed*dt,360.0); t+=dt; double a=th*M_PI/180.0;
-    double P[3]={ C[0]+r*cos(a), C[1]+r*sin(a), C[2]+h+g_dBob*sin(t*0.6) };
-    double A[3]={ C[0], C[1], C[2]+g_dLook };                               // aim point: a bit below your eyes
+    double P[3], A[3]={ C[0], C[1], C[2]+g_dLook };                         // default aim: a bit below your eyes
+    int cur=g_dShotCur, ns=g_dShotN[cur];
+    if(g_dMode==1&&ns>0){                                                   // path mode: the shot reel, looping
+        const DShot* S=g_dShots[cur];
+        if(pathReset||pathGen!=g_dPathGen){ pathReset=false; pathGen=g_dPathGen; si=0; st=0;
+            LOGI("[DRONE] reel start: shot 1/%d (%s, %.0f s)",ns,S[0].orbit?"orbit":"fly",(double)S[0].secs); }
+        if(g_gState==G_DOWN&&!intro&&!view) st+=dt;                        // the reel waits during the giant shot, an intro, a view
+        while(st>=S[si].secs){ st-=S[si].secs; si=(si+1)%ns;
+            LOGI("[DRONE] shot %d/%d (%s, %.0f s)",si+1,ns,S[si].orbit?"orbit":"fly",(double)S[si].secs); }
+        const DShot& sh=S[si]; double u=st/sh.secs, e=u*u*(3-2*u);           // smoothstep: eases in and out
+        g_dShotFov=sh.fov;                                                  // its fov= (camview.cpp's cv_fov applies it)
+        if(sh.orbit){ double an=(sh.start+sh.deg*u)*M_PI/180.0;
+            P[0]=C[0]+sh.r*cos(an); P[1]=C[1]+sh.r*sin(an); P[2]=C[2]+sh.h; }
+        else { for(int i=0;i<3;i++) P[i]=sh.a[i]+(sh.b[i]-sh.a[i])*e;
+            if(!sh.lookDJ) memcpy(A,sh.look,24); }
+        t+=dt; th=atan2(P[1]-C[1],P[0]-C[0])*180.0/M_PI;                   // orbit mode resumes from here if switched
+    } else {                                                                // orbit mode
+        double r=g_dRset?(double)g_dR:rS, h=g_dHset?(double)g_dH:hS;          // drone.txt overrides the stick's start pose
+        th=fmod(th+g_dSpeed*dt,360.0); t+=dt; double a=th*M_PI/180.0;
+        P[0]=C[0]+r*cos(a); P[1]=C[1]+r*sin(a); P[2]=C[2]+h+g_dBob*sin(t*0.6); }
+    static bool giantShot=false; static double gT=0, gAimZ=0;
+    if(g_gState!=G_DOWN){                                                   // giant intro: mid-crowd, watching you rise
+        if(!giantShot){ giantShot=true; gT=0; gAimZ=H[2]-120.0; LOGI("[DRONE] giant shot: cut to the crowd (%.0f,%.0f,%.0f)",G_CAM[0],G_CAM[1],G_CAM[2]); }
+        gT+=dt; double ka=dt/0.8; if(ka>1) ka=1; gAimZ+=((H[2]-120.0)-gAimZ)*ka;   // aim 1.2 m under the eyes: face upper third
+        P[0]=G_CAM[0]+60.0*sin(gT*0.35); P[1]=G_CAM[1]; P[2]=G_CAM[2]+15.0*sin(gT*0.23);   // a slow handheld sway
+        A[0]=H[0]; A[1]=H[1]; A[2]=gAimZ; }
+    else if(giantShot){ giantShot=false; LOGI("[DRONE] giant shot over: back to the reel"); }
+    if(view){ memcpy(P,g_viewP,24); memcpy(A,g_viewA,24); }                  // a camera-menu view (camview.cpp)
+    if(intro){ memcpy(P,g_introP,24); memcpy(A,g_introA,24); }                // the intro's camera (intro.cpp)
     double dx=A[0]-P[0], dy=A[1]-P[1], dz=A[2]-P[2], hz=sqrt(dx*dx+dy*dy);
     double R[3]={ atan2(dz,hz)*180.0/M_PI, atan2(dy,dx)*180.0/M_PI, 0 };    // FRotator: Pitch, Yaw, Roll
     logT+=dt;
     if(logT>=5.0){ logT=0; double Q[3]; bool got=get_vec3(cap,g_fnLoc,Q);
         // drift = how far the camera moved since OUR last write. ~0 = we're the only writer; large = something fights us.
         double d=(got&&haveLast)?sqrt((Q[0]-lastP[0])*(Q[0]-lastP[0])+(Q[1]-lastP[1])*(Q[1]-lastP[1])+(Q[2]-lastP[2])*(Q[2]-lastP[2])):-1;
-        LOGI("[DRONE] %s center=(%.0f,%.0f,%.0f) cam=(%.0f,%.0f,%.0f) pitch=%.0f yaw=%.0f orbit=%.0fdeg r=%.0f h=%.0f spd=%.0f drift=%.1fcm cutsParked=%d",
-            flyTgt?"auto":"selfie",C[0],C[1],C[2],P[0],P[1],P[2],R[0],R[1],th,r,h,(double)g_dSpeed,d,(int)parked); }
+        double rr=sqrt((P[0]-C[0])*(P[0]-C[0])+(P[1]-C[1])*(P[1]-C[1])), hh=P[2]-C[2];
+        LOGI("[DRONE] %s %s center=(%.0f,%.0f,%.0f) cam=(%.0f,%.0f,%.0f) pitch=%.0f yaw=%.0f angle=%.0fdeg r=%.0f h=%.0f drift=%.1fcm cutsParked=%d",
+            flyTgt?"auto":"selfie",intro?"intro":view?"view":(g_dMode==1&&ns>0)?"path":"orbit",C[0],C[1],C[2],P[0],P[1],P[2],R[0],R[1],th,rr,hh,d,(int)parked); }
     set_comp_xform(g_fnSetWorldLR,cap,P,R); memcpy(lastP,P,24); haveLast=true; }
+#include "head.cpp"                                                  // detachable head: heads/<skin>.glb flies while A's Head is hidden
 // ============ Skin-menu trace (flag tribemod/skin_trace; diagnostic, logcat [SKIN]) ============
 // Logs every ProcessEvent call into the avatar menu's item widgets (W_SkinItem_C), the skin objects (BP_*Skin*_C) and the
 // visuals manager, with self + first param. Blueprint->Blueprint calls never pass ProcessEvent, so this shows which entry
@@ -1921,13 +2122,14 @@ static int make_text(const char* s,uint8_t* out,int cap){
     int i=0; for(;s[i]&&i<127;i++) buf[i]=(uint16_t)(uint8_t)s[i]; buf[i]=0;
     FStr fs={buf,i+1,i+1}; memset(b,0,psz); memcpy(b+oIn,&fs,sizeof fs);
     call_uf(g_smKTL,g_smFnStr2Txt,b); memcpy(out,b+oRet,sz); return sz; }
-static void sm_label_box(uintptr_t box,int idx){                             // box.NameText.SetText(label)
-    static int oName=-2,oT=-1; if(!g_smFnSetText||idx<0||idx>=SM_MAX) return;
+static void box_set_label(uintptr_t box,const char* label){                  // box.NameText.SetText(label) -- avatar + environment boxes
+    static int oName=-2,oT=-1; if(!g_smFnSetText||!box||!label) return;
     if(oName==-2){ oName=prop_offset(rdptr(box+OFF_Class),"NameText",0); oT=prop_offset(g_smFnSetText,"InText",0);
         LOGI("[MENU] W_SkinItem.NameText@%d SetText.InText@%d psz=0x%x",oName,oT,rd16(g_smFnSetText+0xB6)); }
     uintptr_t tb=oName>=0?rdptr(box+oName):0; uint16_t psz=rd16(g_smFnSetText+0xB6); uint8_t txt[64]; static uint8_t b[128];
-    if(!tb||oT<0||psz>sizeof b) return; int n=make_text(g_smLabels[idx],txt,sizeof txt); if(n<=0||oT+n>psz) return;
+    if(!tb||oT<0||psz>sizeof b) return; int n=make_text(label,txt,sizeof txt); if(n<=0||oT+n>psz) return;
     memset(b,0,psz); memcpy(b+oT,txt,n); call_uf(tb,g_smFnSetText,b); }
+static void sm_label_box(uintptr_t box,int idx){ if(idx>=0&&idx<SM_MAX) box_set_label(box,g_smLabels[idx]); }
 static uintptr_t sm_spawn(uintptr_t cls,uintptr_t outer){                    // GameplayStatics.SpawnObject(Class, Outer)
     static int oC=-2,oO=-1,oR=-1;
     if(oC==-2){ oC=prop_offset(g_smFnSpawn,"ObjectClass",0); oO=prop_offset(g_smFnSpawn,"Outer",0); oR=prop_offset(g_smFnSpawn,"ReturnValue",0);
@@ -1965,8 +2167,1058 @@ static void menu_tick(){
             if(ix<0){ sm_list_add(list,g_smItems[i]); LOGI("[MENU] added box '%s' (index was %d)",g_smLabels[i],ix); } } }
     for(int w=0;w<32;w++) if(g_smW[w]){                                      // keep our labels (Tribe may rewrite NameText)
         if(!obj_alive(g_smW[w])){ g_smW[w]=0; continue; } sm_label_box(g_smW[w],g_smWi[w]); } }
+// ============ Custom environments (flag tribemod/env_menu) ============
+// Our own boxes in Tribe's environment list (W_VisualsMenu's "EnvironmentList": the same UListView + W_SkinItem boxes as
+// the avatar list), one per line of tribemod/envs.txt ("Label=/Game/Long/Package/Name"; no file = one "Festival" box).
+// Tribe's environments are a fixed native enum (ETribeEnvironmentType -> /Game/Maps/Environments/<Name>, NOTES Session
+// 3m), so a new one can't be added as data. Clicking our box instead (1) switches Tribe to The Void (its lights + screens,
+// no scenery), (2) hides the Void's two screens, (3) streams OUR level in from a mod pak (patch OBB) with
+// LevelStreamingDynamic.LoadLevelInstance and (4) waits until it is visible. Picking a stock environment unloads ours.
+// The choice persists in tribemod/active_env.txt and is re-applied once Tribe's own saved environment has settled after
+// launch. Every stage logs [ENV], so a failure shows where it stopped (box / base switch / level found / visible).
+#define EM_MAX 8
+enum { EM_IDLE=0, EM_WAIT_BASE, EM_WAIT_LOAD, EM_ACTIVE };
+static volatile sig_atomic_t g_envMenuOn=0, g_emCount=0, g_emReq=-1, g_emUnloadReq=0, g_emState=EM_IDLE, g_emActive=-1;
+static char g_emLabels[EM_MAX][64], g_emPaths[EM_MAX][256];                  // written by the poll thread
+static bool em_active_folder(char* out,size_t n){      // "/Game/Mods/Club/Maps/X.X" -> "club"; false if none of ours is up
+    int a=g_emActive; if(g_emState!=EM_ACTIVE||a<0||a>=EM_MAX||n<2) return false;
+    const char* q=strstr(g_emPaths[a],"/Game/Mods/"); if(!q) return false; q+=11;
+    size_t k=0; for(; q[k]&&q[k]!='/'&&q[k]!='.'&&k+1<n; k++){ char c=q[k]; out[k]=(c>='A'&&c<='Z')?(char)(c+32):c; }
+    out[k]=0; return k>0; }
+static uintptr_t g_emItems[EM_MAX];                                          // our environment objects (game thread)
+static uintptr_t g_emList=0, g_emTribeItem=0, g_emCls=0, g_emGameState=0, g_emRig=0, g_emStream=0, g_emScreens[2];
+static uintptr_t g_emFnObjSet=0, g_emFnMouseDown=0, g_emFnListEvt=0, g_emFnSetEnv=0, g_emLSD=0, g_emFnBounds=0;
+static uintptr_t g_emFnIsLoaded=0, g_emFnIsVisible=0, g_emFnSetLoaded=0, g_emFnSetVisible=0, g_emFnHidden=0;
+static uintptr_t g_emFnActLoc=0, g_emFnActRot=0, g_emFnActScale=0, g_emEnum=0, g_emFnGetGS=0, g_emActorCls=0;
+static uintptr_t g_emFnFileExists=0, g_emFnContentDir=0, g_emBPL=0;          // diagnostics: what the engine's file system can see
+static uintptr_t g_emFnCurLevel=0, g_emFnMakeSOP=0, g_emFnSOP2Ref=0, g_emKSL=0, g_emFnLoadLvlSoft=0;
+static uintptr_t g_emVoidItem=0; static uintptr_t g_emIdentOf[EM_MAX];        // Tribe's "The Void" list item; which of ours carry its identity
+static int64_t g_emVoid=-1; static int g_emEnvOff=-1, g_emT=0, g_emPrevEnv=-1; static long g_emLastClickMs=0;
+static uintptr_t g_emW[32]; static int g_emWi[32];                            // W_SkinItem box -> index of our item
+static int em_item_idx(uintptr_t o){ if(!o) return -1; int n=g_emCount; for(int i=0;i<n&&i<EM_MAX;i++) if(g_emItems[i]==o) return i; return -1; }
+static int em_widget_idx(uintptr_t w){ for(int i=0;i<32;i++) if(g_emW[i]==w) return g_emWi[i]; return -1; }
+static void em_map_widget(uintptr_t w,int idx){
+    int free=-1; for(int i=0;i<32;i++){ if(g_emW[i]==w){ if(idx<0) g_emW[i]=0; else g_emWi[i]=idx; return; } if(!g_emW[i]&&free<0) free=i; }
+    if(idx>=0&&free>=0){ g_emW[free]=w; g_emWi[free]=idx; } }
+// Give our freshly spawned list item the identity of Tribe's own "The Void" item: copy its simple fields (Name = the
+// environment-table row, EnvironmentType, the owned/subscribed/hidden flags, ints). A default item has Name=None and
+// bIsOwned=false, so Tribe showed a "Load" button and applying it set environment None (dark decks, 2026-10-04).
+// Only plain-old-data properties are copied (no text/strings/objects/structs: no refcounts to break).
+static int em_copy_identity(uintptr_t dst,uintptr_t src){
+    int S=calib_fprop_size(); if(!dst||!src||S<0) return -1; char nm[128],ty[64]; int n=0;
+    for(uintptr_t c=rdptr(src+OFF_Class); c; c=rdptr(c+OFF_Super))
+        for(uintptr_t f=rdptr(c+OFF_ChildProps); f; f=rdptr(f+FF_Next)){
+            ffield_type(f,ty,sizeof ty); uint32_t off=rd32(f+FP_Offset); int sz=0;
+            if(!strcmp(ty,"BoolProperty")){ uint8_t bo=rd8(f+S+1), bm=rd8(f+S+2);
+                uint8_t v=(rd8(dst+off+bo)&~bm)|(rd8(src+off+bo)&bm); *(volatile uint8_t*)(dst+off+bo)=v; n++; continue; }
+            if(!strcmp(ty,"NameProperty")) sz=8; else if(!strcmp(ty,"IntProperty")) sz=4;
+            else if(!strcmp(ty,"EnumProperty")||!strcmp(ty,"ByteProperty")) sz=1;
+            if(!sz) continue;
+            memcpy((void*)(dst+off),(const void*)(src+off),sz); n++;
+            if(!strcmp(ty,"NameProperty")){ fname_resolve(rd32(f+FF_Name),nm,sizeof nm); char v[96]; fname_resolve(rd32(dst+off),v,sizeof v);
+                LOGI("[ENV] identity: %s = %s",nm,v); } }
+    return n; }
+static int em_cur_env(){ return (g_emEnvOff>=0&&g_emGameState&&obj_alive(g_emGameState))?(int)rd8(g_emGameState+g_emEnvOff):-1; }
+static const char* em_env_name(int v){ static char lab[64]; snprintf(lab,sizeof lab,"?"); if(g_emEnum&&v>=0) enum_label(g_emEnum,v,lab,sizeof lab); return lab; }
+static int em_find_env_prop(uintptr_t gs){              // offset of the game state's ETribeEnvironmentType property (-1: not reflected)
+    int S=calib_fprop_size(); if(!gs||S<0) return -1; char nm[128],ty[64],en[96];
+    for(uintptr_t c=rdptr(gs+OFF_Class); c; c=rdptr(c+OFF_Super))
+        for(uintptr_t f=rdptr(c+OFF_ChildProps); f; f=rdptr(f+FF_Next)){
+            ffield_type(f,ty,sizeof ty); bool isEnum=!strcmp(ty,"EnumProperty"); if(!isEnum&&strcmp(ty,"ByteProperty")) continue;
+            uintptr_t e=rdptr(f+S+(isEnum?8:0)); if(!e||!in_range(e,0x50)) continue;
+            obj_name(e,en,sizeof en); if(strcmp(en,"ETribeEnvironmentType")) continue;
+            fname_resolve(rd32(f+FF_Name),nm,sizeof nm); g_emEnum=e;
+            LOGI("[ENV] game state's environment property: %s (%s) @0x%x",nm,ty,rd32(f+FP_Offset)); return (int)rd32(f+FP_Offset); }
+    return -1; }
+// Fallback when GameplayStatics.GetGameState comes back null for every world context we try (2026-10-05 16:58: a whole
+// session of "click ignored, not ready: gs=0x0" while our actor, the menu and the rig all existed): find Tribe's game state
+// by its class in the object array, the way the gear scan sees it. Newest live, non-template instance wins.
+static uintptr_t em_find_gs_by_class(){
+    refresh_numelements(); char cn[64]; uintptr_t best=0;
+    for(uint32_t i=0;i<g_numElements;i++){ uintptr_t o=obj_at(i); if(!o) continue;
+        if(rd32(o+OFF_Flags)&(RF_ClassDefaultObject|0x20u|0x40000000u)) continue;
+        class_name(o,cn,sizeof cn); if(!strcmp(cn,"TribeMainGS_C")) best=o; }
+    return best; }
+// ---- Tribe's visuals on our screen (2026-10-06). Every stock environment's level BP calls
+// BP_TribeVisualsManager_C.SetupEnvironmentBackdrop(BackdropMesh, ChromaKeyBackdropMesh) in BeginPlay; Tribe then draws its
+// visuals (videos, GIFs, text, images, NDI) onto that actor's mesh and shows/hides it with the visuals mode. Our level has
+// no level BP, so after it is visible we make the same call with our SM_DinoVisualScreen actor.
+static uintptr_t em_find_child_func(uintptr_t cls,const char* name){
+    char nm[128]; int d=0;
+    for(uintptr_t c=cls; c&&d<12; c=rdptr(c+OFF_Super),d++)
+        for(uintptr_t f=rdptr(c+OFF_Children); f; f=rdptr(f+0x28)){ obj_name(f,nm,sizeof nm); if(!strcmp(nm,name)) return f; }
+    return 0; }
+static uintptr_t em_find_live(const char* clsName){                 // newest live, non-template object of a class
+    refresh_numelements(); char cn[96]; uintptr_t best=0;
+    for(uint32_t i=0;i<g_numElements;i++){ uintptr_t o=obj_at(i); if(!o) continue;
+        if(rd32(o+OFF_Flags)&(RF_ClassDefaultObject|0x20u|0x40000000u)) continue;
+        class_name(o,cn,sizeof cn); if(!strcmp(cn,clsName)) best=o; }
+    return best; }
+static uintptr_t em_find_mesh_actor(const char* meshName){          // the actor whose StaticMeshComponent shows that mesh
+    static int offSM=-2; refresh_numelements(); char cn[64], nm[96];
+    for(uint32_t i=0;i<g_numElements;i++){ uintptr_t o=obj_at(i); if(!o) continue;
+        if(rd32(o+OFF_Flags)&(RF_ClassDefaultObject|0x20u|0x40000000u)) continue;
+        class_name(o,cn,sizeof cn); if(strcmp(cn,"StaticMeshComponent")) continue;
+        if(offSM==-2) offSM=prop_offset(rdptr(o+OFF_Class),"StaticMesh",0);
+        if(offSM<0) return 0;
+        uintptr_t sm=rdptr(o+offSM); if(!sm) continue; obj_name(sm,nm,sizeof nm); if(strcmp(nm,meshName)) continue;
+        uintptr_t owner=rdptr(o+OFF_Outer); if(owner&&obj_alive(owner)) return owner; }
+    return 0; }
+static int em_actor_hidden(uintptr_t a){                             // AActor.bHidden (1/0), -1 = unreadable
+    int S=calib_fprop_size(); if(!a||!obj_alive(a)||S<0) return -1;
+    uintptr_t f=find_prop(rdptr(a+OFF_Class),"bHidden"); if(!f) return -1;
+    uint32_t off=rd32(f+FP_Offset); uint8_t bo=rd8(f+S+1), bm=rd8(f+S+2); return (rd8(a+off+bo)&bm)?1:0; }
+static void em_actor_material(uintptr_t a,char* out,int n){           // the name of its StaticMeshComponent's material 0
+    snprintf(out,n,"?"); static uintptr_t fnGetMat=0; if(!fnGetMat) fnGetMat=find_by_path("/Script/Engine.PrimitiveComponent.GetMaterial",0);
+    if(!a||!obj_alive(a)||!fnGetMat) return; int oC=prop_offset(rdptr(a+OFF_Class),"StaticMeshComponent",0); if(oC<0) return;
+    uintptr_t comp=rdptr(a+oC); if(!comp) return; int oI=prop_offset(fnGetMat,"ElementIndex",0), oR=prop_offset(fnGetMat,"ReturnValue",0);
+    uint16_t psz=rd16(fnGetMat+0xB6); static uint8_t b[32] __attribute__((aligned(8))); if(oI<0||oR<0||psz>sizeof b) return;
+    memset(b,0,psz); call_uf(comp,fnGetMat,b); uintptr_t m=*(uintptr_t*)(b+oR); if(m) obj_name(m,out,n); else snprintf(out,n,"(none)"); }
+// ---- Tribe's video mapping on our screen (2026-10-06, decoded from Tribe's M_VideoBackdrop shader + MPC_VideoBackdrop
+// asset). The shader samples the video at (1-U, 2V-1) of the screen's UV0 (our SM_DinoVisualScreen copies that layout) and
+// then applies the collection: scalars Aspect, Tile, Mirror and the vector StretchMode. StretchMode.z > 0.5 fills the
+// screen; otherwise it crops/pillarboxes for Tribe's own ~2.5:1 back wall, and Tile >= 0.5 draws two copies side by side.
+// On our 16:9 screen we fill it with one copy while the Dino Stage is up, and give Tribe its values back when it unloads.
+static uintptr_t g_mpcColl=0, g_mpcFnSetS=0, g_mpcFnSetV=0, g_mpcFnGetS=0, g_mpcFnGetV=0, g_mpcLib=0;
+static uint64_t g_mpcStretch=0, g_mpcTile=0;                          // the parameters' FNames {ComparisonIndex, Number}
+static bool g_mpcSaved=false; static float g_mpcTribeStretch[4], g_mpcTribeTile=0;
+static uint64_t mpc_param_name(uintptr_t coll,const char* arr,int stride,const char* want){
+    int o=prop_offset(rdptr(coll+OFF_Class),arr,0); if(o<0) return 0;
+    uintptr_t data=rdptr(coll+o); int n=(int)rd32(coll+o+8); char nm[64];
+    for(int i=0;i<n&&i<64;i++){ uintptr_t e=data+(uintptr_t)i*stride; fname_resolve(rd32(e),nm,sizeof nm);
+        if(!strcmp(nm,want)){ uint64_t v=0; sr(e,&v,8); return v; } }
+    return 0; }
+static void mpc_lookup(){                                             // POLL thread (walks every object): until all found
+    static int tries=0; if(g_mpcStretch&&g_mpcTile&&g_mpcLib&&g_mpcFnGetV) return; if(tries>=30) return; tries++;
+    if(!g_mpcLib){ g_mpcLib=find_by_path("/Script/Engine.Default__KismetMaterialLibrary",0);
+        g_mpcFnSetS=find_by_path("/Script/Engine.KismetMaterialLibrary.SetScalarParameterValue",0);
+        g_mpcFnSetV=find_by_path("/Script/Engine.KismetMaterialLibrary.SetVectorParameterValue",0);
+        g_mpcFnGetS=find_by_path("/Script/Engine.KismetMaterialLibrary.GetScalarParameterValue",0);
+        g_mpcFnGetV=find_by_path("/Script/Engine.KismetMaterialLibrary.GetVectorParameterValue",0); }
+    if(!g_mpcColl) g_mpcColl=find_by_path("/Game/Environment/Materials/MPC_VideoBackdrop.MPC_VideoBackdrop",0);
+    if(g_mpcColl){ g_mpcStretch=mpc_param_name(g_mpcColl,"VectorParameters",40,"StretchMode");   // FName+FGuid+FLinearColor
+                   g_mpcTile=mpc_param_name(g_mpcColl,"ScalarParameters",28,"Tile"); }          // FName+FGuid+float
+    bool ok=g_mpcColl&&g_mpcLib&&g_mpcFnSetS&&g_mpcFnSetV&&g_mpcFnGetS&&g_mpcFnGetV&&g_mpcStretch&&g_mpcTile;
+    LOGI("[ENV] video mapping lookups: collection=0x%lx lib=0x%lx set=%d/%d get=%d/%d StretchMode=%d Tile=%d%s",(unsigned long)g_mpcColl,
+         (unsigned long)g_mpcLib,!!g_mpcFnSetS,!!g_mpcFnSetV,!!g_mpcFnGetS,!!g_mpcFnGetV,!!g_mpcStretch,!!g_mpcTile,ok?"":" (not all found yet)"); }
+static bool mpc_resolve(){                                            // game thread: only the cached lookups
+    return g_mpcColl&&obj_alive(g_mpcColl)&&g_mpcStretch&&g_mpcTile&&g_mpcFnSetS&&g_mpcFnSetV&&g_mpcFnGetS&&g_mpcFnGetV&&g_mpcLib; }
+// one KismetMaterialLibrary call on the collection: get (val out) or set (val in); vec = FLinearColor, else float
+static bool mpc_call_on(uintptr_t coll,uintptr_t fn,uintptr_t ctx,uint64_t name,float* val,bool vec,bool set);
+static bool mpc_call(uintptr_t fn,uintptr_t ctx,uint64_t name,float* val,bool vec,bool set){ return mpc_call_on(g_mpcColl,fn,ctx,name,val,vec,set); }
+static bool mpc_call_on(uintptr_t coll,uintptr_t fn,uintptr_t ctx,uint64_t name,float* val,bool vec,bool set){
+    uint16_t psz=rd16(fn+0xB6); static uint8_t b[64] __attribute__((aligned(16))); if(psz>sizeof b) return false;
+    int oW=prop_offset(fn,"WorldContextObject",0), oC=prop_offset(fn,"Collection",0), oN=prop_offset(fn,"ParameterName",0);
+    int oV=prop_offset(fn,set?"ParameterValue":"ReturnValue",0); if(oW<0||oC<0||oN<0||oV<0) return false;
+    memset(b,0,psz); *(uintptr_t*)(b+oW)=ctx; *(uintptr_t*)(b+oC)=coll; memcpy(b+oN,&name,8);
+    if(set) memcpy(b+oV,val,vec?16:4);
+    call_uf(g_mpcLib,fn,b);
+    if(!set) memcpy(val,b+oV,vec?16:4);
+    return true; }
+static void em_video_fill(bool on,uintptr_t ctx){                     // on: fill + one copy (remember Tribe's); off: restore
+    if(!ctx||!mpc_resolve()) return;
+    if(!on){ if(!g_mpcSaved) return; g_mpcSaved=false;
+        mpc_call(g_mpcFnSetV,ctx,g_mpcStretch,g_mpcTribeStretch,true,true); mpc_call(g_mpcFnSetS,ctx,g_mpcTile,&g_mpcTribeTile,false,true);
+        LOGI("[ENV] video mapping: Tribe's restored (StretchMode=(%.0f,%.0f,%.0f) Tile=%.0f)",g_mpcTribeStretch[0],g_mpcTribeStretch[1],
+             g_mpcTribeStretch[2],g_mpcTribeTile); return; }
+    float st[4]={0,0,0,0}, tile=0;
+    if(!mpc_call(g_mpcFnGetV,ctx,g_mpcStretch,st,true,false)||!mpc_call(g_mpcFnGetS,ctx,g_mpcTile,&tile,false,false)) return;
+    if(st[0]<0.5f&&st[1]<0.5f&&st[2]>0.5f&&tile<0.5f) return;      // already ours
+    memcpy(g_mpcTribeStretch,st,sizeof st); g_mpcTribeTile=tile; g_mpcSaved=true;   // Tribe (re)applied its own: keep it for later
+    float fill[4]={0,0,1,0}, one=0;
+    mpc_call(g_mpcFnSetV,ctx,g_mpcStretch,fill,true,true); mpc_call(g_mpcFnSetS,ctx,g_mpcTile,&one,false,true);
+    LOGI("[ENV] video mapping: Tribe had StretchMode=(%.0f,%.0f,%.0f) Tile=%.0f -> fill the big screen, one copy",st[0],st[1],st[2],tile); }
+static uintptr_t g_emOurScreen=0, g_emVM=0;
+static bool em_register_backdrop(){
+    uintptr_t vm=em_find_live("BP_TribeVisualsManager_C");
+    uintptr_t fn=vm?em_find_child_func(rdptr(vm+OFF_Class),"SetupEnvironmentBackdrop"):0;
+    uintptr_t scr=em_find_mesh_actor("SM_DinoVisualScreen");
+    if(!vm||!fn||!scr){ LOGI("[ENV] visuals: not ready (manager=0x%lx SetupEnvironmentBackdrop=0x%lx our screen=0x%lx)",
+                             (unsigned long)vm,(unsigned long)fn,(unsigned long)scr); return false; }
+    int oB=prop_offset(fn,"BackdropMesh",0), oC=prop_offset(fn,"ChromaKeyBackdropMesh",0); uint16_t psz=rd16(fn+0xB6);
+    static uint8_t b[128] __attribute__((aligned(16)));
+    if(oB<0||psz>sizeof b){ char pn[96],ty[64]; LOGI("[ENV] visuals: SetupEnvironmentBackdrop params not as expected (BackdropMesh@%d psz=%u):",oB,psz);
+        for(uintptr_t f=rdptr(fn+OFF_ChildProps); f; f=rdptr(f+FF_Next)){ fname_resolve(rd32(f+FF_Name),pn,sizeof pn); ffield_type(f,ty,sizeof ty);
+            LOGI("[ENV] visuals:   param %s (%s) @%u",pn,ty,rd32(f+FP_Offset)); }
+        return false; }
+    // The user's "keywall" turned out to be Tribe's visuals back wall (the user: "they run from the media folder inside
+    // tribe"), so our big screen is the BackdropMesh. Tribe's Key Backwall (green wall for the stream cameras only) keeps
+    // the Void's own chroma screen.
+    memset(b,0,psz); *(uintptr_t*)(b+oB)=scr;
+    if(oC>=0) *(uintptr_t*)(b+oC)=(g_emScreens[1]&&obj_alive(g_emScreens[1]))?g_emScreens[1]:0;
+    call_uf(vm,fn,b); g_emOurScreen=scr; g_emVM=vm;
+    em_video_fill(true,vm);
+    char mn[96]; em_actor_material(scr,mn,sizeof mn);
+    LOGI("[ENV] visuals: our screen 0x%lx is Tribe's backdrop now (manager 0x%lx); hidden=%d material=%s",
+         (unsigned long)scr,(unsigned long)vm,em_actor_hidden(scr),mn);
+    return true; }
+// ---- Tribe's own lights: log them at environment load; tribemod/lights.txt lines "<name part>=<multiplier>" scale the
+// matching light components (by component or owner name), e.g. "Booth=2.5". Originals come back when ours unloads.
+#define EM_LMAX 24
+static uintptr_t g_lComp[EM_LMAX]; static float g_lOrig[EM_LMAX]; static int g_lN=0;
+static uintptr_t g_lFnSet=0;
+static void em_lights(bool apply){
+    char want[8][64]; float mul[8]; int nw=0;
+    if(apply){ char pth[600]; snprintf(pth,sizeof pth,"%s/lights.txt",OUTDIR); FILE* f=fopen(pth,"r");
+        if(f){ char line[160]; while(nw<8&&fgets(line,sizeof line,f)){ char* eq=strchr(line,'='); if(!eq) continue; *eq=0;
+                float m=strtof(eq+1,0); if(m<=0||m>20) continue; snprintf(want[nw],64,"%s",line); mul[nw++]=m; } fclose(f); } }
+    if(!g_lFnSet) g_lFnSet=find_by_path("/Script/Engine.LightComponent.SetIntensity",0);
+    refresh_numelements(); char cn[64], nm[96], on[96]; int offI=-2, logged=0;
+    for(uint32_t i=0;i<g_numElements;i++){ uintptr_t o=obj_at(i); if(!o) continue;
+        if(rd32(o+OFF_Flags)&(RF_ClassDefaultObject|0x20u|0x40000000u)) continue;
+        class_name(o,cn,sizeof cn); size_t L=strlen(cn); if(L<14||strcmp(cn+L-14,"LightComponent")) continue;
+        if(offI==-2) offI=prop_offset(rdptr(o+OFF_Class),"Intensity",0);
+        obj_name(o,nm,sizeof nm); uintptr_t ow=rdptr(o+OFF_Outer); if(ow) obj_name(ow,on,sizeof on); else on[0]=0;
+        float I=offI>=0?*(float*)(o+offI):-1.f;
+        int oU=prop_offset(rdptr(o+OFF_Class),"IntensityUnits",0); int units=oU>=0?(int)rd8(o+oU):-1;   // 0 unitless 1 cd 2 lm 3 EV
+        if(logged++<40) LOGI("[ENV] light %s / %s (%s) intensity=%.2f units=%d",on,nm,cn,I,units);
+        for(int k=0;k<nw&&apply&&g_lFnSet&&offI>=0;k++){ if(!strstr(on,want[k])&&!strstr(nm,want[k])) continue;
+            int j=0; for(;j<g_lN;j++) if(g_lComp[j]==o) break;
+            if(j==g_lN){ if(g_lN>=EM_LMAX) break; g_lComp[g_lN]=o; g_lOrig[g_lN++]=I; }
+            float target=g_lOrig[j]*mul[k]; static uint8_t b[16] __attribute__((aligned(8))); memset(b,0,sizeof b);
+            memcpy(b,&target,4); call_uf(o,g_lFnSet,b);
+            LOGI("[ENV] light %s / %s: intensity %.2f -> %.2f (x%.2f from lights.txt)",on,nm,g_lOrig[j],target,mul[k]); break; } } }
+static void em_lights_restore(){
+    if(!g_lFnSet) return;
+    for(int j=0;j<g_lN;j++){ if(!g_lComp[j]||!obj_alive(g_lComp[j])) continue;
+        static uint8_t b[16] __attribute__((aligned(8))); memset(b,0,sizeof b); memcpy(b,&g_lOrig[j],4); call_uf(g_lComp[j],g_lFnSet,b); }
+    if(g_lN) LOGI("[ENV] lights: %d restored",g_lN); }
+static void em_write_active(const char* label){                               // "" forgets the saved choice
+    char p[600]; snprintf(p,sizeof p,"%s/active_env.txt",OUTDIR); if(!label||!*label){ unlink(p); return; }
+    int fd=open(p,O_WRONLY|O_CREAT|O_TRUNC,0666); if(fd>=0){ write(fd,label,strlen(label)); close(fd); } }
+static void em_click(int idx){
+    struct timespec ts; clock_gettime(CLOCK_MONOTONIC,&ts); long ms=ts.tv_sec*1000L+ts.tv_nsec/1000000L;
+    if(ms-g_emLastClickMs<700) return; g_emLastClickMs=ms;                    // both entry points fire for one click
+    g_emReq=idx; LOGI("[ENV] clicked '%s' -> %s",g_emLabels[idx],g_emPaths[idx]); }
+static void em_log_actor(const char* what,uintptr_t a){                      // world location / rotation / scale (layout reference)
+    if(!a||!obj_alive(a)||!g_emFnActLoc||!g_emFnActRot) return; double L[3]={0,0,0},R[3]={0,0,0},S[3]={0,0,0};
+    uint8_t* r=call_ret(a,g_emFnActLoc,0,0); if(r) memcpy(L,r,24);
+    r=call_ret(a,g_emFnActRot,0,0); if(r) memcpy(R,r,24);
+    r=g_emFnActScale?call_ret(a,g_emFnActScale,0,0):0; if(r) memcpy(S,r,24);
+    LOGI("[ENV] %s: loc=(%.0f,%.0f,%.0f) rot(p,y,r)=(%.1f,%.1f,%.1f) scale=(%.2f,%.2f,%.2f)",what,L[0],L[1],L[2],R[0],R[1],R[2],S[0],S[1],S[2]);
+    uintptr_t fb=g_emFnBounds; if(!fb) return;                               // world box: what our stage set must fit around
+    int oC=prop_offset(fb,"bOnlyCollidingComponents",0), oO=prop_offset(fb,"Origin",0), oE=prop_offset(fb,"BoxExtent",0),
+        oI=prop_offset(fb,"bIncludeFromChildActors",0); uint16_t psz=rd16(fb+0xB6);
+    static uint8_t b[256] __attribute__((aligned(16))); if(oO<0||oE<0||psz>sizeof b) return;
+    for(int inc=0;inc<2;inc++){ memset(b,0,psz); if(oC>=0) b[oC]=0; if(oI>=0) b[oI]=(uint8_t)inc; call_uf(a,fb,b);
+        double* O=(double*)(b+oO); double* E=(double*)(b+oE);
+        LOGI("[ENV] %s bounds%s: min=(%.0f,%.0f,%.0f) max=(%.0f,%.0f,%.0f)",what,inc?" incl. child actors":"",
+            O[0]-E[0],O[1]-E[1],O[2]-E[2],O[0]+E[0],O[1]+E[1],O[2]+E[2]); } }
+static bool em_actor_box(uintptr_t a,double O[3],double E[3]){                // GetActorBounds(all components, no child actors)
+    uintptr_t fb=g_emFnBounds; if(!fb||!a) return false;
+    int oC=prop_offset(fb,"bOnlyCollidingComponents",0), oO=prop_offset(fb,"Origin",0), oE=prop_offset(fb,"BoxExtent",0),
+        oI=prop_offset(fb,"bIncludeFromChildActors",0); uint16_t psz=rd16(fb+0xB6);
+    static uint8_t b[256] __attribute__((aligned(16))); if(oO<0||oE<0||psz>sizeof b) return false;
+    memset(b,0,psz); if(oC>=0) b[oC]=0; if(oI>=0) b[oI]=0; call_uf(a,fb,b);
+    memcpy(O,b+oO,24); memcpy(E,b+oE,24); return true; }
+static bool em_is_actor(uintptr_t o){ int d=0; for(uintptr_t c=rdptr(o+OFF_Class); c&&d<32; c=rdptr(c+OFF_Super),d++) if(c==g_emActorCls) return true; return false; }
+// game thread, once per load: the DJ gear that's out, so our stage set can be sized around the real table. The gear's class
+// names aren't known on this build (2026-10-05: BP_Deck_C, BP_Console_C & co. matched nothing), so this logs every actor
+// whose class name sounds like gear plus every actor within 2.5 m of the DJ rig that has a real box (not the managers,
+// cameras and player starts that sit at the world origin: those filled the 48-entry cap before the gear, 2026-10-05).
+static void em_log_equipment(){
+    if(!g_emActorCls||!g_emFnActLoc){ LOGI("[ENV] gear: Actor class / GetActorLocation not resolved"); return; }
+    static const char* kw[]={"deck","cdj","mixer","console","turntable","vinyl","flx","drum","synth","equip","booth","sampler"};
+    double R[3]={0,0,0}; bool haveRig=false;
+    if(g_emRig&&obj_alive(g_emRig)){ uint8_t* r=call_ret(g_emRig,g_emFnActLoc,0,0); if(r){ memcpy(R,r,24); haveRig=true; } }
+    refresh_numelements(); char cn[96], lc[96], nm[96], what[220]; int n=0, near=0;
+    for(uint32_t i=0;i<g_numElements&&n<48;i++){ uintptr_t o=obj_at(i); if(!o||o==g_emRig) continue;
+        if(rd32(o+OFF_Flags)&(RF_ClassDefaultObject|0x20u|0x40000000u)) continue;        // CDOs, archetypes, destroyed objects
+        if(!em_is_actor(o)) continue;
+        class_name(o,cn,sizeof cn); int k=0; for(;cn[k]&&k<95;k++) lc[k]=(char)tolower((unsigned char)cn[k]); lc[k]=0;
+        bool hit=false; for(unsigned j=0;j<sizeof kw/sizeof kw[0]&&!hit;j++) if(strstr(lc,kw[j])) hit=true;
+        if(!hit&&haveRig){ uint8_t* r=call_ret(o,g_emFnActLoc,0,0); if(r){ double L[3]; memcpy(L,r,24);
+            double dx=L[0]-R[0], dy=L[1]-R[1], dz=L[2]-R[2], O[3], E[3];
+            if(dx*dx+dy*dy+dz*dz<250.0*250.0&&em_actor_box(o,O,E)){ double m=E[0]>E[1]?E[0]:E[1]; m=m>E[2]?m:E[2];
+                if(m>1.0&&m<2000.0){ hit=true; near++; } } } }
+        if(!hit) continue;
+        obj_name(o,nm,sizeof nm); snprintf(what,sizeof what,"gear %s (%s)",nm,cn); em_log_actor(what,o); n++; }
+    LOGI("[ENV] gear: %d actor(s) measured (%d of them only by distance to the rig)",n,near); }
+// Not the by-name LevelStreamingDynamic.LoadLevelInstance: in UE 5.4 it only accepts packages listed in the game's
+// asset registry (LevelStreaming.cpp: AssetRegistry.GetFirstPackageByName), and ours ship outside Tribe's registry.
+static int em_file_exists(const char* path){            // BlueprintPathsLibrary.FileExists: goes through the pak layer. 1/0, -1 = n/a
+    static int oIn=-2,oRet=-1; if(!g_emFnFileExists||!g_emBPL) return -1;
+    if(oIn==-2){ oIn=prop_offset(g_emFnFileExists,"InPath",0); oRet=prop_offset(g_emFnFileExists,"ReturnValue",0); }
+    uint16_t psz=rd16(g_emFnFileExists+0xB6); static uint8_t b[64]; if(oIn<0||oRet<0||psz>sizeof b) return -1;
+    memset(b,0,psz); FStr fs; build_fstr(&fs,path); memcpy(b+oIn,&fs,sizeof fs); call_uf(g_emBPL,g_emFnFileExists,b); return b[oRet]?1:0; }
+// TSoftObjectPtr bytes for an object path, built by the engine itself: KismetSystemLibrary.MakeSoftObjectPath(PathString)
+// -> FSoftObjectPath -> Conv_SoftObjPathToSoftObjRef -> TSoftObjectPtr<UObject>. Returns its size (0 = failed).
+static int em_soft_ptr(const char* objpath,uint8_t* out,int cap){
+    if(!g_emFnMakeSOP||!g_emFnSOP2Ref||!g_emKSL) return 0;
+    static uint8_t b1[128], b2[192];
+    int oIn=prop_offset(g_emFnMakeSOP,"PathString",0), oR1=prop_offset(g_emFnMakeSOP,"ReturnValue",0); uint16_t p1=rd16(g_emFnMakeSOP+0xB6);
+    int oS=prop_offset(g_emFnSOP2Ref,"SoftObjectPath",0), oR2=prop_offset(g_emFnSOP2Ref,"ReturnValue",0); uint16_t p2=rd16(g_emFnSOP2Ref+0xB6);
+    int sop=p1-oR1, n=p2-oR2;                                                 // ReturnValue is the last param in both
+    if(oIn<0||oR1<0||oS<0||oR2<0||p1>sizeof b1||p2>sizeof b2||sop<=0||oS+sop>oR2||n<=0||n>cap){
+        LOGI("[ENV] soft ptr: layout not usable (PathString@%d Ret@%d psz=%u | SoftObjectPath@%d Ret@%d psz=%u)",oIn,oR1,p1,oS,oR2,p2); return 0; }
+    memset(b1,0,p1); FStr fs; build_fstr(&fs,objpath); memcpy(b1+oIn,&fs,sizeof fs); call_uf(g_emKSL,g_emFnMakeSOP,b1);
+    memset(b2,0,p2); memcpy(b2+oS,b1+oR1,sop); call_uf(g_emKSL,g_emFnSOP2Ref,b2); memcpy(out,b2+oR2,n); return n; }
+// LevelStreamingDynamic.LoadLevelInstanceBySoftObjectPtr: the typed-reference loader. It goes straight to streaming the
+// package (no asset-registry check), so it works for levels that ship in a mod pak.
+static uintptr_t em_load_level_soft(const char* pkg,bool* ok){
+    *ok=false; if(!g_emFnLoadLvlSoft||!g_emLSD||!g_emGameState) return 0;
+    char objpath[400]; const char* sn=strrchr(pkg,'/'); snprintf(objpath,sizeof objpath,"%s.%s",pkg,sn?sn+1:pkg);
+    uint8_t sp[96]; int n=em_soft_ptr(objpath,sp,sizeof sp); if(n<=0) return 0;
+    int oWC=prop_offset(g_emFnLoadLvlSoft,"WorldContextObject",0), oL=prop_offset(g_emFnLoadLvlSoft,"Level",0), oLoc=prop_offset(g_emFnLoadLvlSoft,"Location",0);
+    int oOk=prop_offset(g_emFnLoadLvlSoft,"bOutSuccess",0), oR=prop_offset(g_emFnLoadLvlSoft,"ReturnValue",0); uint16_t psz=rd16(g_emFnLoadLvlSoft+0xB6);
+    LOGI("[ENV] LoadLevelInstanceBySoftObjectPtr(%s) WC@%d Level@%d Location@%d bOutSuccess@%d ReturnValue@%d psz=0x%x softptr=%dB",objpath,oWC,oL,oLoc,oOk,oR,psz,n);
+    static uint8_t b[256]; if(oWC<0||oL<0||oLoc<=oL||oOk<0||oR<0||psz>sizeof b) return 0;
+    memset(b,0,psz); *(uintptr_t*)(b+oWC)=g_emGameState; memcpy(b+oL,sp,(n<oLoc-oL)?n:oLoc-oL);
+    call_uf(g_emLSD,g_emFnLoadLvlSoft,b); *ok=b[oOk]!=0; return *(uintptr_t*)(b+oR); }
+static void em_diagnose(const char* pkg){                // why couldn't the level load: patch OBB in? our pak mounted? path right?
+    char dir[300]; snprintf(dir,sizeof dir,"?");
+    if(g_emFnContentDir&&g_emBPL){ uint8_t* r=call_ret(g_emBPL,g_emFnContentDir,0,0); if(r) read_fstring((uintptr_t)r,dir,sizeof dir); }
+    const char* sub=strncmp(pkg,"/Game/",6)?pkg:pkg+6; char p[400];
+    LOGI("[ENV] diagnose: ProjectContentDir='%s'",dir);
+    snprintf(p,sizeof p,"%sPaks/pakchunk50-Android_ASTC_P.pak",dir);  LOGI("[ENV] diagnose: FileExists(pak inside the patch OBB)=%d  %s",em_file_exists(p),p);
+    snprintf(p,sizeof p,"%s%s.umap",dir,sub);                          LOGI("[ENV] diagnose: FileExists(our level, inside the pak)=%d  %s",em_file_exists(p),p);
+    snprintf(p,sizeof p,"%sShaderArchive-TribeXR_Chunk50-SF_VULKAN_ES31_ANDROID-VULKAN_ES3_1_ANDROID.ushaderbytecode",dir);
+    LOGI("[ENV] diagnose: FileExists(our shader library)=%d",em_file_exists(p));
+    snprintf(p,sizeof p,"%sMaps/Environments/Environment_Void.umap",dir); LOGI("[ENV] diagnose: FileExists(stock Void level, control)=%d",em_file_exists(p));
+    if(g_emFnCurLevel&&g_smGS){                                               // is the world context good? (GetCurrentLevelName)
+        int oW=prop_offset(g_emFnCurLevel,"WorldContextObject",0), oB=prop_offset(g_emFnCurLevel,"bRemovePrefixString",0), oR=prop_offset(g_emFnCurLevel,"ReturnValue",0);
+        uint16_t psz=rd16(g_emFnCurLevel+0xB6); static uint8_t b[64]; char nm[128]; snprintf(nm,sizeof nm,"?");
+        if(oW>=0&&oR>=0&&psz<=sizeof b){ memset(b,0,psz); *(uintptr_t*)(b+oW)=g_emGameState; if(oB>=0) b[oB]=1; call_uf(g_smGS,g_emFnCurLevel,b); read_fstring((uintptr_t)(b+oR),nm,sizeof nm); }
+        LOGI("[ENV] diagnose: GetCurrentLevelName(game state)='%s'",nm); } }
+    // (No synchronous LoadAsset_Blocking test here: on 2026-10-04 loading our cooked material that way ran Tribe out of memory.)
+static void em_hide_screens(bool hide){ for(int i=0;i<2;i++) if(g_emScreens[i]&&obj_alive(g_emScreens[i])) call_lib1(g_emScreens[i],g_emFnHidden,hide?1:0); }
+static bool g_emBackdropOK=false; static int g_emBackdropTries=0;
+static void em_lights_restore();
+static void giant_reset(const char* why);                         // giant intro (below)
+static void em_unload(const char* why){
+    em_lights_restore(); g_emBackdropOK=false; g_emOurScreen=0;
+    if(g_emVM&&obj_alive(g_emVM)) em_video_fill(false,g_emVM);        // Tribe's own video mapping back
+    giant_reset("stage unloaded");
+    g_emVM=0;
+    if(g_emStream&&obj_alive(g_emStream)){ call_lib1(g_emStream,g_emFnSetVisible,0); call_lib1(g_emStream,g_emFnSetLoaded,0); }
+    LOGI("[ENV] unloaded our environment (%s)",why); g_emStream=0; g_emActive=-1; g_emState=EM_IDLE; }
+static void em_fail(const char* why){                    // undo: Void screens back, nothing loaded, don't re-apply at next launch,
+    em_hide_screens(false); em_unload(why); em_write_active("");               // and put Tribe back on the environment you came from
+    int prev=g_emPrevEnv; g_emPrevEnv=-1;
+    if(prev>0&&prev!=(int)g_emVoid&&g_emGameState&&obj_alive(g_emGameState)){ call_lib1(g_emGameState,g_emFnSetEnv,prev);
+        LOGI("[ENV] back to the environment you had: %d (%s)",prev,em_env_name(prev)); } }
+// [PERF] frame rate, from our actor's tick (once per game frame, DeltaSeconds): every 10 s the average FPS, the worst
+// frame and how many frames took over 20 ms (a dropped frame at 72-120 Hz), tagged with the environment that is up.
+// A heavier environment shows up as numbers in logcat instead of a feeling.
+static void perf_frame(float dt){
+    static double acc=0, worst=0; static int n=0, hitch=0;
+    if(!(dt>0.f&&dt<1.f)) return;
+    acc+=dt; n++; if(dt>worst) worst=dt; if(dt>0.020f) hitch++;
+    if(acc>=10.0){ int a=g_emActive;
+        LOGI("[PERF] %.1f fps avg over %.0f s, worst frame %.1f ms, %d frame(s) over 20 ms (env: %s)",n/acc,acc,worst*1000.0,hitch,
+             (a>=0&&a<EM_MAX)?g_emLabels[a]:"stock");
+        acc=0; worst=0; n=0; hitch=0; } }
+// ---- Giant intro (the user, 2026-10-06): "a moving platform where i start very high up in the air with a cape that
+// drapes to the floor", "the platform im standing on, has a button ... press the button and the platform raises up
+// ... press the button again and the platform will slowly come down and im right at the decks", "when im on the ground
+// no cape". The height test passed (VROrigin relative Z holds frame to frame; the avatar's feet follow the VROrigin);
+// the user picked a 545 cm platform (eyes ~7 m).
+// Our level carries SM_DinoGiantLift/Glow/Robe (Blender/giant.py), moved by MPC_DinoGiant through WPO. Here: press
+// the button on the pedestal behind the DJ (either hand within press_cm of the cap) -> DOWN, RISING (smoothstep over
+// rise_s), UP; press again -> DESCENDING (descend_s) -> DOWN. While off the floor, every frame: VROrigin relative Z =
+// base + height, and the collection gets Height, RobeTop (under the HMD: the shoulders) and RobeOn. A press is
+// re-armed only after the hand moves away. tribemod/giant.txt (optional): "height=545 rise=8 descend=60 press=14".
+// Leaving the stage (em_unload) puts the DJ down at once. Lookups run on the poll thread.
+static double g_gH=0, g_gT=0, g_gGlow=0, g_gCool=0;
+static double g_gCfgH=545, g_gCfgRise=8, g_gCfgDesc=60, g_gCfgPress=14;
+static const double G_BTN[3]={0.0,152.0,106.0};                      // giant.py BUTTON (0, 1.52, 1.06) m -> world cm
+static bool g_gArmed=true, g_gBased=false; static double g_gBaseRel[3];
+static uintptr_t g_gColl=0, g_gFnSetRel=0; static int g_gOffRel=-2;
+static bool g_gHasGiant=false;                                       // the show collection is the Dino Stage's (giant intro)
+static volatile int g_showGen=0;                                     // +1 whenever a show collection is (re)found
+// walking (club.cpp) and the lift both move VROrigin: walking writes nothing while this is 1 (lift start to fully landed)
+static volatile sig_atomic_t g_walkPause=0;
+#define HAVE_WALK_PAUSE 1
+#define G_NP 19
+static uint64_t g_gN[G_NP];
+static const char* G_PARAMS[G_NP]={"Height","RobeTopX","RobeTopY","RobeTopZ","RobeOn","ButtonGlow","ShowLevel","ShowOffset","SpotOn",
+                                   "TopLasers","LaserVariant","HitMajor","HitMinor","HitCount","DropBoom","HitsOn","Bass",
+                                   "ShowPrevBar","ShowNextBar"};          // v14b: the bars around this one as the song plays them
+enum { GP_H, GP_TX, GP_TY, GP_TZ, GP_ROBE, GP_GLOW, GP_SHOW, GP_OFFS, GP_SPOT, GP_TOP, GP_LVAR, GP_HMAJ, GP_HMIN, GP_HCNT,
+       GP_BOOM, GP_HON, GP_BASS, GP_PREV, GP_NEXT };
+// the blackout + follow spot: levels fade toward their targets; the light show restarts at its drop on landing
+static double g_gShow=1, g_gSpot=0, g_gTop=0;
+static bool g_gJustLanded=false;                                      // giant_reset("landed") -> the grid's drop restart
+static double g_gDescFrom=545, g_gDescT=60;                           // a descent: from this height, over this long
+static uintptr_t g_gSpotComp=0, g_gFnTime=0, g_gGPS=0; static int g_gTimeDouble=-1;
+static const double G_SPOT_CD=6000.0;                                 // candelas at full: the FOH spot is 32 m away
+static const double G_SHOW_LOOP=32*4/(140.0/60.0), G_SHOW_DROP=16*4/(140.0/60.0);   // dino_materials SHOW_LOOP_S, bar 17
+static void giant_lookup(){                                           // POLL thread
+    if(!g_gFnSetRel) g_gFnSetRel=find_by_path("/Script/Engine.SceneComponent.K2_SetRelativeLocation",0);
+    if(g_gColl&&obj_alive(g_gColl)) return;
+    if(g_emState!=EM_ACTIVE){ g_gColl=0; return; }                    // the collection only exists while our stage is up
+    // the show collection of the stage that's up: the Dino Stage's (with the giant intro) or the REACTOR club's (show only)
+    // by the active stage's folder under /Game/Mods/ (song14: + Graveyard Shift's MPC_HwShow, the Halloween session's)
+    static const char* const SHOWS[][3]={{"dino","/Game/Mods/Dino/MaterialInstances/MPC_DinoGiant.MPC_DinoGiant","MPC_DinoGiant"},
+        {"club","/Game/Mods/Club/MaterialInstances/MPC_ClubShow.MPC_ClubShow","MPC_ClubShow"},
+        {"halloween","/Game/Mods/Halloween/MaterialInstances/MPC_HwShow.MPC_HwShow","MPC_HwShow"},
+        {"christmas","/Game/Mods/Christmas/MaterialInstances/MPC_XmShow.MPC_XmShow","MPC_XmShow"},
+        {"harvest","/Game/Mods/Harvest/MaterialInstances/MPC_HmShow.MPC_HmShow","MPC_HmShow"},    // HARVEST MOON (Thanksgiving)
+        {"redeye","/Game/Mods/RedEye/MaterialInstances/MPC_ReShow.MPC_ReShow","MPC_ReShow"}};     // RED EYE (hangar)
+    char fol[48]=""; int si=-1;
+    if(em_active_folder(fol,sizeof fol)) for(int i=0;i<(int)(sizeof SHOWS/sizeof SHOWS[0]);i++) if(!strcmp(fol,SHOWS[i][0])) si=i;
+    static int miss=0; uintptr_t c=si>=0?find_by_path(SHOWS[si][1],0):0;
+    bool dino=si==0; const char* cn=si>=0?SHOWS[si][2]:"-";
+    if(!c){ if((miss++%15)==0) LOGI("[GIANT] no show collection for stage folder '%s' (%s): no light show",fol,cn); return; }
+    uint64_t n[G_NP]; int ok=0;
+    for(int i=0;i<G_NP;i++){ n[i]=mpc_param_name(c,"ScalarParameters",28,G_PARAMS[i]); ok+=n[i]?1:0; }
+    if(ok<6){ LOGI("[GIANT] %s 0x%lx: only %d/%d parameters found",cn,(unsigned long)c,ok,G_NP); return; }
+    if(ok<G_NP){ char lack[200]=""; for(int i=0;i<G_NP;i++) if(!n[i]&&strlen(lack)+strlen(G_PARAMS[i])+2<sizeof lack){ strcat(lack," "); strcat(lack,G_PARAMS[i]); }
+        LOGI("[GIANT] %s: %d/%d parameters (missing:%s)",cn,ok,G_NP,lack); }
+    if(!g_gFnTime){ g_gFnTime=find_by_path("/Script/Engine.GameplayStatics.GetTimeSeconds",0);
+        g_gGPS=find_by_path("/Script/Engine.Default__GameplayStatics",0); }
+    if(g_gFnTime&&g_gTimeDouble<0){ char ty[64]="?"; for(uintptr_t f=rdptr(g_gFnTime+OFF_ChildProps); f; f=rdptr(f+FF_Next)){
+            char pn[64]; fname_resolve(rd32(f+FF_Name),pn,sizeof pn); if(!strcmp(pn,"ReturnValue")){ ffield_type(f,ty,sizeof ty); break; } }
+        g_gTimeDouble=!strcmp(ty,"DoubleProperty")?1:0; }
+    // the follow spot's light: the SpotLightComponent on our "DinoGiantSpotLight" actor
+    { refresh_numelements(); char cn[64], on[96]; g_gSpotComp=0;
+      for(uint32_t i=0;i<g_numElements&&!g_gSpotComp;i++){ uintptr_t o=obj_at(i); if(!o) continue;
+        if(rd32(o+OFF_Flags)&(RF_ClassDefaultObject|0x20u|0x40000000u)) continue;
+        class_name(o,cn,sizeof cn); if(strcmp(cn,"SpotLightComponent")) continue;
+        uintptr_t ow=rdptr(o+OFF_Outer); if(!ow) continue; obj_name(ow,on,sizeof on);
+        if(strstr(on,"DinoGiantSpotLight")) g_gSpotComp=o; } }
+    memcpy(g_gN,n,sizeof n); g_gHasGiant=(dino||!strcmp(SHOWS[si][0],"redeye"))&&n[GP_H]; g_gColl=c; g_showGen++;   // RED EYE: the crane flight
+    if(!g_gHasGiant) LOGI("[GIANT] show bus: %s 0x%lx (gen %d), %d/%d parameters: the light show runs here, no giant intro",
+                          cn,(unsigned long)c,(int)g_showGen,ok,G_NP);
+    else LOGI("[GIANT] ready: MPC_DinoGiant 0x%lx, button at (%.0f,%.0f,%.0f), lift %.0f cm, rise %.0f s, down %.0f s, press %.0f cm; "
+         "spot light 0x%lx, show clock %s",
+         (unsigned long)c,G_BTN[0],G_BTN[1],G_BTN[2],g_gCfgH,g_gCfgRise,g_gCfgDesc,g_gCfgPress,(unsigned long)g_gSpotComp,
+         g_gFnTime?(g_gTimeDouble?"double":"float"):"missing"); }
+static void giant_read_cfg(){
+    char s[160]; if(!read_trim_file("giant.txt",s,sizeof s)) return;
+    double v; const char* p;
+    if((p=strstr(s,"height="))&&sscanf(p+7,"%lf",&v)==1&&v>=50&&v<=1200) g_gCfgH=v;
+    if((p=strstr(s,"rise="))&&sscanf(p+5,"%lf",&v)==1&&v>=1&&v<=120) g_gCfgRise=v;
+    if((p=strstr(s,"descend="))&&sscanf(p+8,"%lf",&v)==1&&v>=1&&v<=600) g_gCfgDesc=v;
+    if((p=strstr(s,"press="))&&sscanf(p+6,"%lf",&v)==1&&v>=5&&v<=40) g_gCfgPress=v; }
+static void giant_mpc(uintptr_t ctx,int i,float v){ if(g_gColl&&g_mpcFnSetS&&g_mpcLib&&g_gN[i]) mpc_call_on(g_gColl,g_mpcFnSetS,ctx,g_gN[i],&v,false,true); }
+// the show bus for the other stage code (club.cpp): a scalar's key on the live show collection (0 = missing; look it up
+// again whenever g_showGen changes) and a write through the same KismetMaterialLibrary call (game thread)
+static uint64_t show_key(const char* name){ return (g_gColl&&obj_alive(g_gColl))?mpc_param_name(g_gColl,"ScalarParameters",28,name):0; }
+static void show_set(uint64_t key,float v){ if(key&&g_gColl&&g_mpcFnSetS&&g_mpcLib&&g_pawn&&obj_alive(g_pawn)) mpc_call_on(g_gColl,g_mpcFnSetS,g_pawn,key,&v,false,true); }
+#define HAVE_SHOW_BUS 1
+static void giant_spot_light(double cd){                              // g_lFnSet: LightComponent.SetIntensity (em_lights)
+    if(!g_gSpotComp||!obj_alive(g_gSpotComp)||!g_lFnSet) return;
+    static uint8_t b[16] __attribute__((aligned(8))); memset(b,0,sizeof b); float f=(float)cd; memcpy(b,&f,4); call_uf(g_gSpotComp,g_lFnSet,b); }
+static double giant_world_time(){                                    // GameplayStatics.GetTimeSeconds: the materials' Time
+    if(!g_gFnTime||!g_gGPS||!g_pawn) return -1;
+    uint16_t psz=rd16(g_gFnTime+0xB6); static uint8_t b[64] __attribute__((aligned(16))); if(psz>sizeof b) return -1;
+    int oW=prop_offset(g_gFnTime,"WorldContextObject",0), oR=prop_offset(g_gFnTime,"ReturnValue",0); if(oW<0||oR<0) return -1;
+    memset(b,0,psz); *(uintptr_t*)(b+oW)=g_pawn; call_uf(g_gGPS,g_gFnTime,b);
+    if(g_gTimeDouble==1){ double d; memcpy(&d,b+oR,8); return d; } float f; memcpy(&f,b+oR,4); return f; }
+static void giant_set_rel(double h){                                  // VROrigin relative Z = base + h
+    if(!g_vrOrigin||!g_gFnSetRel||!obj_alive(g_vrOrigin)) return;
+    if(g_gOffRel==-2) g_gOffRel=prop_offset(rdptr(g_vrOrigin+OFF_Class),"RelativeLocation",0);
+    if(!g_gBased){ if(g_gOffRel<0) return; sr(g_vrOrigin+g_gOffRel,g_gBaseRel,24); g_gBased=true;
+        LOGI("[GIANT] base VROrigin rel=(%.0f,%.0f,%.0f)",g_gBaseRel[0],g_gBaseRel[1],g_gBaseRel[2]); }
+    double t[3]={g_gBaseRel[0],g_gBaseRel[1],g_gBaseRel[2]+h};
+    uint16_t psz=rd16(g_gFnSetRel+0xB6); static uint8_t b[512] __attribute__((aligned(16))); if(psz>sizeof b) return;
+    static int oL=-2,oT=-1,oS=-1;
+    if(oL==-2){ oL=prop_offset(g_gFnSetRel,"NewLocation",0); oT=prop_offset(g_gFnSetRel,"bTeleport",0); oS=prop_offset(g_gFnSetRel,"bSweep",0); }
+    if(oL<0) return;
+    memset(b,0,psz); memcpy(b+oL,t,24); if(oT>=0) b[oT]=1; if(oS>=0) b[oS]=0; call_uf(g_vrOrigin,g_gFnSetRel,b); }
+static void giant_reset(const char* why){                             // back on the floor right now
+    if(g_gState==G_DOWN&&!g_gBased) return;
+    if(g_gBased){ giant_set_rel(0); g_gBased=false; }
+    if(g_gColl&&obj_alive(g_gColl)&&g_pawn&&obj_alive(g_pawn)){ giant_mpc(g_pawn,GP_H,0); giant_mpc(g_pawn,GP_ROBE,0); giant_mpc(g_pawn,GP_GLOW,0);
+        if(strcmp(why,"landed")&&strcmp(why,"song")){ g_gShow=1; g_gSpot=0; g_gTop=0; giant_mpc(g_pawn,GP_SHOW,1); giant_mpc(g_pawn,GP_SPOT,0);
+            giant_mpc(g_pawn,GP_TOP,0); giant_spot_light(0); } }
+    if(!strcmp(why,"landed")){                                          // the show comes back at its drop (bar 17)
+        g_gJustLanded=true;
+        double T=giant_world_time();
+        if(T>=0&&g_pawn){ double off=fmod(G_SHOW_DROP-fmod(T,G_SHOW_LOOP)+2*G_SHOW_LOOP,G_SHOW_LOOP);
+            giant_mpc(g_pawn,GP_OFFS,(float)off); LOGI("[GIANT] show restarts at the drop (clock %.1f s, offset %.2f s)",T,off); } }
+    g_gState=G_DOWN; g_gH=0; g_walkPause=0; LOGI("[GIANT] down (%s)",why); }
+static double smooth01(double x){ if(x<=0) return 0; if(x>=1) return 1; return x*x*(3-2*x); }
+// ---- song mode (the user, 2026-10-06, the set's opener "SVDDEN DEATH - PRELUDE I": "when i play this song, no lights
+// should be happening. at 1:09 is when the platform should raise. at 1:52 is when the lasers from the top of the stage
+// start going. at 2:20 i am coming down with the platform. by 2:46 im down at the decks for sure").
+// tribemod/song.txt (re-read every 5 s; absent = off), one setting per line:
+//   match=PRELUDE I                part of the track's name on Tribe's deck (case-insensitive, whole word at its end)
+//   bpm=140                        the song's tempo: the show's bars follow it
+//   lift=69.0 139.7 166.0          song seconds: start rising, start coming down, down (rise takes giant.txt rise=)
+//   cues=0:dark 113.1:top 166:drop ...   song seconds:look; looks: dark top intro build drop breakdown outro show
+// While a deck plays the matching track, its playhead (BP_Deck_C.GetPlaybackSeconds: track time, so cue jumps and pitch
+// changes stay in sync) drives the lift instead of the button, and the lights: dark = blackout; top = only the horn-tip
+// lasers (MPC TopLasers); a show look = that part of the 32-bar show looping in step with the song; show = the
+// free-running show again. The decks are found on the poll thread and read on the game thread.
+#define S_MAXD 8
+#define S_MAXC 48
+enum { SL_DARK, SL_TOP, SL_INTRO, SL_BUILD, SL_DROP, SL_BREAK, SL_OUTRO, SL_SHOW, SL_N };
+static const char* SL_NAME[SL_N]={"dark","top","intro","build","drop","breakdown","outro","show"};
+static const int SL_BAR0[SL_N]={0,16,0,8,16,24,28,0}, SL_BARS[SL_N]={0,8,8,7,8,4,4,0};  // show.py: the parts' bars (top: the drop's laser patterns)
+struct SongScript { bool ok; char match[200]; double bpm, lift[3], gbpm, gt0; int nc; double ct[S_MAXC]; int cl[S_MAXC]; };
+// gbpm / gt0: the song's own beat grid ("grid=<bpm> <first drop's beat, s>", make_cues); gbpm 0 = none
+static SongScript g_sGlobal;                                          // tribemod/song.txt (the track its match= names)
+static SongScript g_sScr[S_MAXD];                                     // each deck's current track: songs/<key>.txt
+static const SongScript* g_sAct=nullptr;                              // the script in force while song mode is on
+static uintptr_t g_sCls=0, g_sFnPlaying=0, g_sFnSecs=0, g_sFnName=0, g_sDeck[S_MAXD], g_sDeckOn=0;
+static int g_sNDeck=0, g_sOffName=-2, g_sPlayOut=-1, g_sSecsOut=-1, g_sNameOut=-1, g_sSecsDouble=0;
+static double g_sT=0;
+static bool g_sOn=false;
+static bool song_match(const char* hay,const char* nd){              // nd in hay, case-insensitive, not inside a word at
+    if(!nd||!nd[0]) return false;                                      // its end ("PRELUDE I" must not match "PRELUDE II")
+    for(const char* h=hay; *h; h++){ const char *x=h,*y=nd;
+        while(*x&&*y&&tolower((unsigned char)*x)==tolower((unsigned char)*y)){ x++; y++; }
+        if(!*y&&!isalnum((unsigned char)*x)) return true; }
+    return false; }
+static int fn_out(uintptr_t fn,char* ty,int tyn){                     // a function's first output (BP outputs: CPF_OutParm)
+    if(!fn) return -1;
+    for(uintptr_t f=rdptr(fn+OFF_ChildProps); f; f=rdptr(f+FF_Next)){
+        uint64_t fl=rdptr(f+0x38);                                       // FProperty::PropertyFlags (ElementSize@0x34, Offset@0x44)
+        if(fl&(0x100ull|0x400ull)){ if(ty) ffield_type(f,ty,tyn); return (int)rd32(f+FP_Offset); } }
+    return -1; }
+static void song_key(const char* name,char* out){                     // FNV-1a 64, ASCII lower-cased (make_cues.song_key)
+    uint64_t h=0xcbf29ce484222325ull;
+    for(const unsigned char* q=(const unsigned char*)name; *q; q++){ unsigned c=*q; if(c>=65&&c<=90) c+=32; h=(h^c)*0x100000001b3ull; }
+    snprintf(out,17,"%016llx",(unsigned long long)h); }
+static bool song_parse(const char* s,SongScript* sc){                 // song.txt format -> sc (ok: a match= and cues)
+    memset(sc,0,sizeof *sc); sc->bpm=140; sc->lift[0]=sc->lift[1]=sc->lift[2]=-1;
+    const char* q;
+    if((q=strstr(s,"match="))){ q+=6; int j=0; while(*q&&*q!='\n'&&*q!='\r'&&j<(int)sizeof sc->match-1) sc->match[j++]=*q++;
+        while(j>0&&sc->match[j-1]==' ') j--; sc->match[j]=0; }
+    double v; if((q=strstr(s,"bpm="))&&sscanf(q+4,"%lf",&v)==1&&v>=60&&v<=200) sc->bpm=v;
+    double a,b,c; if((q=strstr(s,"lift="))&&sscanf(q+5,"%lf %lf %lf",&a,&b,&c)==3&&a>=0&&b>=a+g_gCfgRise&&c>b){ sc->lift[0]=a; sc->lift[1]=b; sc->lift[2]=c; }
+    double gb,g0; if((q=strstr(s,"grid="))&&sscanf(q+5,"%lf %lf",&gb,&g0)==2&&gb>=60&&gb<=200&&g0>-60&&g0<3600){ sc->gbpm=gb; sc->gt0=g0; }
+    if((q=strstr(s,"cues="))){ q+=5;
+        while(*q&&*q!='\n'&&*q!='\r'&&sc->nc<S_MAXC){ while(*q==' '||*q=='\t') q++;
+            double t; char lk[16]; int used=0; if(sscanf(q,"%lf:%15[a-z]%n",&t,lk,&used)<2||used<=0) break; q+=used;
+            int k=-1; for(int z=0;z<SL_N;z++) if(!strcmp(lk,SL_NAME[z])) k=z;
+            if(k<0||(sc->nc&&t<=sc->ct[sc->nc-1])) continue;
+            sc->ct[sc->nc]=t; sc->cl[sc->nc]=k; sc->nc++; } }
+    sc->ok=sc->match[0]&&sc->nc>0; return sc->ok; }
+static double g_mxSign=1;                                              // tribemod/mix.txt "fader_sign=-1" if the top reads -2.2
+static void mix_read_cfg(){                                           // game thread, every 5 s: tribemod/mix.txt (optional)
+    char s[200]; double v=1; const char* q;
+    if(read_trim_file("mix.txt",s,sizeof s)&&(q=strstr(s,"fader_sign="))&&sscanf(q+11,"%lf",&v)==1) v=v<0?-1:1; else v=1;
+    if(v!=g_mxSign){ g_mxSign=v; LOGI("[MIX] fader direction: %s",v>0?"+2.2 = top":"-2.2 = top (mix.txt)"); } }
+static void song_read_cfg(){                                          // game thread, every 5 s: tribemod/song.txt
+    char s[1150]; SongScript sc;
+    if(!(read_trim_file("song.txt",s,sizeof s)&&song_parse(s,&sc))) memset(&sc,0,sizeof sc);
+    if(!memcmp(&sc,&g_sGlobal,sizeof sc)) return;
+    g_sGlobal=sc;
+    if(!sc.ok){ LOGI("[SONG] song.txt: none (the per-track scripts in songs/ still apply)"); return; }
+    LOGI("[SONG] song.txt: match '%s', %.1f BPM, lift %.2f / %.2f / %.2f s, %d cues",sc.match,sc.bpm,sc.lift[0],sc.lift[1],sc.lift[2],sc.nc); }
+// ---- which deck the crowd hears (the user cues the next song "with the volume down with the headphone on so the crowd
+// cant hear", and mixes with "the filters and the regular channel faders", never the crossfader). From probe v2 on
+// Tribe's DJM Nexus 2 (2026-10-07):
+//   channel fader: BP_ChannelVolumeSlider_C, BP_SliderBase_C.CurrentSliderOffset, -2.2 bottom .. +2.2 top; "Mixer Channel"
+//   filter:        BP_ChannelColorKnob_C, BP_KnobBase_C.CurrentKnobRotationYaw, 0 centre, about +-150 at the ends; "Mixer Channel"
+//   deck channel:  BP_MixerChannelDevice_C.MixerChannel (BP_Deck_C's parent)
+// heard level = fader x filter openness (an open filter counts fully, a filter swept past ~80% of its travel fades out)
+#define MX_CH 8
+static uintptr_t g_mxFader[MX_CH], g_mxFilter[MX_CH];
+static int g_mxOffFader=-1, g_mxSzFader=4, g_mxOffYaw=-1, g_mxSzYaw=4, g_mxOffDeckCh=-2, g_mxSzDeckCh=1;
+static bool g_mxReady=false;
+static int mx_size(uintptr_t fc){ char ty[32]="?"; if(fc) fname_resolve(rd32(fc),ty,sizeof ty);
+    if(!strcmp(ty,"DoubleProperty")) return 8; if(!strcmp(ty,"FloatProperty")||!strcmp(ty,"IntProperty")) return 4; return 1; }
+static double mx_read(uintptr_t a,int sz,bool real){                  // a numeric variable of that size
+    if(sz==8){ double d=0; sr(a,&d,8); return d; }
+    if(sz==4){ if(real){ float f=0; sr(a,&f,4); return f; } int32_t i=0; sr(a,&i,4); return i; }
+    uint8_t b=0; sr(a,&b,1); return b; }
+static void mix_lookup(){                                             // POLL thread: the mixer's channel faders and filters
+    static uintptr_t clsS=0, clsK=0; static int tries=0;
+    if(!g_sCls) return;
+    if(!clsS) clsS=find_by_path("/Game/Equipment/Mixer/BP_MixerSliderBase.BP_MixerSliderBase_C",1);
+    if(!clsK) clsK=find_by_path("/Game/Equipment/Mixer/BP_MixerKnobBase.BP_MixerKnobBase_C",1);
+    if(!clsS||!clsK){ if((tries++%30)==0) LOGI("[MIX] mixer classes not loaded yet"); return; }
+    if(g_mxOffDeckCh==-2){ uintptr_t fc=0; g_mxOffDeckCh=prop_offset(g_sCls,"MixerChannel",&fc); g_mxSzDeckCh=mx_size(fc); }
+    uintptr_t fad[MX_CH]={0}, fil[MX_CH]={0}; int nf=0, nk=0; char cn[96];
+    refresh_numelements();
+    for(uint32_t i=0;i<g_numElements;i++){ uintptr_t o=obj_at(i); if(!o) continue;
+        if(rd32(o+OFF_Flags)&(RF_ClassDefaultObject|0x20u|0x40000000u)) continue;
+        int kind=0, depth=0;
+        for(uintptr_t c=rdptr(o+OFF_Class); c&&depth<12&&!kind; c=rdptr(c+OFF_Super),depth++) kind=c==clsS?1:c==clsK?2:0;
+        if(!kind) continue;
+        class_name(o,cn,sizeof cn);
+        bool fader=kind==1&&!strcmp(cn,"BP_ChannelVolumeSlider_C"), filt=kind==2&&!strcmp(cn,"BP_ChannelColorKnob_C");
+        if(!fader&&!filt) continue;
+        uintptr_t cls=rdptr(o+OFF_Class), fc=0; int oc=-1;
+        static const char* CHN[]={"Mixer Channel","MixerChannel","Channel","ChannelIndex","Channel Index","Mixer Channel Index","Deck Channel"};
+        for(const char* nm_: CHN){ fc=0; oc=prop_offset(cls,nm_,&fc); if(oc>=0) break; }
+        if(oc<0){ static bool told=false;                            // tell which variables the class has (once)
+            if(!told){ told=true; char nm[64], ty[32], line[700]; int k=0;
+                for(uintptr_t f=rdptr(cls+OFF_ChildProps); f; f=rdptr(f+FF_Next)){ ffield_type(f,ty,sizeof ty);
+                    fname_resolve(rd32(f+FF_Name),nm,sizeof nm);
+                    if(k<(int)sizeof line-80) k+=snprintf(line+k,sizeof line-k,"%s(%s)@%d ",nm,ty,(int)rd32(f+FP_Offset)); }
+                LOGI("[MIX] %s has no channel variable I know; its own variables: %s",cn,line); }
+            continue; }
+        int ch=(int)mx_read(o+(uintptr_t)oc,mx_size(fc),false); if(ch<0||ch>=MX_CH) continue;
+        if(fader){ fad[ch]=o; nf++;
+            if(g_mxOffFader<0){ uintptr_t f2=0; g_mxOffFader=prop_offset(cls,"CurrentSliderOffset",&f2); g_mxSzFader=mx_size(f2); } }
+        else { fil[ch]=o; nk++;
+            if(g_mxOffYaw<0){ uintptr_t f2=0; g_mxOffYaw=prop_offset(cls,"CurrentKnobRotationYaw",&f2); g_mxSzYaw=mx_size(f2); } } }
+    bool chg=false; for(int c=0;c<MX_CH;c++) if(fad[c]!=g_mxFader[c]||fil[c]!=g_mxFilter[c]) chg=true;
+    if(!chg) return;
+    memcpy(g_mxFilter,fil,sizeof fil); memcpy(g_mxFader,fad,sizeof fad);
+    g_mxReady=nf>0&&g_mxOffFader>=0&&g_mxOffDeckCh>=0;
+    LOGI("[MIX] %d channel faders (CurrentSliderOffset @%d, %dB), %d filters (CurrentKnobRotationYaw @%d, %dB), deck MixerChannel @%d %dB -> %s",
+         nf,g_mxOffFader,g_mxSzFader,nk,g_mxOffYaw,g_mxSzYaw,g_mxOffDeckCh,g_mxSzDeckCh,g_mxReady?"following the faders":"NOT usable");
+    for(int c=0;c<MX_CH;c++) if(fad[c]||fil[c]) LOGI("[MIX]   channel %d: fader 0x%lx filter 0x%lx",c,(unsigned long)fad[c],(unsigned long)fil[c]); }
+static double mix_level(uintptr_t dk,int* chOut){                    // game thread: 0..1 of this deck the crowd hears; -1 unknown
+    if(!g_mxReady) return -1;
+    int ch=(int)mx_read(dk+(uintptr_t)g_mxOffDeckCh,g_mxSzDeckCh,false); if(chOut) *chOut=ch;
+    if(ch<0||ch>=MX_CH||!g_mxFader[ch]||!obj_alive(g_mxFader[ch])) return -1;
+    double off=mx_read(g_mxFader[ch]+(uintptr_t)g_mxOffFader,g_mxSzFader,true);
+    double fader=(g_mxSign*off+2.2)/4.4; if(fader<0) fader=0; if(fader>1) fader=1;
+    double open=1.0;
+    if(g_mxFilter[ch]&&g_mxOffYaw>=0&&obj_alive(g_mxFilter[ch])){
+        double yaw=fabs(mx_read(g_mxFilter[ch]+(uintptr_t)g_mxOffYaw,g_mxSzYaw,true))/150.0;
+        open=1.0-smooth01((yaw-0.55)/0.4); }                           // centre..55% open; 95% swept: gone
+    return fader*open; }
+// ---- Tribe's beat grid (the user wants the lights on the ACTUAL beats, 2026-10-07). Each deck carries its track's grid,
+// BP_Deck_C.BeatgridBpm / BeatgridStartMs, the one Tribe's sync and quantize use. The lights' bar + beat clock follows
+// the grid of the track the crowd hears: grid bars = ((t - start) * bpm / 60 - phase) / 4, where phase = which grid beat
+// is beat 1 (the light script's first drop lands on a downbeat; no script: the grid start).
+static int g_gdOffBpm=-2, g_gdSzBpm=8, g_gdOffStart=-1, g_gdSzStart=8;
+static double g_gdBpm[S_MAXD], g_gdStartS[S_MAXD];                    // per deck; bpm 0 = no usable grid
+static int g_gdLoud=-1;                                               // the deck out loud (song_tick)
+static double g_gdLoudT=-1, g_gdShift=0;                              // its playhead this frame; free-show bar shift
+static double grid_bars(double t,double bpm,double startS,const struct SongScript* sc){
+    double ph=0;
+    if(sc) for(int i=0;i<sc->nc;i++) if(sc->cl[i]==SL_DROP||sc->cl[i]==SL_TOP){
+        double bd=floor((sc->ct[i]-startS)*bpm/60.0+0.5); ph=fmod(fmod(bd,4.0)+4.0,4.0); break; }
+    return ((t-startS)*bpm/60.0-ph)/4.0; }
+static double grid_snap(double c,double bpm,double startS){           // a cue onto the grid's nearest beat (within 0.15 s)
+    if(bpm<=0) return c;
+    double spb=60.0/bpm, b=floor((c-startS)/spb+0.5), cs=startS+b*spb;
+    return fabs(cs-c)<=0.15?cs:c; }
+// ---- hit maps (stage v10; the user: the lasers should "hit with the music"). songs/<key>.hits = the drum accents of a
+// track (make_cues.hit_map: at most one per beat; major = the bar's main hits), little-endian uint32 per hit:
+// (ms << 8) | (major << 7) | intensity 0..127. Replayed against the song clock into MPC HitMajor / HitMinor (decaying
+// envelopes), HitCount (+1 per major hit) and HitsOn; DropBoom when a drop (or the top look) starts. The free show on
+// a grid: beats 1 and 3 major, 2 and 4 minor. tribemod/hits.txt "offset_ms=N" delays the hits (N > 0: later).
+#define H_MAX 4096
+static uint32_t g_hit[S_MAXD][H_MAX]; static int g_hitN[S_MAXD];
+static double g_hitOffset=0;
+static void hits_load(int i,const char* key){                       // game thread, with the deck's script
+    g_hitN[i]=0; char p[640]; snprintf(p,sizeof p,"%s/songs/%s.hits",OUTDIR,key);
+    int fd=open(p,O_RDONLY); if(fd<0) return;
+    ssize_t r=read(fd,g_hit[i],sizeof g_hit[i]); close(fd);
+    if(r>0) g_hitN[i]=(int)(r/4); }
+static void hits_read_cfg(){                                          // every 5 s: tribemod/hits.txt (optional)
+    char s[80]; double v=0; const char* q;
+    if(!(read_trim_file("hits.txt",s,sizeof s)&&(q=strstr(s,"offset_ms="))&&sscanf(q+10,"%lf",&v)==1&&v>-500&&v<500)) v=0;
+    if(v/1000.0!=g_hitOffset){ g_hitOffset=v/1000.0; LOGI("[HITS] offset %.0f ms",v); } }
+static void hits_tick(double dt,int deck,double t,int look,bool freeGrid,double freeBars){
+    // deck: song mode's deck (its script's hits) or -1; t: the song clock; look: the cue in force (-1 none);
+    // freeGrid: the free show runs on a grid, freeBars = its bar position
+    static double hMaj=0,hMin=0,boom=0,cnt=0,lastT=-1e9,lastBeats=-1e9; static int idx=0,lastDeck=-1,lastLook=-2;
+    static float wMaj=-1,wMin=-1,wBoom=-1,wCnt=-1,wOn=-1;
+    double k=exp(-dt/0.15); hMaj*=k; hMin*=k; boom=fmax(0.0,boom-dt/1.2);
+    bool on=false;
+    if(deck>=0&&deck<S_MAXD&&g_hitN[deck]>0){
+        on=true; const uint32_t* H=g_hit[deck]; int n=g_hitN[deck];
+        double tt=t-g_hitOffset; uint32_t ms=(uint32_t)fmax(0.0,tt*1000.0);
+        if(deck!=lastDeck||tt<lastT-0.05||tt>lastT+1.0){              // new track, seek or loop: find our place quietly
+            int lo=0,hi=n; while(lo<hi){ int mid=(lo+hi)/2; if((H[mid]>>8)<=ms) lo=mid+1; else hi=mid; } idx=lo; }
+        else while(idx<n&&(H[idx]>>8)<=ms){ double it=(H[idx]&127)/127.0;
+                if(H[idx]&128){ hMaj=fmax(hMaj,0.4+0.6*it); cnt+=1; } else hMin=fmax(hMin,0.3+0.7*it);
+                idx++; }
+        lastT=tt; lastDeck=deck; }
+    else{ lastDeck=-1;
+        if(freeGrid){ on=true; double beats=freeBars*4.0;
+            if(beats>lastBeats&&beats-lastBeats<1.0&&floor(beats)!=floor(lastBeats)){
+                int b=((int)floor(beats))%4; if(b<0) b+=4;
+                if(b==0||b==2){ hMaj=fmax(hMaj,0.8); cnt+=1; } else hMin=fmax(hMin,0.6); }
+            lastBeats=beats; } }
+    bool dropNow=(look==SL_DROP||look==SL_TOP), dropWas=(lastLook==SL_DROP||lastLook==SL_TOP);
+    if(dropNow&&!dropWas&&lastLook!=-2){ boom=1.0; LOGI("[HITS] drop boom"); }
+    lastLook=look;
+    float vMaj=(float)hMaj, vMin=(float)hMin, vBoom=(float)boom, vCnt=(float)fmod(cnt,1000.0), vOn=on?1.f:0.f;
+    if(fabsf(vMaj-wMaj)>0.004f){ wMaj=vMaj; giant_mpc(g_pawn,GP_HMAJ,vMaj); }
+    if(fabsf(vMin-wMin)>0.004f){ wMin=vMin; giant_mpc(g_pawn,GP_HMIN,vMin); }
+    if(vCnt!=wCnt){ wCnt=vCnt; giant_mpc(g_pawn,GP_HCNT,vCnt); }
+    if(fabsf(vBoom-wBoom)>0.004f){ wBoom=vBoom; giant_mpc(g_pawn,GP_BOOM,vBoom); }
+    if(vOn!=wOn){ wOn=vOn; giant_mpc(g_pawn,GP_HON,vOn);
+        LOGI("[HITS] %s",on?(deck>=0?"song hit map":"grid beats (free show)"):"off"); } }
+// ---- bass maps (stage v11; the user: "some songs, it just the bass that plays and the lazers need to be going").
+// songs/<key>.bass = the track's bass level (sub + low bands, scaled per song) as one byte per 100 ms, replayed against
+// the song clock (with the hits' offset) into MPC Bass: 30 ms attack, 150 ms release.
+#define B_MAX 24000
+static uint8_t g_bass[S_MAXD][B_MAX]; static int g_bassN[S_MAXD];
+static void bass_load(int i,const char* key){                       // game thread, with the deck's script
+    g_bassN[i]=0; char p[640]; snprintf(p,sizeof p,"%s/songs/%s.bass",OUTDIR,key);
+    int fd=open(p,O_RDONLY); if(fd<0) return;
+    ssize_t r=read(fd,g_bass[i],sizeof g_bass[i]); close(fd);
+    if(r>0) g_bassN[i]=(int)r; }
+static void bass_tick(double dt,int deck,double t){
+    static double v=0; static float w=-1; static bool wasOn=false;
+    double target=0; bool on=deck>=0&&deck<S_MAXD&&g_bassN[deck]>1;
+    if(on){ double f=(t-g_hitOffset)*10.0-0.5; if(f<0) f=0; int i=(int)f; double fr=f-i; const uint8_t* B=g_bass[deck];
+        target=(i>=g_bassN[deck]-1)?B[g_bassN[deck]-1]/255.0:(B[i]*(1.0-fr)+B[i+1]*fr)/255.0; }
+    double tau=target>v?0.03:0.15; v+=(target-v)*(1.0-exp(-dt/tau));
+    float vf=(float)v; if(fabsf(vf-w)>0.004f){ w=vf; giant_mpc(g_pawn,GP_BASS,vf); }
+    if(on!=wasOn){ wasOn=on; LOGI("[BASS] %s",on?"song bass map":"off"); } }
+static void song_lookup(){                                            // POLL thread: Tribe's decks (BP_Deck_C and children)
+    if(!g_sCls){
+        static int miss=0; uintptr_t c=find_by_path("/Game/Equipment/Deck/BP_Deck.BP_Deck_C",1);
+        if(!c){ if((miss++%30)==0) LOGI("[SONG] BP_Deck_C not loaded yet"); return; }
+        g_sFnPlaying=find_by_path("/Game/Equipment/Deck/BP_Deck.BP_Deck_C.GetIsPlaying",0);
+        g_sFnSecs=find_by_path("/Game/Equipment/Deck/BP_Deck.BP_Deck_C.GetPlaybackSeconds",0);
+        g_sFnName=find_by_path("/Game/Equipment/Deck/BP_Deck.BP_Deck_C.GetCurrentTrackDisplayName",0);
+        char tp[64]="?", ts[64]="?", tn[64]="?", td[64]="?"; uintptr_t fc=0;
+        g_sPlayOut=fn_out(g_sFnPlaying,tp,sizeof tp); g_sSecsOut=fn_out(g_sFnSecs,ts,sizeof ts); g_sNameOut=fn_out(g_sFnName,td,sizeof td);
+        g_sOffName=prop_offset(c,"CurrentTrackFileName",&fc); if(fc) fname_resolve(rd32(fc),tn,sizeof tn);
+        LOGI("[SONG] BP_Deck_C 0x%lx: GetIsPlaying out @%d %s, GetPlaybackSeconds out @%d %s, GetCurrentTrackDisplayName out @%d %s, "
+             "CurrentTrackFileName @%d %s",(unsigned long)c,g_sPlayOut,tp,g_sSecsOut,ts,g_sNameOut,td,g_sOffName,tn);
+        g_sSecsDouble=!strcmp(ts,"DoubleProperty");
+        if(strcmp(tn,"StrProperty")) g_sOffName=-1;
+        if(strcmp(td,"StrProperty")) g_sNameOut=-1;
+        if(strcmp(ts,"DoubleProperty")&&strcmp(ts,"FloatProperty")) g_sSecsOut=-1;
+        if(strcmp(tp,"BoolProperty")) g_sPlayOut=-1;
+        if(g_gdOffBpm==-2){ uintptr_t f1=0, f2=0; g_gdOffBpm=prop_offset(c,"BeatgridBpm",&f1); g_gdSzBpm=mx_size(f1);
+            g_gdOffStart=prop_offset(c,"BeatgridStartMs",&f2); g_gdSzStart=mx_size(f2);
+            LOGI("[GRID] BeatgridBpm @%d %dB, BeatgridStartMs @%d %dB",g_gdOffBpm,g_gdSzBpm,g_gdOffStart,g_gdSzStart); }
+        g_sCls=c; }
+    static int calls=0; calls++; bool dead=false;
+    for(int i=0;i<g_sNDeck;i++) if(!obj_alive(g_sDeck[i])) dead=true;
+    if(g_sNDeck&&!dead&&(calls%15)) return;                            // re-scan every ~30 s, or when a deck went away
+    if(!g_sNDeck&&(calls%5)!=1) return;                                // none yet: every ~10 s
+    refresh_numelements(); uintptr_t f[S_MAXD]; int n=0;
+    for(uint32_t i=0;i<g_numElements&&n<S_MAXD;i++){ uintptr_t o=obj_at(i); if(!o) continue;
+        if(rd32(o+OFF_Flags)&(RF_ClassDefaultObject|0x20u|0x40000000u)) continue;
+        int depth=0; for(uintptr_t c=rdptr(o+OFF_Class); c&&depth<12; c=rdptr(c+OFF_Super),depth++) if(c==g_sCls){ f[n++]=o; break; } }
+    bool chg=(n!=g_sNDeck); for(int i=0;i<n&&!chg;i++) if(f[i]!=g_sDeck[i]) chg=true;
+    if(calls%15==1||!g_mxReady) mix_lookup();                        // the faders + filters, alongside the decks
+    if(!chg) return;
+    for(int i=0;i<n;i++) g_sDeck[i]=f[i];
+    g_sNDeck=n;
+    char cn[96]; LOGI("[SONG] %d deck(s)",n);
+    for(int i=0;i<n;i++){ class_name(f[i],cn,sizeof cn); LOGI("[SONG]   deck %d: 0x%lx (%s)",i,(unsigned long)f[i],cn); } }
+static bool song_playing(uintptr_t dk){
+    static uint8_t b[512] __attribute__((aligned(16))); uint16_t psz=rd16(g_sFnPlaying+0xB6); if(psz>sizeof b||g_sPlayOut<0) return false;
+    memset(b,0,psz); call_uf(dk,g_sFnPlaying,b); return b[g_sPlayOut]!=0; }
+static double song_secs(uintptr_t dk){
+    static uint8_t b[512] __attribute__((aligned(16))); uint16_t psz=rd16(g_sFnSecs+0xB6); if(psz>sizeof b||g_sSecsOut<0) return -1;
+    memset(b,0,psz); call_uf(dk,g_sFnSecs,b);
+    if(g_sSecsDouble){ double d; memcpy(&d,b+g_sSecsOut,8); return d; } float f; memcpy(&f,b+g_sSecsOut,4); return f; }
+static void song_track_name(int i,uintptr_t dk,char* out,int n){      // the property; else the display name, every 2 s
+    if(g_sOffName>=0){ read_fstring(dk+g_sOffName,out,n); if(strcmp(out,"(empty)")) return; }   // empty: try the display name
+    static char cache[S_MAXD][512]; static float age[S_MAXD]={9,9,9,9,9,9,9,9};
+    if(g_sFnName&&g_sNameOut>=0&&(age[i]+=0.25f)>=2.0f){ age[i]=0;   // (the returned FString is not freed: ~1 small leak / 2 s)
+        static uint8_t b[512] __attribute__((aligned(16))); uint16_t psz=rd16(g_sFnName+0xB6);
+        if(psz<=sizeof b){ memset(b,0,psz); call_uf(dk,g_sFnName,b); read_fstring((uintptr_t)(b+g_sNameOut),cache[i],sizeof cache[i]); } }
+    snprintf(out,n,"%s",cache[i]); }
+static void song_load_deck(int i,const char* nm){                     // the light script for the track now on deck i
+    SongScript* sc=&g_sScr[i]; memset(sc,0,sizeof *sc); g_hitN[i]=0; g_bassN[i]=0;
+    if(!nm[0]||!strcmp(nm,"(empty)")) return;
+    char key[17], f[64], s[1150]; song_key(nm,key); snprintf(f,sizeof f,"songs/%s.txt",key);
+    if(read_trim_file(f,s,sizeof s)&&song_parse(s,sc)&&song_match(nm,sc->match)){
+        char gi[64]=""; if(sc->gbpm>0) snprintf(gi,sizeof gi,", grid %.3f BPM from %.3f s",sc->gbpm,sc->gt0);
+        hits_load(i,key); bass_load(i,key);
+        LOGI("[SONG] deck %d: '%s' -> songs/%s.txt (%d cues, %.1f BPM%s%s, %d hits, %.0f s of bass)",i,nm,key,sc->nc,
+             sc->bpm,gi,sc->lift[0]>=0?", with the lift":"",g_hitN[i],g_bassN[i]/10.0);
+        return; }
+    memset(sc,0,sizeof *sc); g_hitN[i]=0; g_bassN[i]=0;
+    if(g_sGlobal.ok&&song_match(nm,g_sGlobal.match)){ *sc=g_sGlobal; hits_load(i,key); bass_load(i,key);
+        LOGI("[SONG] deck %d: '%s' -> song.txt (%d hits)",i,nm,g_hitN[i]); return; }
+    LOGI("[SONG] deck %d: '%s' has no light script (key %s): the show runs free",i,nm,key); }
+static void song_tick(float dt){                                      // game thread: which scripted song is out, and where
+    static double clk=0, lastPlay=-1e9; static float scanT=1; clk+=dt; scanT+=dt;
+    bool ready=g_sCls&&g_sFnSecs&&g_sFnPlaying&&g_sPlayOut>=0&&g_sSecsOut>=0&&(g_sOffName>=0||g_sNameOut>=0);
+    if(!ready){ if(g_sOn){ g_sOn=false; g_sDeckOn=0; g_sAct=nullptr; LOGI("[SONG] off (the decks are gone)"); } return; }
+    if(scanT>=0.25f){ scanT=0;
+        static uint32_t seen[S_MAXD]; static bool was[S_MAXD]; static double since[S_MAXD]; static int curDeck=-1;
+        double lvl[S_MAXD]; int chOf[S_MAXD]; bool mixKnown=true;
+        for(int i=0;i<S_MAXD;i++){ lvl[i]=-2; chOf[i]=-1; }               // -2: not playing / not seen
+        int pick=-1;
+        for(int i=0;i<g_sNDeck&&i<S_MAXD;i++){ uintptr_t dk=g_sDeck[i]; if(!dk||!obj_alive(dk)){ was[i]=false; continue; }
+            char nm[512]; song_track_name(i,dk,nm,sizeof nm);
+            uint32_t h=2166136261u; for(const char* c=nm; *c; c++) h=(h^(uint8_t)*c)*16777619u;
+            if(h!=seen[i]){ seen[i]=h; was[i]=false; LOGI("[SONG] deck %d track: '%s'",i,nm); song_load_deck(i,nm); }
+            if(g_gdOffBpm>=0&&g_gdOffStart>=0){                            // the track's grid (Tribe's analysis or the DJ's edit)
+                double b=mx_read(dk+(uintptr_t)g_gdOffBpm,g_gdSzBpm,true), st=mx_read(dk+(uintptr_t)g_gdOffStart,g_gdSzStart,true);
+                double nb=(b>=60&&b<=200&&st>-60000&&st<3600000)?b:0, ns=st/1000.0;
+                if(fabs(nb-g_gdBpm[i])>1e-6||fabs(ns-g_gdStartS[i])>1e-4){ g_gdBpm[i]=nb; g_gdStartS[i]=ns;
+                    if(strcmp(nm,"(empty)")) LOGI("[GRID] deck %d: %.3f BPM, first beat at %.3f s",i,nb,ns); } }
+            bool pl=strcmp(nm,"(empty)")&&song_playing(dk);
+            if(pl&&!was[i]) since[i]=clk;
+            was[i]=pl;
+            lvl[i]=-2;                                                     // not playing
+            if(!pl) continue;
+            int ch=-1; lvl[i]=mix_level(dk,&chOf[i]); (void)ch;
+            if(lvl[i]<0) mixKnown=false; }
+        // the deck out loud: by the faders + filters (the loudest, kept unless another is 0.15 louder or it drops under
+        // 0.1), else the song playing longest. A loud track without a light script = the free-running show.
+        int loud=-1;
+        for(int i=0;i<g_sNDeck&&i<S_MAXD;i++){ if(lvl[i]==-2) continue;
+            if(mixKnown){ if(loud<0||lvl[i]>lvl[loud]) loud=i; }
+            else if(loud<0||since[i]<since[loud]) loud=i; }
+        if(mixKnown&&loud>=0&&curDeck>=0&&curDeck!=loud&&lvl[curDeck]!=-2&&lvl[curDeck]>=0.1&&lvl[loud]<lvl[curDeck]+0.15)
+            loud=curDeck;                                                  // hysteresis: no flip-flop while blending
+        if(mixKnown&&loud>=0&&lvl[loud]<0.02) loud=curDeck>=0&&lvl[curDeck]!=-2?curDeck:-1;   // everything faded out
+        g_gdLoud=loud;
+        if(loud!=curDeck){ curDeck=loud;
+            if(loud>=0) LOGI("[MIX] out loud: deck %d (channel %d, level %.2f)%s",loud,chOf[loud],mixKnown?lvl[loud]:-1.0,
+                             mixKnown?"":" (mixer unknown: longest playing)"); }
+        static float mlog=0; mlog+=0.25f;
+        if(mixKnown&&mlog>=2.0f){ mlog=0; char b[160]; int k=0;
+            for(int i=0;i<g_sNDeck&&i<S_MAXD;i++) if(lvl[i]!=-2) k+=snprintf(b+k,sizeof b-k,"d%d=%.2f ",i,lvl[i]);
+            if(k) LOGI("[MIX] levels %s",b); }
+        if(loud>=0&&g_sScr[loud].ok) pick=loud;
+        if(pick>=0){ lastPlay=clk;
+            if(g_sDeck[pick]!=g_sDeckOn||g_sAct!=&g_sScr[pick]){ g_sDeckOn=g_sDeck[pick]; g_sAct=&g_sScr[pick];
+                LOGI("[SONG] the lights follow deck %d ('%s')",pick,g_sScr[pick].match); } }
+        else if(loud>=0&&g_sOn) lastPlay=-1e9; }                          // the loud track has no script: the show runs free
+    bool on=g_sDeckOn&&g_sAct&&clk-lastPlay<1.5&&obj_alive(g_sDeckOn);  // 1.5 s of grace: a scan miss doesn't drop out
+    // the loud track's playhead every frame (the free show follows its grid; song mode uses the smoothed g_sT)
+    g_gdLoudT=(g_gdLoud>=0&&g_gdLoud<g_sNDeck&&g_gdBpm[g_gdLoud]>0&&obj_alive(g_sDeck[g_gdLoud]))?song_secs(g_sDeck[g_gdLoud]):-1;
+    // the song clock: the deck's playhead can repeat a value for a frame (seen mid-rise, 2026-10-06), and the lift moves
+    // the DJ's whole view, so it runs smooth: +dt every frame while the playhead moves, pulled 8%/frame toward it; a
+    // difference over 0.3 s (start, cue jump, another deck) snaps
+    static double lastRaw=-1, stall=0;
+    if(on){ double raw=song_secs(g_sDeckOn);
+        if(raw>=0&&raw<36000){ if(raw!=lastRaw){ lastRaw=raw; stall=0; } else stall+=dt;
+            if(!g_sOn||fabs(raw-g_sT)>0.3) g_sT=raw;
+            else { if(stall<0.1) g_sT+=dt; g_sT+=(raw-g_sT)*0.08; } } }
+    if(on!=g_sOn){ g_sOn=on; if(!on){ g_sDeckOn=0; g_sAct=nullptr; }
+        LOGI(on?"[SONG] ON at %.2f s: the song's light script runs":"[SONG] off at %.2f s: back to the free-running show",g_sT); }
+    static float logT=0; logT+=dt; if(g_sOn&&logT>=2.0f){ logT=0; LOGI("[SONG] t=%.2f s, lift %.0f cm",g_sT,g_gH); } }
+static bool song_has_lift(){ return g_sOn&&g_sAct&&g_sAct->lift[0]>=0; }
+static double song_lift_h(double t){                                  // the lift's height (cm) at song time t
+    if(!g_sAct) return 0;
+    const double a=g_sAct->lift[0], b=g_sAct->lift[1], c=g_sAct->lift[2];
+    if(a<0||t<a||t>=c) return 0;
+    if(t<a+g_gCfgRise) return g_gCfgH*smooth01((t-a)/g_gCfgRise);
+    if(t<b) return g_gCfgH;
+    return g_gCfgH*(1-smooth01((t-b)/(c-b))); }
+static int song_lift_state(double t){                                 // where the lift program is at song time t
+    if(!g_sAct) return G_DOWN;
+    const double a=g_sAct->lift[0], b=g_sAct->lift[1], c=g_sAct->lift[2];
+    if(a<0||t<a||t>=c) return G_DOWN;
+    if(t<a+g_gCfgRise) return G_RISING;
+    return t<b?G_UP:G_DESC; }
+static int song_look(double t,double* seg,double bpm=0,double startS=0){   // the cue in force at song time t (-1: none);
+    if(!g_sAct) return -1;                                             // with a grid, cues sit on its nearest beat
+    int L=-1; for(int i=0;i<g_sAct->nc;i++){ double c=grid_snap(g_sAct->ct[i],bpm,startS); if(c<=t){ L=g_sAct->cl[i]; if(seg) *seg=c; } }
+    return L; }
+// the show bar the song plays at song time t (-1: no scripted part there): the same mapping as the clock in giant_tick
+static double song_show_bar(double t,double gBpm,double gStart){
+    double seg=0; int lk=song_look(t,&seg,gBpm,gStart); if(lk<0||SL_BARS[lk]<=0||!g_sAct) return -1;
+    double n=(double)SL_BARS[lk];
+    if(gBpm>0){ double gb=grid_bars(t,gBpm,gStart,g_sAct), b0=floor(grid_bars(seg,gBpm,gStart,g_sAct)+0.5);
+        return SL_BAR0[lk]+fmod(fmod(gb-b0,n)+n,n); }
+    return SL_BAR0[lk]+fmod((t-seg)*g_sAct->bpm/240.0,n); }
+// ShowPrevBar / ShowNextBar (v14b, asked for by the Halloween session; the Dino's lasers blend toward the next bar too):
+// in song mode the bar shown before this one and the one that plays after it (a section loops: the drop's bar 23 is
+// followed by 16, not 24), -1 elsewhere (the materials then use the clock's neighbours). Written when they change.
+static void show_bars(int cur,int nxt){
+    static int lastCur=-2, prev=-1, lastNext=-2, gen=-1;
+    if(gen!=g_showGen){ gen=g_showGen; lastCur=-2; lastNext=-2; prev=-1; }      // a new stage's collection: send again
+    if(cur!=lastCur){ prev=(cur>=0&&lastCur>=0)?lastCur:-1; lastCur=cur; giant_mpc(g_pawn,GP_PREV,(float)prev); }
+    if(nxt!=lastNext){ lastNext=nxt; giant_mpc(g_pawn,GP_NEXT,(float)nxt); } }
+static void giant_tick(float dt){                                     // game thread, every frame
+    if(g_emState!=EM_ACTIVE||!g_gColl||!obj_alive(g_gColl)||!g_pawn||!obj_alive(g_pawn)||!g_camComp){
+        if(g_gState!=G_DOWN) giant_reset("stage not active");
+        if(g_sOn){ g_sOn=false; g_sDeckOn=0; g_sAct=nullptr; LOGI("[SONG] off (our stage is not up)"); }
+        return; }
+    static float cfgT=10; cfgT+=dt; if(cfgT>=5){ cfgT=0; giant_read_cfg(); song_read_cfg(); mix_read_cfg(); hits_read_cfg(); }
+    static bool wasSongLift=false; song_tick(dt); bool songLift=g_gHasGiant&&song_has_lift();   // a lift= needs the giant
+    bool lostLift=wasSongLift&&!songLift; wasSongLift=songLift;
+    if(lostLift&&g_gState!=G_DOWN){ g_gState=G_DESC; g_gT=0; g_gDescFrom=g_gH; g_gDescT=fmax(8.0,g_gCfgDesc*g_gH/g_gCfgH);
+        LOGI("[GIANT] the song stopped with you up: coming down over %.0f s",g_gDescT); }
+    // the button: either hand close to the cap (which rides up with the lift)
+    double B[3]={G_BTN[0],G_BTN[1],G_BTN[2]+g_gH}, d=1e9;
+    uintptr_t hands[2]={g_mcL,g_mcR};
+    for(int i=0;i<2&&g_gHasGiant;i++){ double P[3]; if(hands[i]&&get_vec3(hands[i],g_fnLoc,P)){   // the button: Dino only
+        double dx=P[0]-B[0],dy=P[1]-B[1],dz=P[2]-B[2]; double e=sqrt(dx*dx+dy*dy+dz*dz); if(e<d) d=e; } }
+    static float nearLog=0; nearLog+=dt;
+    if(d<40&&nearLog>=1.0f){ nearLog=0; LOGI("[GIANT] hand %.0f cm from the button (press inside %.0f)",d,g_gCfgPress); }
+    g_gCool-=dt; if(d>g_gCfgPress+8) g_gArmed=true;
+    if(g_gArmed&&d<g_gCfgPress&&g_gCool<=0){ g_gArmed=false; g_gCool=1.2; g_gGlow=1.0;
+        if(songLift) LOGI("[GIANT] button: the song drives the lift (press ignored)");
+        else if(g_gState==G_DOWN){ g_gState=G_RISING; g_gT=0; LOGI("[GIANT] button: going up to %.0f cm over %.0f s",g_gCfgH,g_gCfgRise); }
+        else if(g_gState==G_UP){ g_gState=G_DESC; g_gT=0; g_gDescFrom=g_gCfgH; g_gDescT=g_gCfgDesc;
+            LOGI("[GIANT] button: coming down over %.0f s",g_gCfgDesc); }
+        else LOGI("[GIANT] button: ignored while moving"); }
+    // the lift
+    g_gT+=dt;
+    if(songLift){ double tgt=song_lift_h(g_sT), mv=150.0*dt;               // the song drives it (a seek glides at <= 1.5 m/s)
+        g_gH=tgt>g_gH?fmin(tgt,g_gH+mv):fmax(tgt,g_gH-mv);
+        int st=song_lift_state(g_sT);
+        if(fabs(g_gH-tgt)>0.5) st=g_gH<tgt?(int)G_RISING:(int)G_DESC;   // gliding to where a cue jump put the song
+        else if(st==G_DOWN&&g_gH>0.5) st=G_DESC;
+        if(st!=g_gState){ static const char* SN[4]={"down","rising","up","coming down"};
+            LOGI("[SONG] %.2f s: lift %s (%.0f cm)",g_sT,SN[st],g_gH);
+            if(st==G_DOWN) giant_reset("song"); else g_gState=st; } }
+    else if(g_gState==G_RISING){ g_gH=g_gCfgH*smooth01(g_gT/g_gCfgRise);
+        if(g_gT>=g_gCfgRise){ g_gH=g_gCfgH; g_gState=G_UP; LOGI("[GIANT] up (%.0f cm)",g_gH); } }
+    else if(g_gState==G_DESC){ g_gH=g_gDescFrom*(1-smooth01(g_gT/g_gDescT)); if(g_gT>=g_gDescT) giant_reset("landed"); }
+    else if(g_gState==G_UP) g_gH=g_gCfgH;
+    g_walkPause=(g_gState!=G_DOWN)?1:0;
+    if(g_gState!=G_DOWN) giant_set_rel(g_gH);
+    // blackout + follow spot: the show fades out after the press (1.5 s) and snaps back on landing (0.3 s, at the drop);
+    // the spot fades in (1 s) and out after landing (1.2 s)
+    // song mode: its cue sets the levels (fast fades) and the show clock; TopLasers = the horn-tip lasers alone
+    bool giant=(g_gState!=G_DOWN);
+    int gd=-1; for(int i=0;i<g_sNDeck&&i<S_MAXD;i++) if(g_sOn&&g_sDeck[i]==g_sDeckOn) gd=i;
+    // the song's own grid first (make_cues fits it to the track's hits). Tribe's can be off: 142.38 BPM for a 140 track,
+    // or a first beat at 0.000 s that sits 40-70 ms before the hits (2026-10-08)
+    bool gOwn=gd>=0&&g_sAct&&g_sAct->gbpm>0;
+    double gBpm=gOwn?g_sAct->gbpm:gd>=0?g_gdBpm[gd]:0, gStart=gOwn?g_sAct->gt0:gd>=0?g_gdStartS[gd]:0;
+    static int gridLog=-2; int gridNow=gBpm>0?gd+(gOwn?200:0):(g_gdLoud>=0&&g_gdLoudT>=0?100+g_gdLoud:-1);
+    if(gridNow!=gridLog){ gridLog=gridNow;
+        if(gridNow>=200) LOGI("[GRID] song mode locked to deck %d's own grid (%.3f BPM from %.3f s; Tribe's: %.3f BPM from %.3f s)",
+            gd,gBpm,gStart,g_gdBpm[gd],g_gdStartS[gd]);
+        else if(gridNow>=100) LOGI("[GRID] free show locked to deck %d's grid (%.2f BPM)",gridNow-100,g_gdBpm[gridNow-100]);
+        else if(gridNow>=0) LOGI("[GRID] song mode locked to deck %d's grid (%.2f BPM)",gridNow,gBpm);
+        else LOGI("[GRID] no grid: the clock runs free"); }
+    double seg=0; int look=(g_sOn&&(songLift||!giant))?song_look(g_sT,&seg,gBpm,gStart):-1;   // a button giant keeps its blackout
+    static int lastLook=-2; if(look!=lastLook){ if(look>=0) LOGI("[SONG] %.2f s: lights '%s'",g_sT,SL_NAME[look]); lastLook=look; }
+    double showT=giant?0.0:1.0, topT=0.0, spotT=giant?1.0:0.0;
+    if(look>=0){ showT=(look==SL_DARK||look==SL_TOP)?0.0:1.0; topT=(look==SL_TOP)?1.0:0.0; }
+    if(g_introDark){ showT=0.0; topT=0.0; }                           // a stage's stream intro holds the venue dark (intro.cpp)
+    double sh0=g_gShow, sp0=g_gSpot, tp0=g_gTop, upS=look>=0?0.15:0.3, dnS=look>=0?0.3:1.5;
+    g_gShow+=(showT>g_gShow? dt/upS : -dt/dnS); if((showT-sh0)*(showT-g_gShow)<=0) g_gShow=showT;
+    g_gSpot+=(spotT>g_gSpot? dt/1.0 : -dt/1.2); if((spotT-sp0)*(spotT-g_gSpot)<=0) g_gSpot=spotT;
+    g_gTop+=(topT>g_gTop? dt/0.1 : -dt/0.5); if((topT-tp0)*(topT-g_gTop)<=0) g_gTop=topT;
+    bool ramping=(g_gShow!=sh0)||(g_gSpot!=sp0)||(g_gTop!=tp0);
+    if(ramping){ giant_mpc(g_pawn,GP_SHOW,(float)g_gShow); giant_mpc(g_pawn,GP_SPOT,(float)g_gSpot); giant_mpc(g_pawn,GP_TOP,(float)g_gTop);
+        giant_spot_light(G_SPOT_CD*g_gSpot); }
+    if(look>=0&&SL_BARS[look]>0){                                      // that part of the show, in step with the song
+        double T=giant_world_time();
+        if(T>=0){ double bar, n=(double)SL_BARS[look];
+            if(gBpm>0){ double gb=grid_bars(g_sT,gBpm,gStart,g_sAct), b0=floor(grid_bars(seg,gBpm,gStart,g_sAct)+0.5);
+                bar=SL_BAR0[look]+fmod(fmod(gb-b0,n)+n,n); }             // the section's bars on the track's bars
+            else bar=SL_BAR0[look]+fmod((g_sT-seg)*g_sAct->bpm/240.0,n);
+            giant_mpc(g_pawn,GP_OFFS,(float)(bar*G_SHOW_LOOP/32.0-T));
+            double barS=gBpm>0?240.0/gBpm:240.0/g_sAct->bpm;              // what plays right after this bar ends
+            double nb=song_show_bar(g_sT+(1.0-(bar-floor(bar)))*barS+0.01,gBpm,gStart);
+            show_bars((int)floor(bar)%32,nb>=0?(int)floor(nb)%32:-1); } }
+    else if(look<0&&!giant&&g_gdLoud>=0&&g_gdLoudT>=0){                // the free show, on the loud track's grid
+        if(g_gJustLanded){ double gl=grid_bars(g_gdLoudT,g_gdBpm[g_gdLoud],g_gdStartS[g_gdLoud],nullptr);
+            g_gdShift=16.0-floor(gl); LOGI("[GRID] landing: the show restarts at its drop on grid bar %.0f",floor(gl)); }
+        double T=giant_world_time();
+        if(T>=0){ double gb=grid_bars(g_gdLoudT,g_gdBpm[g_gdLoud],g_gdStartS[g_gdLoud],nullptr);
+            double bar=fmod(fmod(gb+g_gdShift,32.0)+32.0,32.0);
+            giant_mpc(g_pawn,GP_OFFS,(float)(bar*G_SHOW_LOOP/32.0-T)); }
+        show_bars(-1,-1); }                                              // the free show plays its bars in order
+    else show_bars(-1,-1);
+    g_gJustLanded=false;
+    // the song's hits (stage v10): song mode replays its hit map, the free show on a grid its beats
+    { bool fg=look<0&&!giant&&g_gdLoud>=0&&g_gdLoudT>=0;
+      double fb=fg?grid_bars(g_gdLoudT,g_gdBpm[g_gdLoud],g_gdStartS[g_gdLoud],nullptr)+g_gdShift:0;
+      hits_tick(dt,(look>=0&&g_sAct)?gd:-1,g_sT,look,fg,fb);
+      bass_tick(dt,(look>=0&&g_sAct)?gd:-1,g_sT); }
+    // the laser program's variant (stage v9): one per song (its script's match name, hashed), or the next one every 32
+    // bars of the free show's grid; written only when it changes
+    { static int lvLast=-1; int lv=-1;
+      if(look>=0&&g_sAct){ uint32_t h=2166136261u; for(const char* q=g_sAct->match; *q; q++) h=(h^(uint8_t)*q)*16777619u;
+          lv=(int)(h%8u); }
+      else if(look<0&&!giant&&g_gdLoud>=0&&g_gdLoudT>=0){
+          double gb=grid_bars(g_gdLoudT,g_gdBpm[g_gdLoud],g_gdStartS[g_gdLoud],nullptr)+g_gdShift;
+          lv=(int)fmod(fmod(floor(gb/32.0),8.0)+8.0,8.0); }
+      if(lv>=0&&lv!=lvLast){ lvLast=lv; giant_mpc(g_pawn,GP_LVAR,(float)lv);
+          LOGI("[LASER] variant %d (%s)",lv,look>=0?g_sAct->match:"free show"); } }
+    // the collection: lift height, robe top under the HMD (shoulders ~27 cm below the eyes, 8 cm behind), button glow
+    if(g_gGlow>0){ g_gGlow-=dt/0.8; if(g_gGlow<0) g_gGlow=0; }
+    static bool wasDown=true; bool down=(g_gState==G_DOWN);
+    if(!down||!wasDown||g_gGlow>0){
+        double C[3]={0,0,0},CR[3]={0,0,0}; get_vec3(g_camComp,g_fnLoc,C); get_vec3(g_camComp,g_fnGetRot,CR);
+        double yr=CR[1]*M_PI/180.0;
+        giant_mpc(g_pawn,GP_H,(float)g_gH);
+        giant_mpc(g_pawn,GP_TX,(float)(C[0]-cos(yr)*8.0)); giant_mpc(g_pawn,GP_TY,(float)(C[1]-sin(yr)*8.0));
+        giant_mpc(g_pawn,GP_TZ,(float)(C[2]-27.0));
+        giant_mpc(g_pawn,GP_ROBE,g_gH>25?1.f:0.f); giant_mpc(g_pawn,GP_GLOW,(float)g_gGlow); }
+    wasDown=down; }
+// game thread, ~once a second from our actor's tick: keep our boxes in the live EnvironmentList, then run the load steps
+static void env_menu_tick(){
+    static int tk=0, spawns=0, win=0, away=0; static bool tripped=false;
+    if(!g_envMenuOn||(++tk%60)!=0) return;
+    if(++win>=30){ win=0; spawns=0; }                                        // same respawn guard as the avatar boxes
+    uintptr_t list=g_emList; int n=g_emCount;
+    if(!tripped&&list&&obj_alive(list)&&g_emCls&&g_smFnSpawn&&g_smFnAddItem&&g_smFnIndexOf&&n>0){
+        uintptr_t outer=(g_emTribeItem&&obj_alive(g_emTribeItem))?rdptr(g_emTribeItem+OFF_Outer):list;
+        for(int i=0;i<n&&i<EM_MAX&&!tripped;i++){
+            if(!obj_alive(g_emItems[i])){
+                if(spawns>=3*n){ tripped=true; LOGI("[ENV] guard: %d respawns in 30 s -> stopped adding boxes (bug guard)",spawns); break; }
+                g_emItems[i]=sm_spawn(g_emCls,outer); spawns++;
+                LOGI("[ENV] spawned environment object for '%s' = 0x%lx",g_emLabels[i],(unsigned long)g_emItems[i]); }
+            if(g_emItems[i]&&g_emIdentOf[i]!=g_emItems[i]&&g_emVoidItem&&obj_alive(g_emVoidItem)){   // before Tribe builds its box
+                int k=em_copy_identity(g_emItems[i],g_emVoidItem); g_emIdentOf[i]=g_emItems[i];
+                LOGI("[ENV] box '%s' now carries The Void's identity (%d fields copied)",g_emLabels[i],k); }
+            static int waited=0;                                              // add the box once it carries the Void's identity
+            if(g_emItems[i]&&sm_list_index(list,g_emItems[i])<0&&(g_emIdentOf[i]==g_emItems[i]||++waited>15)){
+                sm_list_add(list,g_emItems[i]); LOGI("[ENV] added box '%s'%s",g_emLabels[i],g_emIdentOf[i]==g_emItems[i]?"":" (WITHOUT the Void's identity: not found)"); } }
+        for(int w=0;w<32;w++) if(g_emW[w]){                                  // keep our labels (Tribe may rewrite NameText)
+            if(!obj_alive(g_emW[w])){ g_emW[w]=0; continue; } int ix=g_emWi[w]; if(ix>=0&&ix<n) box_set_label(g_emW[w],g_emLabels[ix]); } }
+    // the game state, straight from the engine (GameplayStatics.GetGameState): a name/path search never finds it on this build
+    // World context: our own avatar actor first (spawned into the game world), then the menu list (a UMG widget asks its
+    // owning player's world), then the rig. The first BP_Rig_C found can live in a preview world with no game state
+    // (2026-10-04: every GetGameState returned null -> "click ignored, not ready: gs=0x0").
+    if((!g_emGameState||!obj_alive(g_emGameState))&&g_emFnGetGS&&g_smGS){
+        static int oWC=-2; if(oWC==-2) oWC=prop_offset(g_emFnGetGS,"WorldContextObject",0);
+        uint16_t psz=rd16(g_emFnGetGS+0xB6), rvo=rd16(g_emFnGetGS+0xB8); static uint8_t b[32]; uintptr_t gs=0;
+        uintptr_t ctx[3]={g_isoActor,g_emList,g_emRig};
+        for(int k=0;k<3&&!gs;k++){ uintptr_t wc=ctx[k]; if(!wc||!obj_alive(wc)||oWC<0||psz>sizeof b||rvo>=psz) continue;
+            memset(b,0,psz); *(uintptr_t*)(b+oWC)=wc; call_uf(g_smGS,g_emFnGetGS,b); gs=*(uintptr_t*)(b+rvo); }
+        static int scanTk=0;
+        if(!gs&&++scanTk%3==0){ gs=em_find_gs_by_class(); if(gs) LOGI("[ENV] GetGameState gave nothing for every context; found the game state by class instead"); }
+        if(gs){ g_emGameState=gs; g_emEnvOff=em_find_env_prop(gs);
+            if(g_emEnvOff<0&&rd8(gs+0x308)<=10){ g_emEnvOff=0x308; LOGI("[ENV] environment property not reflected -> native +0x308 (Ghidra, SetEnvironment impl)"); }
+            char cn[96],fp[300]; class_name(gs,cn,sizeof cn); full_path(gs,fp,sizeof fp);
+            int cur=em_cur_env(); LOGI("[ENV] game state = 0x%lx class=%s path=%s environment@%d = %d (%s)",(unsigned long)gs,cn,fp,g_emEnvOff,cur,em_env_name(cur)); } }
+    if(g_emUnloadReq){ g_emUnloadReq=0; if(g_emState!=EM_IDLE){ em_hide_screens(false); em_unload("you picked a stock environment"); em_write_active(""); } }
+    int req=g_emReq;
+    if(req>=0){ g_emReq=-1;
+        if(req<n&&g_emGameState&&obj_alive(g_emGameState)&&g_emFnSetEnv&&g_emVoid>=0&&g_emFnLoadLvlSoft&&g_emLSD){
+            if(g_emState!=EM_IDLE) em_unload("switching");
+            g_emActive=req; em_write_active(g_emLabels[req]);
+            int before=em_cur_env(); if(before!=(int)g_emVoid) g_emPrevEnv=before;
+            int r=call_lib1(g_emGameState,g_emFnSetEnv,(int)g_emVoid);
+            LOGI("[ENV] step 1/4: SetEnvironment(Void=%lld) from %d (%s) -> %d",(long long)g_emVoid,before,em_env_name(before),r);
+            g_emState=EM_WAIT_BASE; g_emT=0; }
+        else LOGI("[ENV] click ignored, not ready: gs=0x%lx SetEnvironment=0x%lx Void=%lld LoadLevelInstanceBySoftObjectPtr=0x%lx",
+            (unsigned long)g_emGameState,(unsigned long)g_emFnSetEnv,(long long)g_emVoid,(unsigned long)g_emFnLoadLvlSoft); }
+    int st=g_emState, a=g_emActive; if(a<0||a>=n){ if(st!=EM_IDLE) em_unload("box list changed"); return; }
+    if(st==EM_WAIT_BASE){
+        int cur=em_cur_env(); g_emT++;
+        if(g_emT>=3&&(cur==(int)g_emVoid||g_emT>=8)){                        // the Void is in (or 8 s passed without a readable value)
+            { char m0[96],m1[96]; em_actor_material(g_emScreens[0],m0,sizeof m0); em_actor_material(g_emScreens[1],m1,sizeof m1);
+              LOGI("[ENV] Void screens before hiding: backdrop hidden=%d (%s), chroma hidden=%d (%s)",
+                   em_actor_hidden(g_emScreens[0]),m0,em_actor_hidden(g_emScreens[1]),m1); }
+            em_hide_screens(true);
+            LOGI("[ENV] step 2/4: environment now %d (%s); hid %d Void screen(s)",cur,em_env_name(cur),(g_emScreens[0]?1:0)+(g_emScreens[1]?1:0));
+            em_log_actor("Void SM_BackdropScreen",g_emScreens[0]); em_log_actor("DJ rig",g_emRig); em_log_equipment();
+            bool ok=false; g_emStream=em_load_level_soft(g_emPaths[a],&ok);
+            LOGI("[ENV] step 3/4: LoadLevelInstanceBySoftObjectPtr(%s) -> success=%d stream=0x%lx",g_emPaths[a],ok?1:0,(unsigned long)g_emStream);
+            if(!ok||!g_emStream){ g_emStream=0; em_diagnose(g_emPaths[a]); em_fail("level not loadable"); } else { g_emState=EM_WAIT_LOAD; g_emT=0; } } }
+    else if(st==EM_WAIT_LOAD){
+        if(!obj_alive(g_emStream)){ g_emStream=0; em_fail("streaming object went away"); return; }
+        int ld=call_lib1(g_emStream,g_emFnIsLoaded,-1), vis=call_lib1(g_emStream,g_emFnIsVisible,-1); g_emT++;
+        if(g_emT<=10||g_emT%5==0||vis==1) LOGI("[ENV] step 4/4: t=%ds loaded=%d visible=%d",g_emT,ld,vis);
+        if(vis==1){ LOGI("[ENV] *** '%s' is IN (visible after %d s) ***",g_emLabels[a],g_emT); g_emState=EM_ACTIVE; away=0;
+            g_emBackdropOK=em_register_backdrop(); g_emBackdropTries=1; em_lights(true); }
+        else if(g_emT>=40){ LOGI("[ENV] gave up after 40 s (loaded=%d visible=%d)",ld,vis); em_fail("timeout"); } }
+    else if(st==EM_ACTIVE){
+        em_hide_screens(true);                                               // Tribe re-shows its registered backdrop when visuals change
+        if(!g_emBackdropOK&&g_emBackdropTries<20&&(++g_emBackdropTries%3)==0) g_emBackdropOK=em_register_backdrop();
+        if(g_emOurScreen&&obj_alive(g_emOurScreen)){ static int lastH=-2; static char lastM[96]; char mn[96];
+            int h=em_actor_hidden(g_emOurScreen); em_actor_material(g_emOurScreen,mn,sizeof mn);
+            if(h!=lastH||strcmp(mn,lastM)){ LOGI("[ENV] visuals screen: hidden=%d material=%s",h,mn); lastH=h; snprintf(lastM,sizeof lastM,"%s",mn); }
+            if(g_emVM&&obj_alive(g_emVM)) em_video_fill(true,g_emVM); }   // Tribe re-applies its mapping when a video opens
+        int cur=em_cur_env();                                                // Tribe left the Void by some other route -> ours goes too
+        if(cur>=0&&cur!=(int)g_emVoid){ if(++away>=2){ em_hide_screens(false); em_unload("Tribe switched environment"); em_write_active(""); } }
+        else away=0; }
+}
+#include "club.cpp"                                                  // the REACTOR club (club session): walking + gate
+#include "intro.cpp"                                                 // a stage's stream intro (Graveyard Shift's Horseman)
+#include "camview.cpp"                                               // a stage's extra camera button (Graveyard Shift's Crowd)
+#include "stream.cpp"                                                // Tribe's stream encoder settings (tribemod/stream.txt)
+#include "freeze.cpp"                                                // the freeze recorder (tribemod/freeze_log.txt)
 extern "C" void repl_pe(void* self,void* func,void* parms){
+    club_pe(self,func,parms);                                        // the club's stick events (inert off its map)
+    if(camview_pe(self,func,parms)) return;                          // Tribe's camera buttons give our camera back (camview.cpp)
     if(g_skinTrace) skin_trace_hit((uintptr_t)self,(uintptr_t)func,parms);
+    if(g_envMenuOn && func && (func==(void*)g_emFnObjSet||func==(void*)g_emFnMouseDown||func==(void*)g_emFnListEvt)){
+        uintptr_t p0=parms?*(uintptr_t*)parms:0;
+        if(func==(void*)g_emFnListEvt){ int idx=em_item_idx(p0); if(idx>=0){ em_click(idx); return; }      // swallow ours
+            if(g_emState!=EM_IDLE){ g_emUnloadReq=1; LOGI("[ENV] stock environment picked -> unloading ours"); } }   // Tribe carries on
+        else if(func==(void*)g_emFnMouseDown){ int idx=em_widget_idx((uintptr_t)self); if(idx>=0){ em_click(idx); return; } }
+        else { int idx=em_item_idx(p0);                                       // OnListItemObjectSet: label ours after Tribe fills the box
+            if(idx>=0){ orig_pe(self,func,parms); em_map_widget((uintptr_t)self,idx); box_set_label((uintptr_t)self,g_emLabels[idx]); return; }
+            em_map_widget((uintptr_t)self,-1); } }                           // a recycled box now shows someone else's item
     if(g_skinMenuOn && func && (func==(void*)g_smFnObjSet||func==(void*)g_smFnMouseDown||func==(void*)g_smFnListEvt)){
         uintptr_t p0=parms?*(uintptr_t*)parms:0;
         if(func==(void*)g_smFnObjSet){                                       // a box was given an item: label ours after Tribe
@@ -1984,8 +3236,8 @@ extern "C" void repl_pe(void* self,void* func,void* parms){
     // ReceiveTick through ProcessEvent even with no Blueprint implementation. Fallback: the pawn's tick, only while ours is silent.
     if(g_isoActor && !g_in_load && parms){
         uintptr_t s=(uintptr_t)self;
-        if(s==g_isoActor && func==(void*)g_fnReceiveTick){ g_isoTicks++; g_in_load=1; follow_update(*(float*)parms); bt_frame(*(float*)parms); drone_update(*(float*)parms); menu_tick(); g_in_load=0; }
-        else if(g_isoTicks==0 && s && s==g_fallbackTicker && is_receive_tick(func)){ g_camTicks++; g_in_load=1; follow_update(*(float*)parms); bt_frame(*(float*)parms); drone_update(*(float*)parms); menu_tick(); g_in_load=0; }
+        if(s==g_isoActor && func==(void*)g_fnReceiveTick){ g_isoTicks++; g_in_load=1; giant_tick(*(float*)parms); club_tick(*(float*)parms); intro_tick(*(float*)parms); camview_tick(*(float*)parms); stream_tick(*(float*)parms); freeze_beat(); follow_update(*(float*)parms); bt_frame(*(float*)parms); drone_update(*(float*)parms); head_tick(*(float*)parms); menu_tick(); env_menu_tick(); perf_frame(*(float*)parms); g_in_load=0; }
+        else if(g_isoTicks==0 && s && s==g_fallbackTicker && is_receive_tick(func)){ g_camTicks++; g_in_load=1; giant_tick(*(float*)parms); club_tick(*(float*)parms); intro_tick(*(float*)parms); camview_tick(*(float*)parms); stream_tick(*(float*)parms); freeze_beat(); follow_update(*(float*)parms); bt_frame(*(float*)parms); drone_update(*(float*)parms); head_tick(*(float*)parms); menu_tick(); env_menu_tick(); perf_frame(*(float*)parms); g_in_load=0; }
     }
     // keeper: poll thread saw a NATIVE reset -> re-attach our (rooted) mesh here on the game thread
     if(g_reattach_req && g_keep && !g_in_load){ g_reattach_req=0; g_in_load=1; attach_mesh(g_body,g_mymesh); g_in_load=0; }
@@ -1993,6 +3245,7 @@ extern "C" void repl_pe(void* self,void* func,void* parms){
         g_reports=0; g_report_ticks=2; }                        // fresh RENDER reports ~1s after the spawn, then every 10s
     if(g_report_req && g_body && !g_in_load){ g_report_req=0; g_in_load=1; g_reports++; render_report(); g_in_load=0; }
     if(g_log_pe && g_resolved) pe_log_func((uintptr_t)func);     // diagnostic: capture avatar/skin/menu events
+    if(g_logDeck && g_resolved) deck_log_pe((uintptr_t)self,(uintptr_t)func,parms);   // diagnostic: the deck capture (intro.cpp)
     // skin-cycle: after the first load, when Tribe (re)applies the RPM skin from the avatar menu, advance
     // to the next skin + arm a reload. Debounced 2s so init-time / repeated applies don't spin the cycle.
     if(g_loaded_once && !g_in_load && g_apply_fn && func==(void*)g_apply_fn && parms){
@@ -2162,13 +3415,15 @@ static void drone_dump_enum_once(){
     done=true; }
 static void drone_read_params(){       // tribemod/drone.txt: key=value, e.g. "target=selfie radius=300 speed=12"
     char p[600]; snprintf(p,sizeof p,"%s/drone.txt",OUTDIR); FILE* f=fopen(p,"r");
-    double r=g_dR,h=g_dH,s=g_dSpeed,l=g_dLook,b=g_dBob; int tgt=0, rset=0, hset=0; char k[32], v[32];
+    double r=g_dR,h=g_dH,s=g_dSpeed,l=g_dLook,b=g_dBob; int tgt=0, rset=0, hset=0, mode=0; char k[32], v[32];
     if(f){ while(fscanf(f," %31[^= \t\r\n]=%31s",k,v)==2){ double x=strtod(v,0);
             if(!strcmp(k,"radius")){ r=x; rset=1; } else if(!strcmp(k,"height")){ h=x; hset=1; } else if(!strcmp(k,"speed")) s=x;
-            else if(!strcmp(k,"look")) l=x; else if(!strcmp(k,"bob")) b=x; else if(!strcmp(k,"target")) tgt=!strcmp(v,"auto")?1:0; }
+            else if(!strcmp(k,"look")) l=x; else if(!strcmp(k,"bob")) b=x; else if(!strcmp(k,"target")) tgt=!strcmp(v,"auto")?1:0;
+            else if(!strcmp(k,"mode")) mode=!strcmp(v,"path")?1:0; }
         fclose(f); }
     if(r<50) r=50; if(r>2000) r=2000; if(h<-200) h=-200; if(h>600) h=600; if(s<-90) s=-90; if(s>90) s=90;
     if(l<-300) l=-300; if(l>300) l=300; if(b<0) b=0; if(b>200) b=200;
+    if(mode!=g_dMode){ g_dMode=mode; LOGI("[DRONE] mode=%s",mode?"path (shot reel: drone_path.txt or the built-in festival reel)":"orbit"); }
     if(r!=g_dR||h!=g_dH||s!=g_dSpeed||l!=g_dLook||b!=g_dBob||tgt!=g_droneTarget||rset!=g_dRset||hset!=g_dHset){
         g_dR=r; g_dH=h; g_dSpeed=s; g_dLook=l; g_dBob=b; g_droneTarget=tgt; g_dRset=rset; g_dHset=hset;
         LOGI("[DRONE] params target=%s radius=%s height=%s speed=%.1f look=%.0f bob=%.0f",tgt?"auto":"selfie",
@@ -2192,13 +3447,14 @@ static void drone_dump_pc_once(uintptr_t pc){
         LOGI("[DRONE] pc raw +0x%x = 0x%08x (float %.3f)",o,r,fv); } }
 static void drone_poll(){
     static int capTgt=-1;
-    bool on=file_present("drone_cam");
-    if(on) drone_read_params();
+    bool on=file_present("drone_cam"), need=on||g_introArmed||g_viewArmed;   // a stage's intro (intro.cpp) and a camera-menu
+                                                                     // view (camview.cpp) fly the drone's target too
+    if(on){ drone_read_params(); drone_load_path(); } else if(need) drone_read_params();
     int tgt=g_droneTarget;
     if(g_droneCap && (obj_at(rd32(g_droneCap+OFF_Index))!=g_droneCap || capTgt!=tgt)){   // gone (room change) or target switched
         g_droneOn=0; g_droneCap=0; LOGI("[DRONE] camera changed (gone or new target); re-resolving"); }
     if(g_dronePC && obj_at(rd32(g_dronePC+OFF_Index))!=g_dronePC) g_dronePC=0;
-    if(on){
+    if(need){
         if(!g_fnSetWorldLR) g_fnSetWorldLR=find_by_path("/Script/Engine.SceneComponent.K2_SetWorldLocationAndRotation",0);
         if(!g_fnSetRelLR)   g_fnSetRelLR  =find_by_path("/Script/Engine.SceneComponent.K2_SetRelativeLocationAndRotation",0);
         if(g_offRelLoc<0||g_offRelRot<0){ uintptr_t sc=find_by_path("/Script/Engine.SceneComponent",1);   // mount pose (also set by a2)
@@ -2207,8 +3463,8 @@ static void drone_poll(){
             if(tgt==0){ uintptr_t st=find_live_class_sub("BP_SelfieStick_C");
                 if(st){ int oc=prop_offset(rdptr(st+OFF_Class),"CaptureComponent2D",0); g_droneCap=oc>=0?rdptr(st+oc):0; } }
             else g_droneCap=find_live("NewSceneCaptureComponent2D","SceneCaptureComponent2D","SpectatorCameraAutoCam");
-            capTgt=tgt;
-            LOGI("[DRONE] resolve (%s): capture=0x%lx setWorld=0x%lx setRel=0x%lx relLoc@%d relRot@%d%s",tgt?"Auto cam":"selfie stick",
+            capTgt=tgt; static int quiet=0;                               // armed by an intro alone: a miss is said once a minute
+            if(g_droneCap||on||(quiet++%30)==0) LOGI("[DRONE] resolve (%s): capture=0x%lx setWorld=0x%lx setRel=0x%lx relLoc@%d relRot@%d%s",tgt?"Auto cam":"selfie stick",
                 (unsigned long)g_droneCap,(unsigned long)g_fnSetWorldLR,(unsigned long)g_fnSetRelLR,g_offRelLoc,g_offRelRot,
                 g_droneCap?"":(tgt?"  (Auto cam not found)":"  (take the selfie stick out)"));
             drone_dump_enum_once(); }
@@ -2252,21 +3508,23 @@ static uintptr_t sm_find_live_rpm_skin(){              // any live (non-CDO) BP_
         if(rd32(o+OFF_Flags)&RF_ClassDefaultObject) continue; full_path(o,fp,sizeof fp); if(strstr(fp,"Default__")) continue;
         return o; }
     return 0; }
+static void menu_resolve_engine_fns(){                  // shared by the avatar + environment boxes; engine functions are always loaded
+    if(g_smFnAddItem) return;
+    g_smFnAddItem =find_by_path("/Script/UMG.ListView.AddItem",0);
+    g_smFnIndexOf =find_by_path("/Script/UMG.ListView.GetIndexForItem",0);
+    g_smFnSpawn   =find_by_path("/Script/Engine.GameplayStatics.SpawnObject",0);
+    g_smGS        =find_by_path("/Script/Engine.Default__GameplayStatics",0);
+    g_smFnStr2Txt =find_by_path("/Script/Engine.KismetTextLibrary.Conv_StringToText",0);
+    g_smKTL       =find_by_path("/Script/Engine.Default__KismetTextLibrary",0);
+    g_smFnSetText =find_by_path("/Script/UMG.TextBlock.SetText",0);
+    LOGI("[MENU] engine fns: AddItem=0x%lx GetIndexForItem=0x%lx SpawnObject=0x%lx GS=0x%lx Str2Text=0x%lx KTL=0x%lx SetText=0x%lx",
+        (unsigned long)g_smFnAddItem,(unsigned long)g_smFnIndexOf,(unsigned long)g_smFnSpawn,(unsigned long)g_smGS,
+        (unsigned long)g_smFnStr2Txt,(unsigned long)g_smKTL,(unsigned long)g_smFnSetText); }
 static void skin_menu_poll(){
     bool on=file_present("skin_menu");
     if(!on){ if(g_skinMenuOn){ g_skinMenuOn=0; LOGI("[MENU] OFF"); } return; }
     static int tick=0; tick++;
-    if(!g_smFnAddItem){                                  // engine functions: always loaded
-        g_smFnAddItem =find_by_path("/Script/UMG.ListView.AddItem",0);
-        g_smFnIndexOf =find_by_path("/Script/UMG.ListView.GetIndexForItem",0);
-        g_smFnSpawn   =find_by_path("/Script/Engine.GameplayStatics.SpawnObject",0);
-        g_smGS        =find_by_path("/Script/Engine.Default__GameplayStatics",0);
-        g_smFnStr2Txt =find_by_path("/Script/Engine.KismetTextLibrary.Conv_StringToText",0);
-        g_smKTL       =find_by_path("/Script/Engine.Default__KismetTextLibrary",0);
-        g_smFnSetText =find_by_path("/Script/UMG.TextBlock.SetText",0);
-        LOGI("[MENU] engine fns: AddItem=0x%lx GetIndexForItem=0x%lx SpawnObject=0x%lx GS=0x%lx Str2Text=0x%lx KTL=0x%lx SetText=0x%lx",
-            (unsigned long)g_smFnAddItem,(unsigned long)g_smFnIndexOf,(unsigned long)g_smFnSpawn,(unsigned long)g_smGS,
-            (unsigned long)g_smFnStr2Txt,(unsigned long)g_smKTL,(unsigned long)g_smFnSetText); }
+    menu_resolve_engine_fns();
     bool missing=!g_smRpmCls||!g_smFnObjSet||!g_smFnMouseDown||!g_smFnListEvt;
     if(missing&&(tick%3)==1){                            // Blueprint classes load lazily (menus: when first opened) -> retry
         if(!g_smRpmCls)     g_smRpmCls=find_by_path("/Game/Visuals/Skins/OculusAvatar/BP_ReadyPlayerMeAvatarSkin.BP_ReadyPlayerMeAvatarSkin_C",1);
@@ -2282,6 +3540,191 @@ static void skin_menu_poll(){
         LOGI("[MENU] Tribe's RPM skin object = 0x%lx",(unsigned long)g_smTribeRpm); }
     int want=(g_smFnAddItem&&g_smFnIndexOf&&g_smFnSpawn&&g_smGS&&g_smRpmCls&&g_smFnObjSet&&g_smFnMouseDown)?1:0;
     if(want!=g_skinMenuOn){ g_skinMenuOn=want; LOGI("[MENU] %s",want?"ON":"waiting for lookups"); } }
+// ---- custom environments: poll-thread side (resolve, read envs.txt, find the live list / game state / Void screens) ----
+static uintptr_t em_find_env_list(){                    // the LIVE W_VisualsMenu EnvironmentList (not the /Game class template)
+    char nm[96],cn[96],fp[400];
+    for(uint32_t i=0;i<g_numElements;i++){ uintptr_t o=obj_at(i); if(!o) continue;
+        obj_name(o,nm,sizeof nm); if(strcmp(nm,"EnvironmentList")) continue;
+        class_name(o,cn,sizeof cn); if(strcmp(cn,"ListView")) continue;
+        full_path(o,fp,sizeof fp); if(!strncmp(fp,"/Game/",6)||strstr(fp,"Default__")) continue;
+        return o; }
+    return 0; }
+static uintptr_t em_find_live_env_item(){              // any live (non-CDO) BP_EnvironmentSkin_C that isn't ours -> outer for ours
+    char cn[96],fp[400];
+    for(uint32_t i=0;i<g_numElements;i++){ uintptr_t o=obj_at(i); if(!o||em_item_idx(o)>=0) continue;
+        class_name(o,cn,sizeof cn); if(strcmp(cn,"BP_EnvironmentSkin_C")) continue;
+        if(rd32(o+OFF_Flags)&RF_ClassDefaultObject) continue; full_path(o,fp,sizeof fp); if(strstr(fp,"Default__")) continue;
+        return o; }
+    return 0; }
+static void em_read_envs(){                             // tribemod/envs.txt: "Label=/Game/Long/Package/Name" per line ('#' = comment)
+    char p[600]; snprintf(p,sizeof p,"%s/envs.txt",OUTDIR); FILE* f=fopen(p,"r");
+    char labels[EM_MAX][64], paths[EM_MAX][256]; int n=0;
+    if(f){ char line[400];
+        while(n<EM_MAX&&fgets(line,sizeof line,f)){ line[strcspn(line,"\r\n")]=0; char* eq=strchr(line,'=');
+            if(line[0]=='#'||!eq||eq==line||eq[1]!='/') continue; *eq=0;
+            snprintf(labels[n],sizeof labels[n],"%s",line); snprintf(paths[n],sizeof paths[n],"%s",eq+1); n++; }
+        fclose(f); }
+    else { snprintf(labels[0],sizeof labels[0],"Festival"); snprintf(paths[0],sizeof paths[0],"/Game/Mods/Festival/Maps/Environment_Festival"); n=1; }
+    bool same=(n==g_emCount); for(int i=0;same&&i<n;i++) if(strcmp(labels[i],g_emLabels[i])||strcmp(paths[i],g_emPaths[i])) same=false;
+    if(same) return;
+    for(int i=0;i<n;i++){ strcpy(g_emLabels[i],labels[i]); strcpy(g_emPaths[i],paths[i]); }
+    g_emCount=n; for(int i=0;i<n;i++) LOGI("[ENV] box %d: '%s' -> %s",i,g_emLabels[i],g_emPaths[i]); }
+static uintptr_t em_find_void_item(){                    // Tribe's own list item whose Name (environment-table row) is Environment_Void
+    static int oName=-2; if(oName==-2) oName=g_emCls?prop_offset(g_emCls,"Name",0):-2; if(oName<0) return 0;
+    char cn[96],nm[128]; refresh_numelements();
+    for(uint32_t i=0;i<g_numElements;i++){ uintptr_t o=obj_at(i); if(!o||em_item_idx(o)>=0) continue;
+        class_name(o,cn,sizeof cn); if(strcmp(cn,"BP_EnvironmentSkin_C")) continue;
+        if(rd32(o+OFF_Flags)&RF_ClassDefaultObject) continue;
+        fname_resolve(rd32(o+(uintptr_t)oName),nm,sizeof nm); if(!strcmp(nm,"Environment_Void")) return o; }
+    return 0; }
+// ---- mixer probe v2 (read-only; only while tribemod/probe_on exists). Which Blueprint variables hold the channel
+// faders, the crossfader and the headphone cues? (The user cues the next song "with the volume down with the headphone
+// on so the crowd cant hear", so the lights must follow the channel the crowd hears.) Probe v1 filled its 48 slots with
+// the CDJ's Marker_* button objects. This one logs every numeric variable of these classes' live instances, from each
+// instance's class down to the engine base classes, then every change. Poll thread, every 0.5 s.
+#define PR_C 5
+#define PR_I 40
+#define PR_P 160
+struct ProbeCls { const char* path; uintptr_t cls; int np; int po[PR_P]; uint8_t pt[PR_P]; char pn[PR_P][48]; int ni;
+                  uintptr_t in[PR_I]; double last[PR_I][PR_P]; float quiet[PR_I][PR_P]; uint8_t moves[PR_I][PR_P]; bool seen[PR_I]; };
+static const char* PR_PATH[PR_C]={"/Game/Equipment/Deck/BP_Deck.BP_Deck_C","/Game/Equipment/Mixer/BP_Console.BP_Console_C",
+                                  "/Game/Equipment/BP_MixerChannelDevice.BP_MixerChannelDevice_C",
+                                  "/Game/Equipment/Mixer/BP_MixerSliderBase.BP_MixerSliderBase_C",
+                                  "/Game/Equipment/Mixer/BP_MixerKnobBase.BP_MixerKnobBase_C"};   // knobs: the user's filters
+static ProbeCls g_pr[PR_C];                                           // zero-initialised (.bss); paths set on first use
+static bool probe_engine_base(const char* cn){
+    static const char* stop[]={"Actor","Pawn","Character","Object","ActorComponent","SceneComponent","PrimitiveComponent",
+                               "MeshComponent","StaticMeshComponent","SkeletalMeshComponent","UserWidget","Widget"};
+    for(const char* x: stop) if(!strcmp(cn,x)) return true;
+    return false; }
+static void probe_vars(ProbeCls* pc,uintptr_t inst){                  // the numeric variables of inst's class chain
+    char cn[96], nm[64], ty[32]; int n=0;
+    for(uintptr_t c=rdptr(inst+OFF_Class); c&&n<PR_P; c=rdptr(c+OFF_Super)){
+        obj_name(c,cn,sizeof cn); if(probe_engine_base(cn)) break;
+        for(uintptr_t f=rdptr(c+OFF_ChildProps); f&&n<PR_P; f=rdptr(f+FF_Next)){
+            ffield_type(f,ty,sizeof ty); uint8_t t=0;
+            if(!strcmp(ty,"FloatProperty")) t=1; else if(!strcmp(ty,"DoubleProperty")) t=2;
+            else if(!strcmp(ty,"BoolProperty")||!strcmp(ty,"ByteProperty")||!strcmp(ty,"EnumProperty")) t=3;
+            else if(!strcmp(ty,"IntProperty")) t=4;
+            if(!t) continue;
+            fname_resolve(rd32(f+FF_Name),nm,sizeof nm);
+            snprintf(pc->pn[n],sizeof pc->pn[n],"%s.%s",cn,nm); pc->po[n]=(int)rd32(f+FP_Offset); pc->pt[n]=t; n++; } }
+    pc->np=n;
+    LOGI("[PROBE] %s: %d numeric variables",pc->path,n);
+    for(int i=0;i<n;i+=6){ char line[600]; int k=0;
+        for(int j=i;j<n&&j<i+6;j++) k+=snprintf(line+k,sizeof line-k,"%s@%d ",pc->pn[j],pc->po[j]);
+        LOGI("[PROBE]   %s",line); } }
+static void probe_poll(){                                             // POLL thread, every 0.5 s while probe_on exists
+    static bool on=false; bool want=file_present("probe_on");
+    if(want!=on){ on=want; LOGI("[PROBE] %s",on?"ON (tribemod/probe_on)":"off"); }
+    if(!on) return;
+    static int tick=0, lines=0; tick++;
+    for(int k=0;k<PR_C;k++) if(!g_pr[k].path) g_pr[k].path=PR_PATH[k];
+    if((tick%20)==1){                                                  // every 10 s: find the classes and their instances
+        for(int k=0;k<PR_C;k++) if(!g_pr[k].cls) g_pr[k].cls=find_by_path(g_pr[k].path,1);
+        refresh_numelements(); int cnt[PR_C]={0}; uintptr_t got[PR_C][PR_I];
+        for(uint32_t i=0;i<g_numElements;i++){ uintptr_t o=obj_at(i); if(!o) continue;
+            if(rd32(o+OFF_Flags)&(RF_ClassDefaultObject|0x20u|0x40000000u)) continue;
+            int depth=0; for(uintptr_t c=rdptr(o+OFF_Class); c&&depth<12; c=rdptr(c+OFF_Super),depth++)
+                for(int k=0;k<PR_C;k++) if(c==g_pr[k].cls&&cnt[k]<PR_I){ got[k][cnt[k]++]=o; depth=99; break; } }
+        for(int k=0;k<PR_C;k++){ ProbeCls* pc=&g_pr[k];
+            bool chg=cnt[k]!=pc->ni; for(int j=0;j<cnt[k]&&!chg;j++) if(got[k][j]!=pc->in[j]) chg=true;
+            if(!chg) continue;
+            for(int j=0;j<cnt[k];j++){ pc->in[j]=got[k][j]; pc->seen[j]=false; }
+            pc->ni=cnt[k];
+            if(cnt[k]&&!pc->np) probe_vars(pc,got[k][0]);
+            char on_[96], ou[96];
+            for(int j=0;j<cnt[k];j++){ obj_name(got[k][j],on_,sizeof on_); uintptr_t ow=rdptr(got[k][j]+OFF_Outer); if(ow) obj_name(ow,ou,sizeof ou); else snprintf(ou,sizeof ou,"-");
+                LOGI("[PROBE] %s #%d = %s (in %s)",pc->path+(strrchr(pc->path,'.')?strrchr(pc->path,'.')-pc->path+1:0),j,on_,ou); } } }
+    for(int k=0;k<PR_C;k++){ ProbeCls* pc=&g_pr[k];
+        for(int j=0;j<pc->ni;j++){ uintptr_t o=pc->in[j]; if(!o||!in_range(o,0x30)) continue;
+            for(int v=0;v<pc->np;v++){ uintptr_t a=o+(uintptr_t)pc->po[v]; double x=0;
+                if(pc->pt[v]==1){ float f=0; sr(a,&f,4); x=f; } else if(pc->pt[v]==2){ sr(a,&x,8); }
+                else if(pc->pt[v]==4){ int32_t q=0; sr(a,&q,4); x=q; } else { uint8_t q=0; sr(a,&q,1); x=q; }
+                pc->quiet[j][v]+=0.5f;
+                if(pc->seen[j]&&fabs(x-pc->last[j][v])<1e-4) continue;
+                bool first=!pc->seen[j];
+                if(!first&&pc->moves[j][v]>=3&&pc->quiet[j][v]<2.0f){ continue; }   // always moving: at most every 2 s
+                if(!first&&pc->moves[j][v]<255) pc->moves[j][v]++;
+                if(!first&&lines++<6000) LOGI("[PROBE] %s #%d %s = %.4f",strrchr(pc->path,'.')+1,j,pc->pn[v],x);
+                pc->last[j][v]=x; pc->quiet[j][v]=0; }
+            pc->seen[j]=true; } } }
+static void env_menu_poll(){
+    bool on=file_present("env_menu");
+    if(!on){ if(g_envMenuOn){ g_envMenuOn=0; LOGI("[ENV] OFF"); } return; }
+    if(!g_resolved) return;                              // engine objects not up yet (Tribe waits for the headset to be worn)
+    static int tick=0, settle=0, lastEnv=-2; static bool autoDone=false; tick++;
+    menu_resolve_engine_fns();
+    if((tick%4)==1) mpc_lookup();                        // Tribe's video mapping collection (for our big screen)
+    if((tick%4)==3) giant_lookup();                      // giant intro: MPC_DinoGiant + the VROrigin setter
+    if((tick%4)==2) song_lookup();                       // song mode: Tribe's decks (only while song.txt names a song)
+    if((tick%4)==0) club_lookup();                       // the club: walking (hook/club.cpp)
+    if((tick%4)==1) intro_lookup();                      // a stage's stream intro (hook/intro.cpp)
+    probe_poll();                                        // mixer probe v2 (only while tribemod/probe_on exists)
+    if(!g_emLSD){                                        // engine + native Tribe functions: always loaded
+        g_emLSD         =find_by_path("/Script/Engine.Default__LevelStreamingDynamic",0);
+        g_emFnIsLoaded  =find_by_path("/Script/Engine.LevelStreaming.IsLevelLoaded",0);
+        g_emFnIsVisible =find_by_path("/Script/Engine.LevelStreaming.IsLevelVisible",0);
+        g_emFnSetLoaded =find_by_path("/Script/Engine.LevelStreaming.SetShouldBeLoaded",0);
+        g_emFnSetVisible=find_by_path("/Script/Engine.LevelStreaming.SetShouldBeVisible",0);
+        g_emFnHidden    =find_by_path("/Script/Engine.Actor.SetActorHiddenInGame",0);
+        g_emFnActLoc    =find_by_path("/Script/Engine.Actor.K2_GetActorLocation",0);
+        g_emFnActRot    =find_by_path("/Script/Engine.Actor.K2_GetActorRotation",0);
+        g_emFnActScale  =find_by_path("/Script/Engine.Actor.GetActorScale3D",0);
+        g_emFnBounds    =find_by_path("/Script/Engine.Actor.GetActorBounds",0);
+        g_emActorCls    =find_by_path("/Script/Engine.Actor",0);
+        g_emFnSetEnv    =find_by_path("/Script/TribeXR.TribeGameState.SetEnvironment",0);
+        g_emFnGetGS     =find_by_path("/Script/Engine.GameplayStatics.GetGameState",0);
+        g_emFnFileExists=find_by_path("/Script/Engine.BlueprintPathsLibrary.FileExists",0);
+        g_emFnContentDir=find_by_path("/Script/Engine.BlueprintPathsLibrary.ProjectContentDir",0);
+        g_emBPL         =find_by_path("/Script/Engine.Default__BlueprintPathsLibrary",0);
+        g_emFnCurLevel  =find_by_path("/Script/Engine.GameplayStatics.GetCurrentLevelName",0);
+        g_emFnMakeSOP   =find_by_path("/Script/Engine.KismetSystemLibrary.MakeSoftObjectPath",0);
+        g_emFnSOP2Ref   =find_by_path("/Script/Engine.KismetSystemLibrary.Conv_SoftObjPathToSoftObjRef",0);
+        g_emKSL         =find_by_path("/Script/Engine.Default__KismetSystemLibrary",0);
+        g_emFnLoadLvlSoft=find_by_path("/Script/Engine.LevelStreamingDynamic.LoadLevelInstanceBySoftObjectPtr",0);
+        uintptr_t e=find_by_path("/Script/TribeXR.ETribeEnvironmentType",0), d=0; int ne=enum_entries(e,&d); char nm[96]; int64_t v;
+        if(e) g_emEnum=e;
+        for(int i=0;i<ne;i++) if(enum_entry(d,i,nm,sizeof nm,&v)){ LOGI("[ENV] ETribeEnvironmentType %s = %lld",nm,(long long)v); if(!strcmp(nm,"Void")) g_emVoid=v; }
+        LOGI("[ENV] fns: LoadLevelInstanceBySoftObjectPtr=0x%lx LSD=0x%lx IsLoaded=0x%lx IsVisible=0x%lx SetLoaded=0x%lx SetVisible=0x%lx Hidden=0x%lx SetEnvironment=0x%lx Void=%lld",
+            (unsigned long)g_emFnLoadLvlSoft,(unsigned long)g_emLSD,(unsigned long)g_emFnIsLoaded,(unsigned long)g_emFnIsVisible,(unsigned long)g_emFnSetLoaded,
+            (unsigned long)g_emFnSetVisible,(unsigned long)g_emFnHidden,(unsigned long)g_emFnSetEnv,(long long)g_emVoid); }
+    bool missing=!g_emCls||!g_emFnObjSet||!g_emFnMouseDown||!g_emFnListEvt;
+    if(missing&&(tick%3)==1){                            // Blueprint classes load lazily (the visuals menu: when first opened) -> retry
+        if(!g_emCls)         g_emCls=find_by_path("/Game/Visuals/Skins/Environment/BP_EnvironmentSkin.BP_EnvironmentSkin_C",1);
+        if(!g_emFnObjSet)    g_emFnObjSet=find_in_outer("OnListItemObjectSet","W_SkinItem_C");
+        if(!g_emFnMouseDown) g_emFnMouseDown=find_in_outer("OnMouseButtonDown","W_SkinItem_C");
+        if(!g_emFnListEvt)   g_emFnListEvt=find_in_outer("BndEvt__W_VisualsMenu_EnvironmentList_K2Node_ComponentBoundEvent_2_SimpleListItemEventDynamic__DelegateSignature","W_VisualsMenu_C");
+        static int found=-1; int nf=(g_emCls?1:0)+(g_emFnObjSet?1:0)+(g_emFnMouseDown?1:0)+(g_emFnListEvt?1:0);
+        if(nf!=found){ found=nf;                         // log on change only (the logcat ring buffer is small)
+            LOGI("[ENV] blueprint lookups: EnvironmentSkinClass=0x%lx box.OnListItemObjectSet=0x%lx box.OnMouseButtonDown=0x%lx menu.EnvironmentListEvent=0x%lx%s",
+                (unsigned long)g_emCls,(unsigned long)g_emFnObjSet,(unsigned long)g_emFnMouseDown,(unsigned long)g_emFnListEvt,nf<4?" (open Visuals > Environments)":""); } }
+    em_read_envs();
+    if(g_emList&&!obj_alive(g_emList)){ g_emList=0; LOGI("[ENV] environment list went away"); }
+    if(!g_emList&&(tick%3)==2){ static bool told=false; g_emList=em_find_env_list();
+        if(g_emList||!told){ told=!g_emList; LOGI("[ENV] live environment list = 0x%lx%s",(unsigned long)g_emList,g_emList?"":" (open Visuals > Environments)"); } }
+    if((!g_emTribeItem||!obj_alive(g_emTribeItem))&&g_emList&&(tick%3)==0){ g_emTribeItem=em_find_live_env_item();
+        LOGI("[ENV] Tribe's environment object = 0x%lx",(unsigned long)g_emTribeItem); }
+    if((!g_emVoidItem||!obj_alive(g_emVoidItem))&&g_emCls&&g_emList&&(tick%3)==0){ uintptr_t v=em_find_void_item();
+        if(v!=g_emVoidItem){ g_emVoidItem=v; LOGI("[ENV] Tribe's 'The Void' list item = 0x%lx%s",(unsigned long)v,v?"":" (not found yet)"); } }
+    if(!g_emRig&&(tick%5)==0){ g_emRig=find_live_class_sub("BP_Rig_C"); if(g_emRig) LOGI("[ENV] DJ rig actor = 0x%lx",(unsigned long)g_emRig); }
+    if(g_emState!=EM_IDLE){                              // the Void's two screens (only while we switch to / sit on the Void)
+        static const char* scr[2]={"SM_BackdropScreen","SM_BackdropScreen_ChromaKey"};
+        refresh_numelements();                           // the Void's actors were just created: past the cached object count
+        for(int i=0;i<2;i++) if(!g_emScreens[i]||!obj_alive(g_emScreens[i])){ g_emScreens[i]=find_live(scr[i],"StaticMeshActor","Environment_Void");
+            if(g_emScreens[i]) LOGI("[ENV] Void %s = 0x%lx",scr[i],(unsigned long)g_emScreens[i]); } }
+    // re-apply the saved choice once per launch, after Tribe's own saved environment has settled (same value for ~8 s)
+    int cur=em_cur_env(); if(cur!=lastEnv){ lastEnv=cur; settle=0; } else settle++;
+    if(!autoDone&&g_envMenuOn&&g_emGameState&&(cur>0||g_emEnvOff<0)&&settle>=4&&g_emState==EM_IDLE){
+        autoDone=true; char saved[64];
+        if(read_trim_file("active_env.txt",saved,sizeof saved)){ int n=g_emCount;
+            for(int i=0;i<n;i++) if(!strcmp(saved,g_emLabels[i])){ g_emReq=i; LOGI("[ENV] auto: re-applying '%s' (Tribe settled on %d %s)",saved,cur,em_env_name(cur)); break; } } }
+    // tribemod/env_autotest (one-shot): load the first environment without a click, once Tribe has settled (unattended tests)
+    if(file_present("env_autotest")&&g_envMenuOn&&g_emGameState&&settle>=3&&g_emState==EM_IDLE&&g_emCount>0){
+        char ap[600]; snprintf(ap,sizeof ap,"%s/env_autotest",OUTDIR); unlink(ap); g_emReq=0;
+        LOGI("[ENV] autotest: loading '%s' without a click (Tribe settled on %d %s)",g_emLabels[0],cur,em_env_name(cur)); }
+    int want=(g_smFnAddItem&&g_smFnIndexOf&&g_smFnSpawn&&g_smGS&&g_emFnLoadLvlSoft&&g_emLSD)?1:0;     // boxes also need the lazy BP lookups
+    if(want!=g_envMenuOn){ g_envMenuOn=want; LOGI("[ENV] %s",want?"ON":"waiting for lookups"); } }
 // poll thread: resolve A2 (retarget) functions/offsets/enums + load this rig's saved calibration
 static void a2_resolve(){
     g_fnNumBones  =find_by_path("/Script/Engine.SkinnedMeshComponent.GetNumBones",0);
@@ -2336,14 +3779,26 @@ static void a2_resolve(){
     load_status("A2 resolve: destroyComp=0x%lx; your calibration %s -> %s",(unsigned long)g_fnDestroyComp,g_ucPath,
         g_ucal?"LOADED (every skin works without a pose)":"none yet (stand still once with straight arms, T or A)");
 }
+#include "usmap.cpp"                                                 // the .usmap dump: Tribe's type mappings, for reading its assets offline
+#include "native.cpp"                                                // the native dump: Tribe's C++ classes, functions and vtables, for Ghidra
 static void* dump_thread(void*){
     LOGI("dumper thread up; base=0x%lx; poll %s/dump_now",(unsigned long)g_base,OUTDIR);
     char cmd[600]; snprintf(cmd,sizeof cmd,"%s/dump_now",OUTDIR);
     char lcmd[600]; snprintf(lcmd,sizeof lcmd,"%s/load_avatar",OUTDIR);
     bool auto_done=false; int tick=0;
     for(;;){ g_log_pe = file_present("log_pe")?1:0;               // toggle the ProcessEvent diagnostic
+        g_logDeck = file_present("log_deck")?1:0;                // the deck capture (intro.cpp)
         int fd=open(cmd,O_RDONLY); if(fd>=0){ close(fd); unlink(cmd); LOGI("dump_now seen; dumping...");
         install_guard(); do_dump(); remove_guard(); }
+        // .usmap dump (hook/usmap.cpp): tribemod/usmap_now (one-shot) -> tribemod/TribeXR.usmap + usmap_log.txt, once the
+        // decks are loaded (usmap_ready, ~2 s checks), so the file can be created before launch
+        { static int umk=0; if((++umk % 4)==1 && file_present("usmap_now") && usmap_ready()){
+            char up[600]; snprintf(up,sizeof up,"%s/usmap_now",OUTDIR); unlink(up); LOGI("usmap_now: dumping...");
+            install_guard(); usmap_dump(); remove_guard(); } }
+        // native dump (hook/native.cpp): tribemod/native_now (one-shot; its text may list packages) -> native_dump.jsonl,
+        // once the engine objects are resolved (native classes are loaded at startup)
+        { static int ndk=0; if((++ndk % 4)==3 && file_present("native_now")){ ensure_resolved();
+            if(g_resolved){ LOGI("native_now: dumping..."); install_guard(); native_dump(); remove_guard(); } } }
         // manual load_avatar trigger: resolve globals here (heavy scan, off the game thread), then arm the PE-drain.
         int lf=open(lcmd,O_RDONLY); if(lf>=0){ close(lf); unlink(lcmd); LOGI("load_avatar seen; arming executor...");
             ensure_resolved(); if(g_resolved && orig_pe){ g_load_req=1; load_status("armed; waiting for next ProcessEvent on game thread"); }
@@ -2370,7 +3825,8 @@ static void* dump_thread(void*){
           if(file_present("bt_calibrate_now")){ char cp[600]; snprintf(cp,sizeof cp,"%s/bt_calibrate_now",OUTDIR); unlink(cp); g_a2CalNow=1; }  // manual capture
           if(file_present("next_skin")){ char np2[600]; snprintf(np2,sizeof np2,"%s/next_skin",OUTDIR); unlink(np2);            // remote skin switch
             if(g_loaded_once&&orig_pe){ advance_skin(); g_load_req=1; } else load_status("next_skin: no skin loaded yet"); }
-          if(g_bt_started && g_btPolls<24){ pt++; if(pt==2||pt==6||pt==20||(pt>=60&&pt%60==0)) g_bt_poll_req=1; } }
+          if(g_bt_started && g_btPolls<24){ pt++; if(pt==2||pt==6||pt==20||(pt>=60&&pt%60==0)) g_bt_poll_req=1; }
+          if(g_a2Live) a2_find_tribe_hands(); }                       // Tribe's tracked-hand meshes: cheap check, scans only when stale
         // GLES capture probe: install the eglSwapBuffers hook when tribemod/capture_probe exists; one-shot 4-frame burst
         // when tribemod/capture_now appears (so you can first open the selfie/spectator cam to show the avatar).
         if(file_present("capture_probe") && !g_probe_hooked) probe_try_install();
@@ -2383,10 +3839,15 @@ static void* dump_thread(void*){
         { static int ctk=0; if(file_present("cam_probe") && (++ctk % 10)==0) cam_probe_tick(); }
         // Drone cam: resolve/validate Tribe's auto-cam + read drone.txt every ~4 ticks; the game-thread tick flies it.
         { static int dtk=0; if((++dtk % 4)==0) drone_poll(); }
+        { static int hdk=0; if((++hdk % 2)==1) head_poll(); }              // detachable head: functions, selfie camera, head.txt (~1 s)
+        { static int cvk=0; if((++cvk % 2)==0) camview_poll(); }           // a stage's camera button: its file, Tribe's visuals menu (~1 s)
+        { static int stk=0; if((++stk % 2)==1) stream_poll(); }            // the stream encoder: stream.txt, Tribe's video-call manager (~1 s)
+        freeze_poll();                                                     // the freeze recorder: starts once, after the game thread's first tick
         // Skin-menu trace switch (checked here, not per ProcessEvent call)
         { int st=file_present("skin_trace")?1:0; if(st!=g_skinTrace){ g_skinTrace=st; LOGI("[SKIN] trace %s",st?"ON":"OFF"); } }
         // Extra avatar-menu boxes: resolve + track the live AvatarList (~2 s); the game-thread tick adds the boxes.
         { static int smk=0; if((++smk % 4)==0) skin_menu_poll(); }
+        { static int emk=0; if((++emk % 4)==2) env_menu_poll(); }           // offset from the avatar poll: spreads the object scans
         // RENDER report schedule: first at ~3s after attach, then every ~10s, up to 8 reports (drained on the game thread).
         if(g_report_ticks>0 && --g_report_ticks==0){ if(g_reports<8){ g_report_req=1; g_report_ticks=20; } }
         // KEEPER (~1s): if Tribe reset our body natively (bypassing the PE blocker), request a re-attach on the game thread.

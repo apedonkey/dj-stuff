@@ -1,0 +1,65 @@
+[gpu] acquired after 2475 s: reactor v9 stage previews (club session)
+FBX version: 7400
+FBX version: 7400
+FBX version: 7400
+FBX version: 7400
+FBX version: 7400
+FBX version: 7400
+FBX version: 7400
+FBX version: 7400
+FBX version: 7400
+FBX version: 7400
+FBX version: 7400
+FBX version: 7400
+FBX version: 7400
+FBX version: 7400
+FBX version: 7400
+FBX version: 7400
+FBX version: 7400
+[PREVIEW] v9 extras: 29 solids (pillar 2, stack 2, array 2, fx unit 8, blinder 2, rod tube 4, pipe 4, riser 2, barrier 3); arrays hang to z 9.80..7.30; club meshes 17
+Blender 4.5.14 LTS (hash 62c1db4208e8 built 2026-09-15 01:33:49)
+Fra:1 Mem:286.06M (Peak 364.91M) | Time:00:03.70 | Rendering 1 / 32 samples
+Fra:1 Mem:286.06M (Peak 364.91M) | Time:00:03.71 | Rendering 25 / 32 samples
+Fra:1 Mem:286.06M (Peak 364.91M) | Time:00:03.71 | Rendering 32 / 32 samples
+Fra:1 Mem:256.58M (Peak 364.91M) | Time:00:04.57 | Compositing
+Saved: 'C:\Users\Chris\OneDrive\Desktop\tribe hack\claudedocs\club_concept\v9_preview\preview_v9_stream_drop.png'
+Time: 00:04.71 (Saving: 00:00.10)
+
+[PREVIEW] C:\Users\Chris\OneDrive\Desktop\tribe hack\claudedocs\club_concept\v9_preview\preview_v9_stream_drop.png
+Fra:1 Mem:297.57M (Peak 316.98M) | Time:00:00.08 | Rendering 1 / 32 samples
+Fra:1 Mem:297.57M (Peak 316.98M) | Time:00:00.08 | Rendering 25 / 32 samples
+Fra:1 Mem:297.57M (Peak 316.98M) | Time:00:00.09 | Rendering 32 / 32 samples
+Fra:1 Mem:257.66M (Peak 316.98M) | Time:00:00.32 | Compositing
+Saved: 'C:\Users\Chris\OneDrive\Desktop\tribe hack\claudedocs\club_concept\v9_preview\preview_v9_crowd_drop.png'
+Time: 00:00.46 (Saving: 00:00.10)
+
+[PREVIEW] C:\Users\Chris\OneDrive\Desktop\tribe hack\claudedocs\club_concept\v9_preview\preview_v9_crowd_drop.png
+Fra:1 Mem:298.68M (Peak 318.10M) | Time:00:00.08 | Rendering 1 / 32 samples
+Fra:1 Mem:298.68M (Peak 318.10M) | Time:00:00.09 | Rendering 25 / 32 samples
+Fra:1 Mem:298.68M (Peak 318.10M) | Time:00:00.09 | Rendering 32 / 32 samples
+Fra:1 Mem:258.78M (Peak 318.10M) | Time:00:01.41 | Compositing
+Saved: 'C:\Users\Chris\OneDrive\Desktop\tribe hack\claudedocs\club_concept\v9_preview\preview_v9_dj_view_drop.png'
+Time: 00:01.55 (Saving: 00:00.10)
+
+[PREVIEW] C:\Users\Chris\OneDrive\Desktop\tribe hack\claudedocs\club_concept\v9_preview\preview_v9_dj_view_drop.png
+Fra:1 Mem:299.48M (Peak 318.89M) | Time:00:00.09 | Rendering 1 / 32 samples
+Fra:1 Mem:299.48M (Peak 318.89M) | Time:00:00.09 | Rendering 25 / 32 samples
+Fra:1 Mem:299.48M (Peak 318.89M) | Time:00:00.09 | Rendering 32 / 32 samples
+Fra:1 Mem:259.58M (Peak 318.89M) | Time:00:00.26 | Compositing
+Saved: 'C:\Users\Chris\OneDrive\Desktop\tribe hack\claudedocs\club_concept\v9_preview\preview_v9_arrays_calm.png'
+Time: 00:00.39 (Saving: 00:00.10)
+
+[PREVIEW] C:\Users\Chris\OneDrive\Desktop\tribe hack\claudedocs\club_concept\v9_preview\preview_v9_arrays_calm.png
+Fra:1 Mem:300.61M (Peak 320.02M) | Time:00:00.08 | Rendering 1 / 32 samples
+Fra:1 Mem:300.61M (Peak 320.02M) | Time:00:00.08 | Rendering 25 / 32 samples
+Fra:1 Mem:300.61M (Peak 320.02M) | Time:00:00.08 | Rendering 32 / 32 samples
+Fra:1 Mem:260.71M (Peak 320.02M) | Time:00:00.21 | Compositing
+Saved: 'C:\Users\Chris\OneDrive\Desktop\tribe hack\claudedocs\club_concept\v9_preview\preview_v9_booth_calm.png'
+Time: 00:00.35 (Saving: 00:00.10)
+
+[PREVIEW] C:\Users\Chris\OneDrive\Desktop\tribe hack\claudedocs\club_concept\v9_preview\preview_v9_booth_calm.png
+[PREVIEW] done
+
+Blender quit
+[gpu] released
+exit 0

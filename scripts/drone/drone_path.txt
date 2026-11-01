@@ -1,0 +1,20 @@
+# Drone reel for the Dino Stage (tribemod/drone_path.txt; re-read live when it changes).
+# World cm: Tribe's DJ rig at the origin, the crowd toward -Y, the stage behind the DJ (+Y).
+#   fly   <secs> <x,y,z> <x,y,z> [look=dj|x,y,z]
+#   orbit <secs> [r=cm] [h=cm vs head] [deg=sweep] [start=deg]   (start -90 = crowd side)
+# overview: high above the back of the crowd, pushing in on the stage
+fly 12 0,-5200,1800 0,-3000,1100 look=0,600,900
+# low pass across the crowd, the stage in view (slow)
+fly 20 -3500,-2600,450 3500,-1800,450 look=0,400,700
+# over the crowd toward you (slow)
+fly 14 0,-2200,700 0,-700,330 look=dj
+# close orbit around you
+orbit 15 r=260 h=30 deg=360 start=-90
+# over your shoulder: the crowd ahead
+fly 8 -250,380,260 250,380,260 look=0,-3000,200
+# low hero angle from the stage lip, looking up past you
+fly 8 -400,-380,60 400,-380,60 look=0,300,900
+# tighter arc the other way
+orbit 10 r=170 h=10 deg=-140 start=-20
+# crane up from the pit
+fly 10 0,-900,150 0,-900,2200 look=0,300,900

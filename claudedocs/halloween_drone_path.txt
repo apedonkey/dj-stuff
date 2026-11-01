@@ -1,0 +1,45 @@
+# GRAVEYARD SHIFT stream reel v8 (2026-10-18): about 6.6 min before it repeats, for hour-long sets. Only the crowd and
+# the main stage; v6's low pass behind the graveyard on the right is gone. Tribe world cm, the DJ at the origin, crowd -Y.
+# Syntax: fly <s> <x,y,z> <x,y,z> [look=dj|x,y,z] [fov=deg]  /  orbit <s> [r=] [h=] [deg=] [start=] [fov=deg]
+fly 14 0,-8000,900 0,-4200,1800 look=0,1200,1800
+orbit 15 r=260 h=30 deg=360 start=-90
+fly 16 -3200,-6500,4500 3200,-6500,4500 look=0,-1500,0
+fly 10 -400,-380,100 400,-380,100 look=0,300,900
+fly 12 2800,-3000,350 -2800,-2200,350 look=0,800,800
+# v8 (the user: "a camera in the crowd about where the middle platform is looking at the dj"): the FOH cam, on the
+# mausoleum's roof deck between the follow spots; the Crowd button in Tribe's camera menu holds this view (camview.halloween.txt)
+fly 14 40,-3130,430 -40,-3130,430 look=0,87,90 fov=40
+# v8.2 (2026-10-19, the user: "a moving camera through the crowd but pointing at the dj ... right above the head"):
+# a stroll just over the crowd's heads (3.0 m up: riders and raised hands on the tombs stay under it), from the back, left of the FOH
+# platform's fence, to the front rows, about 1.2 m/s, always on the DJ. Three joined legs; the last one
+# veers right, between the shoulder riders and the totems (2 m clear of them).
+fly 14 -900,-5200,50 -800,-3500,50 look=dj fov=60
+fly 12 -800,-3500,50 -500,-2100,50 look=dj fov=60
+fly 10 -500,-2100,50 -700,-1000,50 look=dj fov=60
+fly 8 -250,380,260 250,380,260 look=0,-3000,200
+fly 12 0,-2300,300 0,-2300,3200 look=0,1200,1400
+orbit 12 r=420 h=150 deg=-200 start=-10
+fly 14 0,-2400,700 0,-700,330 look=dj
+fly 12 -1800,-600,2600 1800,-600,2600 look=0,-3000,-100
+fly 10 2400,-1500,1500 800,-600,700 look=dj
+fly 14 -3500,-4500,6000 3500,-2500,6000 look=0,-1000,0
+fly 10 1500,-4000,250 1500,-1000,250 look=0,1200,900
+orbit 10 r=170 h=10 deg=-140 start=-20
+fly 12 0,-12000,2500 0,-7000,1200 look=0,0,600
+fly 10 -2400,-1500,1500 -800,-600,700 look=dj
+fly 10 600,500,350 -600,500,350 look=0,-2500,0
+fly 14 -2600,-900,300 -2600,-200,4200 look=0,1400,2600
+fly 12 2800,-2600,900 -2800,-2600,900 look=dj
+orbit 16 r=600 h=400 deg=180 start=-180
+fly 10 0,-1100,2000 0,-1100,600 look=0,-2600,-100
+fly 12 4000,-5500,2200 1000,-1500,800 look=dj
+fly 10 -1500,-4000,250 -1500,-1000,250 look=0,1200,900
+fly 12 0,-500,4500 0,-3500,4500 look=0,-1500,-200
+orbit 12 r=330 h=80 deg=270 start=-135
+fly 12 1200,-6000,400 1200,-3600,400 look=0,1400,1500
+fly 10 0,-1500,500 0,200,900 look=0,1400,900
+fly 12 -4000,-5500,2200 -1000,-1500,800 look=dj
+fly 14 -2000,-200,3000 2000,-200,3000 look=0,-4000,-200
+fly 10 0,-900,150 0,-900,2600 look=0,1400,1600
+fly 12 -1200,-6000,400 -1200,-3600,400 look=0,1400,1500
+orbit 15 r=200 h=60 deg=-360 start=-90

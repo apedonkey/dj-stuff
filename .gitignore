@@ -33,3 +33,7 @@ logs/*.log
 backup/
 # transient per-session load logs
 logs/a2_*_session_load_result.txt
+
+# .NET build outputs of scripts/uasset_tool (rebuilt from its sources)
+scripts/uasset_tool/bin/
+scripts/uasset_tool/obj/

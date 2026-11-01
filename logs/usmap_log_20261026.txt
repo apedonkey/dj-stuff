@@ -1,0 +1,17 @@
+usmap dump (hook/usmap.cpp, format version 4)
+objects 48600; Struct 0x751f85d080, Function 0x751f85c680, Enum 0x751f85bc80; sizeof(FProperty) 0x70; UStruct Super@0x40 ChildProperties@0x50
+found 8589 classes and structs, 1809 enums (18960 functions skipped)
+layout check over 35135 properties (sizeof(FProperty) 0x70):
+  ArrayDim 1..255                @0x2c:  35135 of  35135
+  ArrayDim == 1 (want >= 90%)    @0x2c:  35062 of  35135
+  ElementSize of Int/Float/Double.. @0x30:  17572 of  17572
+  ArrayProperty inner            @0x78:   2593 of   2593
+  OptionalProperty value         @0x70:      1 of      1
+  MapProperty key+value          @0x70:    307 of    307
+  SetProperty element            @0x70:     71 of     71
+  EnumProperty underlying+UEnum  @0x70:   1379 of   1379
+  StructProperty UScriptStruct   @0x70:   7177 of   7177
+  ByteProperty UEnum or none     @0x70:    861 of    861
+WROTE /sdcard/Android/data/com.TribeXR.TribeXR/files/tribemod/TribeXR.usmap: 39688 names, 1809 enums, 8589 classes and structs, 35135 properties, 1390942 bytes, 0.3 s
+problems: unreadable names 0, unresolved types 0, unknown property kinds 0, enum reads 0, array dims 0; non-ASCII names 0
+DONE

@@ -4753,3 +4753,1730 @@ calls glTFLoadAssetFromFilename(path, bPathRelativeToContent=false), which reads
   - (B) our own menu box, which calls SetEnvironment(None) and then LevelStreamingDynamic.LoadLevelInstance(our path)
     itself.
   - Either way the APK must be rebuilt and re-signed.
+
+### Session 3m cont. 2 — Signing for any session: scripts/sign_apk.sh (password stays out of the repo and the chat)
+- Set up by the mod session at the user's request. `bash scripts/sign_apk.sh <in.apk> <out.apk>` runs
+  zipalign -p 4, then apksigner sign (tribe.keystore, alias tribe, `--ks-pass file:` from
+  C:\Users\Chris\.tribe-signing\ks.pass, overridable via $TRIBE_KS_PASS), then apksigner verify.
+- The password file is private, outside the repo, and created by its owner. Never read it, print it, or copy it into a
+  chat. Allowed by the project's .claude/settings.local.json rule `Bash(bash scripts/sign_apk.sh:*)`. Run the command
+  from the repo root without a `cd … &&` prefix so the rule matches. The output directory must already exist (zipalign
+  can't create it).
+- VERIFIED 2026-10-04: re-signed a copy of out/hookA/menu.apk into the scratchpad and compared it with the APK pulled
+  live from the headset (`pm path` + `adb pull`). Both: CN=Tribe Mod, O=Personal, C=US, SHA-256
+  979d63d7f52f393951dd9614d0f41ee378468c55febb600414a9238b0d5694e9. => `adb install -r` of sign_apk.sh output is
+  accepted as an update (no uninstall, no re-seed). Nothing was installed in this test.
+
+## Session 3n — Custom-environment box in Tribe's menu (flag tribemod/env_menu): mod side WORKS, level pending
+Code: hook/dumper.cpp "Custom environments" block (game thread: env_menu_tick, plus a repl_pe branch) and
+env_menu_poll (poll thread). Refactors: box_set_label() is shared by avatar and environment boxes;
+menu_resolve_engine_fns() is shared by both polls.
+- Boxes come from tribemod/envs.txt, one "Label=/Game/Long/Package/Name" per line. With no file there is a single
+  "Festival" box -> /Game/Mods/Festival/Maps/Environment_Festival. Boxes reuse the avatar-box technique: SpawnObject
+  BP_EnvironmentSkin_C (outer = Tribe's environment object), ListView.AddItem, relabel NameText, and swallow
+  W_SkinItem.OnMouseButtonDown plus the EnvironmentList item event.
+- Click flow:
+  - step 1: TribeGameState.SetEnvironment(Void=3).
+  - step 2: hide the Void's SM_BackdropScreen and SM_BackdropScreen_ChromaKey.
+  - step 3: LevelStreamingDynamic.LoadLevelInstance(our path, WorldContext = game state).
+  - step 4: poll IsLevelLoaded / IsLevelVisible.
+  - A stock pick (EnvironmentList event with a non-ours item) unloads ours.
+  - The choice persists in tribemod/active_env.txt and is re-applied once Tribe's environment has been stable ~8 s
+    after launch.
+  - On failure (em_fail): screens back, choice forgotten, and (env2 build) Tribe goes back to the previous
+    environment.
+- [observed, on device, pid 5149, build env.aligned.apk] box added, click caught, then:
+    game state = TribeMainGS_C  (/Game/Maps/DJRoomMap.DJRoomMap.PersistentLevel.TribeMainGS_C)
+    reflected property CurrentEnvironment (EnumProperty) @0x308  == Ghidra's native +0x308 (independent match)
+    step 1/4: SetEnvironment(Void=3) from 10 (VideoSphere);  step 2/4: environment now 3 (Void)
+    step 3/4: LoadLevelInstance(/Game/Mods/Festival/Maps/Environment_Festival) -> success=0 (EXPECTED: no level yet)
+- Lessons:
+  - A name search for "TribeGameStateBP_C" never finds the game state: the live class is TribeMainGS_C. The game
+    state is now taken from GameplayStatics.GetGameState(world context = BP_Rig_C or our actor), on the game thread.
+  - find_live only scans up to the cached object count, so call refresh_numelements() before searching for freshly
+    streamed actors. The first build reported "hid 0 Void screen(s)" for this reason; fixed in env2.
+- ETribeEnvironmentType values (runtime): None 0, Lounge 1, Desert 2, Void 3, Lodato 4, PolygonCity 5, HipHop 6,
+  Passthrough 7 (= Ghidra's ==7 check), HotelSelina 8, Pioneer 9, VideoSphere 10, MAX 11.
+- Layout reference: DJ rig (BP_Rig_C) world loc (-5,31,78) cm, rot (0,0,0), i.e. the booth is at the origin facing yaw 0.
+- Builds:
+  - out/hookA/env.aligned.apk is INSTALLED (lib 211672 B).
+  - out/hookA/env2.aligned.apk adds the two fixes (lib 212072 B); built and signed, NOT installed (it ships with the
+    first level test).
+  - Both are signed with scripts/sign_apk.sh (cert 979d63d7…).
+  - scripts/reseed.sh still points at menu.aligned.apk. Update it once env2 is verified.
+- Unreal: the launcher had started installing UE **5.8.3** (wrong: Tribe is 5.4, and newer-engine content won't load).
+  The user is switching to 5.4.
+
+## Session 3o — Unreal route: what works, what blew up, and how Tribe's stock environments are built (2026-10-04)
+UE project: C:\Users\Chris\TribeUE\TribeXR. It mirrors Tribe's config: forward shading, Vulkan, MSAA 2, MobileHDR off,
+multiview, chunked shared shader libraries. Scripts:
+- Scripts/build_festival.py: builds the level (full-editor -ExecutePythonScript; commandlet mode crashes on actor spawn).
+- Scripts/pack_festival.sh: cook output -> pakchunk50 -> patch OBB.
+Engine: UE 5.4.4 (the launcher first installed 5.8 by mistake).
+Cook: UnrealEditor-Cmd -run=cook -targetplatform=Android_ASTC -unversioned -map=...; chunk 50 via PrimaryAssetLabel.
+- Pak delivery: proven (FileExists=1 for our .umap, our shader lib, and the pak inside the patch OBB).
+- By-name LevelStreamingDynamic.LoadLevelInstance can NEVER load mod content. UE 5.4 LevelStreaming.cpp only accepts
+  packages listed in the game's asset registry (AssetRegistry.GetFirstPackageByName). LoadLevelInstanceBySoftObjectPtr
+  skips that check and returned success=1 for our level.
+- v1 level (custom unlit materials): loading it, or LoadAsset_Blocking on one of our materials, made Tribe allocate
+  ~2 GB in 0.5 s. VrApi showed Free=2139MB, then lowmemorykiller fired and Tribe was killed (pids 14308, 15487, 19111).
+- Byte comparison of Tribe's cooked engine assets vs ours:
+  - /Engine/BasicShapes/Cube and Sphere: IDENTICAL. Same engine serialization, so meshes and levels are fine.
+  - BasicShapeMaterial: DIFFERENT. Same names and imports, but the export body is 56,562 vs 49,090 B (shader-map data
+    differs with the engine build's plugins and features).
+  - => Do not ship our own compiled materials.
+- v2 (current): every surface is a MaterialInstanceConstant of a material Tribe ships:
+  - /Engine/BasicShapes/BasicShapeMaterial ("Color", "Roughness")
+  - /glTFRuntime/M_Unlit_glTFRuntimeBase ("baseColorFactor", "baseColorTexture", ...)
+  - /glTFRuntime/M_Unlit_glTFRuntimeTwoSided_Inst
+  - The /glTFRuntime parents exist in the UE project only as stubs (Plugins/glTFRuntime) and are never shipped.
+  - PrimaryAssetLabel bApplyRecursively=False.
+  - Chunk 50 = level + 9 MICs + T_SkyGradient, and NO ShaderArchive_Chunk50. Pushed. Not yet tested on device.
+- Mod fixes in env6 (installed, not yet tested):
+  - GetGameState now tries world contexts in order: our avatar actor, the menu list, then the rig. The first BP_Rig_C
+    found can sit in a preview world, which gave gs=0 and "click ignored".
+  - Our list item copies the POD fields (Name=Environment_Void, EnvironmentType, bIsOwned/bOwned/...) of Tribe's own
+    "The Void" item before it is added. A default item has Name=None and is not owned: the box showed "Load", and
+    applying it set environment None (dark decks).
+Anatomy of a stock environment level (Environment_*.umap name tables):
+- Lights: SkyLight + SphereReflectionCapture in all of them, a DirectionalLight in some, and many baked Spot/Point lights
+  (HipHop 13+12, PolygonCity 62 point, Pioneer 77 spot). PostProcessVolume and InstancedFoliageActor in several.
+- Sky: a mesh + material (SM_CubeSkyboxNoGround, SM_SkySphere + M_HDR_envCubeMap, SM_SkyboxRing, EditorSkySphere).
+- Set: a few atlas-textured meshes, often with _quest/_MOBILE material variants. Pioneer uses BasicShapeMaterial on a Cube.
+- Level BP: SetupEnvironmentBackdrop(VisualsManager, BackdropMesh, ChromaKeyBackdropMesh, DJTableMesh). Each environment
+  supplies its OWN DJ table mesh. Some also start MediaPlayers (OpenSource/Play) for video screens on buildings.
+- HipHop "Ride" = animated stage01_C..stage08_C + Tunnel_C blueprint actors. HotelSelina has BP_AirBallons_C.
+Menu display (W_SkinItem name table):
+- Box widgets: NameText, DescriptionText, PreviewImage, StatusText/StatusBorder, ProgressBar (downloads), SettingsButton,
+  SubscribeIcon.
+- Driven by item.SkinInfo (Name text, Description text, PreviewImage = T_SkinPreview_Environment_*) and flags (bOwned,
+  bCanBeUsed, bRequiresSubscription, ...).
+- Addon/DLC paths: DownloadAddon, UnlockAndApplySkin, OnSkinPurchaseRequested.
+- W_VisualsMenu: BuildEnvironmentSkinWidgets <- GetDataTableRowNames(DT_EnvironmentSkins). It also has
+  SetHideRoomInSpectatorCameras and SetLightsDisabled.
+- TribeXR.uproject (from pakchunk0): EngineAssociation {F4F50273-400D-FA10-878A-AC90658490BC}, i.e. a SOURCE-BUILT /
+  custom engine, not the launcher 5.4. Enabled plugins: SuperPowered, TribeMIDI, OnlineServices, OnlineSubsystemEOS,
+  EOSVoiceChat, EOSShared, OnlineSubsystemOculus, GameAnalytics, ToxMod, XRBase, OculusXR, MixedRealityCaptureFramework,
+  MetaAvatar2, OSC, NDIIOPlugin, glTFRuntime, AgoraRtcPlugin, AgoraRtmPlugin. Disabled: OnlineSubsystemSteam,
+  Cognitive3D, AndroidMedia.
+  - [inferred] Likely Meta's UE 5.4 fork (custom build + OculusXR + a bigger material shader-map body), e.g. extra
+    mobile passes such as AppSW motion vectors.
+  - To ship OUR OWN compiled materials, the cook must match that engine build. Test oracle: make our cooked
+    /Engine/BasicShapes/BasicShapeMaterial byte-identical to Tribe's.
+  - Until then: custom meshes, textures, MICs of Tribe-shipped materials (BasicShapeMaterial, the glTFRuntime
+    lit/unlit/masked/translucent/two-sided set), and Tribe's own backdrop/video material.
+
+### Session 3p — Matching Tribe's engine (2026-10-05): it is Meta's UE 5.4 fork; real cause of the material OOM
+[observed: libUnreal.so reflection tables vs stock UE 5.4.4 UnrealEditor-*.dll, via scripts/ue_schemadiff.py; byte diff
+of our cooked BasicShapeMaterial vs Tribe's; libOVRPlugin.so; Meta docs]
+- Tribe's UMaterial has 2 properties stock 5.4.4 lacks, inserted right after bIsSky: bXRSoftOcclusions and
+  XRSoftOcclusionsDepthBias. libUnreal.so also has bSupportsXRSoftOcclusions and the TBasePassPSF...XRSoftOcclusions
+  shader types. Meta docs: XR soft occlusions need Meta's fork ("shader changes not present in Epic's Unreal Engine").
+  Tribe's DefaultEngine.ini does not turn the feature on. => The engine is Meta's Oculus-VR/UnrealEngine 5.4 fork.
+  - OVRPlugin is 1.103.0 (libOVRPlugin.so string, OculusXR.uplugin VersionName).
+  - [derived] 1.103.0 = SDK v71: v50 = 1.82.0 and v51 = 1.83.0 (Meta's Unity package pages), so the offset is 32.
+    Meta's v71 Unreal plugin targets UE 5.4.
+  - Expected fork tag shape: oculus-5.4.x-release-1.103.0-v71.x. Confirm from the tag list once access works.
+- Why our own UMaterial OOM-killed Tribe:
+  - Cooked packages are unversioned, so each property is stored by its index in the class's property list.
+  - The first byte that differs from Tribe's copy is at offset 12: a header fragment skips 31 here, 33 in Tribe's.
+  - [derived] Our StateId (index 124, a 16-byte GUID) is read by Tribe as MaxWorldPositionOffsetDisplacement (a float).
+    Our next value (index 128, bIncludedInBaseGame) is read as SpecularProfiles (an array). The array count comes
+    from leftover GUID bytes, i.e. garbage, which gives a giant allocation and the lowmemorykiller kill.
+  - The shader-map body differs too (Session 3o). That is a second incompatibility, hit only after this one.
+- Every class the v2 festival ships is IDENTICAL in both engines (ue_schemadiff SAME):
+  - Materials: UMaterialInterface, UMaterialInstance, UMaterialInstanceConstant, base-property overrides, static params,
+    scalar/vector/texture parameter values, FMaterialParameterInfo.
+  - Textures: UTexture, UTexture2D, UStreamableRenderAsset.
+  - Components: UStaticMeshComponent, UMeshComponent, UPrimitiveComponent, FBodyInstance, USceneComponent,
+    UActorComponent.
+  - World: AActor, AStaticMeshActor, AWorldSettings, UWorld, ULevel, FTickFunction, NavigationSystemModuleConfig.
+  - The v2 MIC .uexp files are 98-145 bytes, so they carry no shader maps. => The v2 pak avoids the OOM path.
+    It is still untested on the device.
+- Building the fork on this PC (checked):
+  - Space: D: has 503 GB free, C: 84 GB.
+  - Hardware: i5-9400F (6 cores, 6 threads), 32 GB RAM.
+  - Toolchain:
+    - Installed: Visual Studio Community 2022 17.14.13 with the "Desktop development with C++" workload,
+      MSVC 14.44.35207, and Windows SDK 10.0.26100. VS 2019 Build Tools add MSVC 14.29 and SDK 10.0.19041.
+    - (A first check wrongly said "none". vswhere's -property takes ONE name, and PS 5.1 ConvertFrom-Json does not
+      unroll arrays. Read C:\ProgramData\Microsoft\VisualStudio\Packages\_Instances\*\state.json instead.)
+    - Missing: the MSVC v14.38 toolset (component Microsoft.VisualStudio.Component.VC.14.38.17.8.x86.x64).
+      - It is UE 5.4's preferred compiler. UBT 5.4 bans 14.39.33519-14.39.x for internal compiler errors.
+      - 14.44 is untested here for a 5.4 engine build.
+  - Access: gh is logged in as apedonkey, but EpicGames/UnrealEngine and Oculus-VR/UnrealEngine both return 404.
+    The GitHub account still has to be linked to the user's Epic account, and the org invite accepted. Meta's
+    quick-start page also mentions a verified Meta developer account.
+  - Plan:
+    1. Add the MSVC v14.38 component to the existing VS 2022 (Installer > Modify > Individual components).
+    2. A shallow clone of the matching tag onto D:.
+    3. Setup.bat, then build UnrealEditor + ShaderCompileWorker for Win64 Development, overnight.
+  - Gates before shipping any custom material:
+    1. ue_schemadiff against the fork's UnrealEditor-Engine.dll must show UMaterial SAME.
+    2. Re-cook /Engine/BasicShapes/BasicShapeMaterial with Tribe's exact config; compare it to Tribe's copy.
+    3. Test one custom material on the device.
+
+### Session 3p cont. — Meta fork checked out and set up for building (2026-10-05)
+- GitHub access works after the user linked GitHub (apedonkey) to Epic. Oculus-VR/UnrealEngine is private, its parent is
+  EpicGames/UnrealEngine, and its default branch is oculus-5.8.
+  - 5.4 tags: 5.4.1 (1.98/v66), 5.4.2 (1.99/v67), 5.4.3 (1.100/v68, 1.101/v69), and 5.4.4-release-1.103.0-v71.0.
+- **Exact match for Tribe: oculus-5.4.4-release-1.103.0-v71.0.**
+  - Commit 76aef8b6, "Unreal Engine Version 5.4.4-v71".
+  - Build.version: 5.4.4, BranchName "Partner-Oculus-UE5", CompatibleChangelist 33043543.
+  - Its UMaterial UPROPERTY list (Material.h at that tag) is IDENTICAL to Tribe's: 120 props, XR soft occlusions included.
+  - Its Engine/Plugins/Runtime/OculusXR is 1.103.0, matching Tribe.
+- Checkout: D:\MetaUE54. Shallow single-branch clone of that tag; about 1 GB download and 190,596 files.
+  - Dependencies: GitDependencies with --exclude=Mac/IOS/TVOS/Linux*/osx*/VisionOS --no-cache.
+    That is 14.0 GB to download, about 38 GB unpacked (58.7 GB unpacked with everything).
+  - UEPrereqSetup and UnrealVersionSelector /register were NOT run: the runtimes are already present from the launcher 5.4.
+- Toolchain per the tag's Engine/Config/Windows/Windows_SDK.json:
+  - Preferred MSVC 14.34-14.38. Banned: 14.39.33519+. Windows SDK main version 10.0.19041.0.
+  - Added to VS 2022 Community: VC.14.38.17.8 (now 14.38.33130 next to 14.44) and Net.Component.4.6.2.TargetingPack.
+  - SDK 10.0.19041 comes from the VS 2019 Build Tools.
+- Fork mod project: C:\Users\Chris\TribeUE\Meta\TribeXR (a copy of Config/Plugins/Scripts; EngineAssociation "").
+  The 5.4.4 launcher project at C:\Users\Chris\TribeUE\TribeXR is untouched.
+  - Its RendererSettings already equal Tribe's (25 lines, same).
+  - Tribe also has OculusXRHMDRuntimeSettings and SystemSettings sections, and the OculusXR plugin enabled. Not mirrored
+    yet: the plugin's shaders are global ones (Highlights/JumpFlood), and Tribe's BasicShapeMaterial has the same
+    material shader type set as stock. Enable it (plus deps XRBase, EnhancedInput, ProceduralMeshComponent,
+    AndroidPermission, LiveLink, OpenXR, PluginBrowser) only if the oracle comparison points to it.
+- Build: C:\Users\Chris\TribeUE\Meta\build_engine.ps1 runs Build.bat ShaderCompileWorker, then
+  UnrealEditor -Project=<fork project>. The project flag is needed so the non-default Python/EditorScripting plugins get
+  compiled. It logs to build_engine.log in the same folder and keeps the PC awake while running.
+- 2026-10-05, at the user's request: Windows Defender real-time scanning now excludes D:\MetaUE54 and
+  C:\Users\Chris\TribeUE\Meta, to speed up compiles. Undo from an elevated prompt:
+  Remove-MpPreference -ExclusionPath 'D:\MetaUE54','C:\Users\Chris\TribeUE\Meta'
+- First build attempt failed at makefile creation: "Could not find NetFxSDK install dir" for SwarmInterface (needed
+  by UnrealEd). Fixed by adding VS component Microsoft.Net.Component.4.8.SDK, which registers
+  HKLM\SOFTWARE\WOW6432Node\Microsoft\Microsoft SDKs\NETFXSDK\4.8. Note the 4.6.2 targeting pack alone is NOT enough.
+- Editor build: 6,578 actions, Parallel executor, 6 processes, cl.exe at BelowNormal priority.
+  ShaderCompileWorker took 256 actions in 635 s.
+
+### Session 3q — v2 festival WORKS on device (2026-10-05 10:51)
+[observed: logcat TRIBEMOD + ActivityManager; the user confirmed "it loaded!" in the headset]
+- Patch OBB patch.2304 (31,743 B, chunk 50: level + 9 MICs + T_SkyGradient, no shader archive) and the env6 mod build.
+- Startup: the first Tribe process (pid 14653) exited at 10:50:38 with no crash or lmk line ("has died: fg TOP"). Its
+  resolve only saw NumElem=16384 and never found the CDOs or SetEnvironment. A second process started at 10:50:44 and
+  resolved everything:
+  - LSD, SetEnvironment and LoadLevelInstanceBySoftObjectPtr all found.
+  - The game state was found via GetGameState: TribeMainGS_C, environment@0x308 = 7 (Passthrough).
+  - The Festival box was added carrying The Void's identity (Name=Environment_Void, 3 fields copied).
+- The user clicked Festival:
+  - step 1: SetEnvironment(Void)
+  - step 2: environment = 3; screens found right after
+  - step 3: LoadLevelInstanceBySoftObjectPtr success=1
+  - step 4: loaded=1 visible=1 after 1 s. No OOM, no crash.
+- => The pipeline is proven end to end: UE 5.4.4 launcher cook (MICs of Tribe-shipped parents only), repak V11, patch
+  OBB, mod box, soft-ptr level stream.
+- **Bug found and fixed (v2.1): the menu pointer vanished once the Festival level loaded.** It worked in The Void just before.
+  - [observed in UE 5.4.4 source] AStaticMeshActor's constructor sets StaticMeshComponent->bUseDefaultCollision=true.
+    At load, UStaticMeshComponent::UpdateCollisionFromStaticMesh() then re-applies the MESH's BodySetup profile
+    (BlockAll for BasicShapes), overriding the component's.
+  - build_festival.py only called SetCollisionEnabled(NoCollision), which does not clear that flag. Only
+    SetCollisionProfileName does (UStaticMeshComponent override).
+  - So every shape was solid in game, including the 300 m SkyDome sphere that encloses the player.
+  - [derived] Tribe's BP_InteractionLaser (UpdateLaserPointerToNearestSurface uses LineTraceSingle) and its
+    WidgetInteraction ray start inside that sphere and get a blocking hit at distance 0. Result: no beam, no menu hover
+    or click. Deck touch still works because it uses overlaps, not traces.
+  - Fix: place() calls set_collision_profile_name("NoCollision") and then raises if use_default_collision is still set.
+    The v2.1 cooked level's name table now has "NoCollision" ("Custom" is gone).
+  - Rebuild gotcha: in Git Bash, run the cook with MSYS_NO_PATHCONV=1. Otherwise -map=/Game/... becomes
+    "C:/Program Files/Git/Game/..." and the cook silently skips the map, leaving no pakchunk50 manifest.
+  - v2.1 patch OBB: 32,862 B, md5 f986e865321f3a18e5789f64b2256a33. Pushed as a temp file then mv'd over the patch
+    OBB, so the running Tribe keeps its open inode. Device test pending.
+  - **v2.1 device test 2026-10-05 11:12: PASSED.** The Festival loads in 1 s, and the user confirmed the pointer works and
+    menu items click with the level in.
+
+### Session 3r — Avatar hands vanished after picking controllers back up: fixed (2026-10-05)
+[observed: logcat A2 lines during a live repro; Tribe object dumps; OculusXR plugin source in D:\MetaUE54]
+- Symptom: put the controllers down (Tribe's tracked hands show), pick them up again, and sometimes there are no hands. This
+  happened in any environment, not just the Festival.
+- Cause: a2_update_hand_modes chose per hand from OculusXRInputFunctionLibrary.IsHandPositionValid/GetTrackingConfidence.
+  - At the reported moment the mod sat in "hands L=tribe R=tribe" (model hands hidden) with valid=1 conf=1, while Meta's
+    wrist was 12 cm from the motion controller (controllers in hand; ~0 cm when hand-tracked).
+  - The Quest keeps reporting tracked hands while you hold controllers. Tribe had already hidden its
+    TribeControllers_C.OculusXRHandComponent, so neither hand was drawn.
+- Fix (hook): the model hand now mirrors what Tribe draws. For each side, find the local player's OculusXRHandComponent
+  whose outer is a TribeControllers_C:
+  - Side comes from SkeletonType @2561. Local player: TribeControllers_C.OwningPawn @1384 == g_pawn; any player if that
+    pointer is stale.
+  - Show the model hand iff SceneComponent.IsVisible() is false. The Quest signal is used only until Tribe's meshes have
+    been seen once.
+- Tribe DESTROYS and RESPAWNS TribeControllers_C at every hands<->controllers switch (seen: 6 hand meshes at once, and
+  "0 live" for ~8 s right after launch). So:
+  - skip RF_MirroredGarbage (0x40000000) components and owners; take the newest match;
+  - re-find on every poll tick (500 ms) while the cache is stale;
+  - hold the current state while unknown.
+- Builds: out/hookA/hands.aligned.apk (first fix), then hands2.aligned.apk (garbage/respawn hardening). Both were tested by
+  the user: "its working!", then "seems to be working just fine".
+- scripts/reseed.sh now puts back hands2.aligned.apk (it used to name menu.aligned.apk, which predates the env menu).
+
+### Session 3s — Dino Stage v1 (2026-10-05)
+[observed: logcat [ENV]; the user in the headset: "runs smooth and the pointer is still there"]
+- Pipeline: Blender 4.5.14 LTS portable (D:\Tools\blender-4.5.14-windows-x64; official mirror zip, sha256 verified on a
+  second mirror. Blender was NOT installed before: the 4.3/4.4 folders only held add-on leftovers).
+  - TribeUE/TribeXR/Scripts/Blender/dino_stage.py builds the set procedurally:
+    - spine arches with 14 horns and 28 spikes, a metaball skull placeholder, bulbs, the moon screen and an LED arc;
+    - deck/stacks/barrier, 2,100 static low-poly people with phone lights, the ground and a 480 m star sky.
+  - It bakes DIFFUSE lighting on the GTX 1660S (OptiX), tonemaps 1-exp(-kx), and writes sRGB PNGs with its own PNG
+    writer. One FBX per surface. Also renders previews.
+  - Then Scripts/build_dino.py imports into /Game/Mods/Dino. Everything is a MIC of Tribe's
+    /glTFRuntime/M_Unlit_glTFRuntimeBase (or the TwoSided inst for the sky), with NoCollision; PAL_Dino puts it in chunk 50.
+  - Cook both maps: -map=<Festival>+<Dino>. Patch OBB 32.7 MB: 90 files, no shader archive, no stubs, no engine content.
+  - tribemod/envs.txt has two lines, Festival and "Dino Stage". A running Tribe adds new boxes live, but the pak only
+    mounts at launch.
+- Gotchas:
+  - Blender FBX (FBX_SCALE_UNITS) comes into UE 5.4 100x too small: set import_uniform_scale=100.
+  - Y comes in mirrored: the screen landed at -Y, so build_dino turns the level 180 deg (the set is X-symmetric).
+  - smart_project packed the 44k-face crowd into 0.3% of the UV space, and lightmap_pack only reached 3.9%. Fixed with
+    per-person UV cells: one 46x46 grid cell per person, cylindrical wrap.
+  - adb push into Android/data fails ("remote fchown failed"): write small files with adb shell printf > file.
+- Result: Dino Stage loads in 1 s. Smooth on the Quest 3 (~130k tris), pointer OK.
+- The user: "we're really gonna have to do some major editing to make this look good". They also want a scripted
+  selfie-stick (drone cam) flight path that shows the crowd and stage while they play.
+- Detail pass, Dino Stage v2: pushed 2026-10-05 13:2x; patch OBB 50.5 MB, 110 files.
+  - Crowd of human shapes with poses and LOD: legs/torso/head/arms near the stage, simpler further back, boxes far away.
+    120k tris.
+  - Truss towers flying J-curved line arrays, ground subs, 19 moving heads with palette lenses, LED booth front.
+  - Bone material with Voronoi cracks plus AO, baked at 4096.
+  - Full bake ~9.5 min on the 1660S.
+- Drone PATH mode (hook, 2026-10-05; out/hookA/drone2.aligned.apk, installed; reseed.sh now points to it).
+  - drone.txt "mode=path" plays a looping reel of shots from tribemod/drone_path.txt, re-read on change by mtime+size.
+    Without that file it plays the built-in DRONE_REEL: overview push-in, crowd pass, push-in to the DJ, close orbit,
+    over-the-shoulder, low hero shot, tight reverse arc, crane up (8 shots, 81 s).
+  - Syntax: "fly <secs> x,y,z x,y,z [look=dj|x,y,z]", eased with smoothstep, and "orbit <secs> [r=] [h=] [deg=]
+    [start=]" around the smoothed head; start -90 = crowd side.
+  - World cm: DJ rig at the origin, crowd toward -Y, stage +Y. Shots cut on change. Logs "[DRONE] shot i/n".
+  - Same takeoff/landing as orbit mode, so the selfie camera returns to the stick when drone_cam is removed.
+
+### Session 3t — Dino Stage v3.1 + DJ-area layout measured (2026-10-05)
+[observed: bake log, previews, logcat [ENV] from out/hookA/gear2.aligned.apk; reseed.sh now points to gear2]
+- v3: a riser under the DJ (SM_DinoRiser), a booth table under the gear (TABLE in dino_stage.py: x -95..85 cm,
+  y -5..50 cm, top 74 cm, i.e. centred on the rig's x and 4 cm under the rig's z=78), an LED booth front, LED pillars,
+  ferns/eggs/ribs, and the stage set dropped 1 m (STAGE_DROP) so the crowd stands below the DJ.
+- v3.1 bake fixes:
+  - The crowd was washed out (mean linear 0.128): clothes at night albedo x0.5 and exposure 1.8 -> 1.1, now 0.059.
+  - Ferns baked black (0.005) because frond faces pointed down (normal = side x d had z=-1) and a DIFFUSE bake only
+    sees the normal side. Winding flipped, now 0.031.
+  - Flags are their own single-sided mesh (SM_DinoFlags, 6-colour palette T_DinoFlags, TwoSided parent), so they show
+    colour from both sides.
+  - Patch OBB 52.4 MB, 138 files, 19 actors. Loads in 1 s (14:38).
+- Layout from the gear2 scan (world cm, while on the Void, table at its current height):
+  - PlayerStartDJ (-6,87,1) facing yaw -90, i.e. toward -Y and the crowd. Pawn at (-11,87,0). Rig BP_Rig_C (-5,31,78).
+  - PlayerStartTeacher (-6,-58,1) facing +Y. BP_MiniMenu (-5,-6,93), box x -73..65, z 89..191.
+  - BP_TableHandle (BP_HeightHandle_C) at (-4,69,89), box x -194..194, y -14..130, z 0..69. The table height is
+    user-adjustable, and a static booth top only fits the current setting.
+  - SpectatorBoundingBox (StaticMeshActor) box x -250..250, y -221..279, z -6..494: the space Tribe's own spectator
+    cameras stay in.
+  - SpectatorCamera1 (-2,-86,176) looking +Y; Camera2 (0,39,194) top-down; Camera3 (120,85,150); Camera4 (99,-76,158).
+  - The scan stopped at its 48-actor cap on world-origin managers before reaching the gear itself.
+    Next version: count distance-only hits only when the box is non-empty, and skip archetypes (RF_ArchetypeObject 0x20).
+
+### Session 3u — Festival grounds framework (2026-10-05)
+[observed: Tribe's paklist, extracted glTFRuntime materials, harness and --fast pipeline runs]
+- The user: "i want this to look good. also behind the crowd and on the sides, i need like festival stuff going on,
+  its too empty".
+- Tribe ships unlit alpha-blended and masked glTFRuntime instances, which unlock beams, glows and cutouts without our
+  own shaders:
+  - /glTFRuntime/M_Unlit_glTFRuntime{Masked,TwoSidedMasked,Translucent,TwoSidedTranslucent}_Inst.
+  - Base parameters (cooked name table): alphaCutoff, bAlphaMask, baseColorFactor, baseColorOffset/Rotation/Scale,
+    baseColorTexCoord, baseColorTexture, bUseVertexColors.
+  - Opacity is assumed to be baseColorFactor.a x texture alpha (glTF semantics). Not yet verified on device.
+  - Our MICs must only set parameters, never overrides or static switches, or they would need their own shader map.
+- TribeUE/TribeXR/Scripts/Blender/grounds/:
+  - kit.py: the module contract. build(rng) returns lit / glow / beams / halos / lights / exclude / people.
+    It also holds the LIT material library, the GLOW palette and its UVs, and helpers: box, cyl, truss,
+    string_lights, the 5x7 LED font, beam_planes, halo, and an RGBA PNG writer.
+  - preview.py: renders one module in context: the current out/*.fbx with their baked textures, unlit.
+    Usage: `blender -b --factory-startup --python grounds/preview.py -- <module> --views dj,...`
+  - Modules, built by four parallel agents: vendors.py, infrastructure.py, landmarks.py, atmosphere.py.
+- dino_stage.py integration (backup dino_stage.v3.bak.py):
+  - Modules are built with seed 1234, the same as the previews.
+  - Crowd keep-out rects and extra people. One baked mesh per module, SM_DinoGrounds<Name> + T_DinoGrounds<Name>.
+  - Shared meshes: SM_DinoGroundsGlow (T_DinoGroundsPal, no mips, nearest), SM_DinoBeams and SM_DinoHalos (alpha).
+    Beams and halos are hidden from the bakes.
+  - Module lights bake onto everything. STAGE_AIMS (atmosphere) turns the 19 fixture heads.
+  - The baked ground grows to 320 x 320 m at 4096. out/manifest.txt lists what was exported.
+  - DINO_OUT=<dir> writes elsewhere, and --fast does a 2.5 min pipeline test with tiny bakes.
+    Both protect out/, which the agents' previews read.
+- build_dino.py:
+  - Adds the SURFACES for SM_DinoGrounds*, GroundsGlow, Beams and Halos.
+  - Creates the stub /glTFRuntime/M_Unlit_glTFRuntimeTwoSidedTranslucent_Inst once: a MIC of the unlit stub with the
+    blend mode set to Translucent and two-sided on.
+  - Honors manifest.txt.
+- Fork verification result (2026-10-05 15:28, verify_fork.sh; full run 37 min, the first cook compiles the global
+  shaders):
+  - Reflection: UMaterial SAME, 120 props, matching Tribe's bXRSoftOcclusions + XRSoftOcclusionsDepthBias.
+    Stock 5.4.4 lacks those two.
+  - The one remaining schemadiff DIFF (a 2-prop StaticMesh/OverrideMaterials array) also appears against stock. It is
+    a pairing artifact: the monolithic .so has arrays from modules the two DLLs don't contain.
+  - Oracle BasicShapeMaterial, cooked by the fork:
+    - .uasset IDENTICAL (693 B).
+    - .uexp the same size as Tribe's (56,566 B; stock makes 49,094 B). Only one contiguous 20-byte block differs, at
+      offset 5196, right after "VULKAN_ES3_1_ANDROID". Probably the shader map ResourceHash, i.e. at least one
+      compiled shader differs.
+    - A "shaderdiff" agent is comparing the two shader libraries: which shader, why, and whether it is safe.
+  - verify_fork.sh steps 1 and 5 passed POSIX paths to Windows python (MSYS_NO_PATHCONV=1); now wrapped in W().
+    Lesson: never edit a bash script while it runs. Bash re-reads the file after each command, and a 14-byte insert
+    made it run the fragment "dev/null 2>&1".
+- Shader diff verdict (shaderdiff agent, 2026-10-05 15:59, files in C:\Users\Chris\TribeUE\Meta\shaderdiff\):
+  - Observed: no compiled shader differs.
+    - BasicShapeMaterial's map has 67 shaders (9 VS, 58 PS), byte-identical.
+    - 878/878 shared material shaders and 1056/1056 global shaders are byte-identical with Tribe's libraries.
+    - 46 materials cooked by both builds are identical except for one 20-byte field.
+  - That field is FMaterialShaderMapId::CookedShaderMapIdHash, a hash of the compile INPUTS
+    (MaterialShader.cpp:603). It is not the ResourceHash: ca414362... sits at uexp offset 56538, is identical in both,
+    and is present in both Chunk0 libraries. Spot-checked independently by byte search.
+  - Root cause (derived): the vertex-factory source hash. Tribe's shader text differed from ours when they cooked. The
+    likely cause (inferred) is a different ShaderVersion.ush GUID from r.InvalidateCachedShaders. Not reproducible
+    from shipped data, and harmless at runtime: shader code is found by the ResourceHash.
+  - New oracle criterion: identical except CookedShaderMapIdHash, with identical code in the ResourceHash map.
+    Checked by shaderdiff\tools\verify_oracle.py (46/46 pass).
+- Custom-material device gate (2026-10-05 16:06):
+  - Meta project, /Game/Mods/ShaderTest in chunk 51, built by Scripts/ShaderTest/build_shadertest.py with
+    fork -nullrhi. Contents: M_ModTest (a real UMaterial: unlit, two-sided, scrolling magenta/cyan stripes x a pulse
+    from Time) on the LEFT panel, and the control MI_ModTestControl (Tribe's unlit glTFRuntime, amber) on the RIGHT.
+  - Fork cook: 30 s, 0 errors. Chunk 51 = level + 2 materials + panel mesh + ShaderArchive-TribeXR_Chunk51-....
+  - Meta/TribeXR/Scripts/pack_chunk.sh <N> stages and repacks one chunk. make_obb.py <obb> <paks...> builds the patch
+    OBB: one stored zip can carry several paks.
+  - Pushed: patch OBB = pakchunk50 (Dino v3.1, launcher cook) + pakchunk51 (fork cook), md5 7abb703b...
+    envs.txt has a third line "Shader Test=/Game/Mods/ShaderTest/Maps/Environment_ShaderTest".
+    gear3.aligned.apk installed (gear scan: skips archetypes; distance hits need a real box). reseed.sh points to it.
+  - Pass = stripes moving on the left panel. Grey/checker = chunk-51 shader library not opened.
+    Crash = recover by pushing the launcher's chunk-50-only OBB.
+- Grounds modules delivered (2026-10-05, 4 parallel agents; all deterministic with seed 1234; previews in
+  Scripts/Blender/grounds/out/):
+  - atmosphere.py:
+    - Sky trackers: 4 units with 6 heads at (+-32,-92) and (+-30,22), 340 m white beams.
+    - Stage look exported as STAGE_AIMS / STAGE_ANGLES / STAGE_COLORS for the 19 fixtures: white tower "wings",
+      a cyan deck fan, amber crossers. Lens center is exactly base+(0,0,0.42)+d*0.205.
+    - Green 13-line laser fan from a road case at stage center.
+    - 82 beam quads in 3 meshes (sky / stage / laser, sorted per object), 81 halo quads.
+    - Measured overdraw: 0.57 layers/px from the DJ, 0.25 from the stream camera.
+  - infrastructure.py: 12,074 tris, 13 lights, 23 excludes, 18 people.
+    - FOH at (0,-31): deck, desks, "DINO STAGE" LED banners, roof at the DJ's eye height, 2 follow spots aimed at
+      the DJ.
+    - Delay towers at (+-17,-42) with line arrays and purple beams.
+    - 4 light masts. 16 LED totems held up in the crowd.
+  - landmarks.py: 38,241 tris, 33 lights, 6 excludes, 139 people.
+    - Ferris wheel at (-48,-105), 30 m, LED chase.
+    - Second stage at (+55,-120) with an LED wall and its own crowd of 110.
+    - Brachiosaurus at (+82,-56), 19.5 m; T-rex at (-76,-40), 13 m on a rock; triceratops at (+66,-14).
+    - 440 trees, unlit ones as black glow silhouettes. Camping field of 165 tents with 5 campfires. Hill rings.
+  - vendors.py: 24,376 tris, 39 lights, 114 people. Units sit with their backs at |x| = crowd_half(y)+17.6.
+    - Left lane: BAR, TACOS, NOODLES, PIZZA, CANDY, MERCH, WATER, plus 8 portable toilets with a WC light tower.
+    - Right lane: BBQ, DINO DOGS, BEER (container bar), LOCKERS/CHARGE, BURGERS, ICE CREAM, COFFEE.
+    - Festoon masts and dirt lanes.
+  - Kit fixes found by the agents:
+    - Helpers returned the wrong faces after a capped cyl, because create_cone frees faces internally. Now the
+      faces come from the op's own verts.
+    - halo's flat square read as a line from eye height. The first plane now faces the DJ.
+    - preview.py now simulates the final bake: stage lights, emitters at bake strength via the camera-ray trick,
+      lit albedo x1.8.
+    - Still open: kit.sphere's face order is run-dependent (create_uvsphere pole welding).
+  - Crowd look (dino_stage.py crowd_look):
+    - Hair on most heads (crown + back of head), sleeves on 60% of raised arms, bucket hats on 9% of the front rows.
+    - Front-row heads at subdivisions 2. In Blender 4.5, 0 and 1 both give 20 tris.
+- **CUSTOM MATERIAL GATE PASSED (2026-10-05 ~16:35, the user in the headset: "yes its pulsing colors").**
+  - "Shader Test" (chunk 51, cooked by the Meta fork) shows M_ModTest animating: a real UMaterial compiled by our fork
+    build, with its shaders loaded from OUR ShaderArchive-TribeXR_Chunk51 in the patch OBB. Tribe opens a chunk's
+    shader library when that chunk's pak mounts, and the pixel shader with Time runs.
+  - Not tested yet: World Position Offset (vertex shader), needed for the VAT crowd and moving beams.
+  - Pipeline consequence: any custom material has to be cooked with the fork (D:\MetaUE54), and its pak must carry
+    that chunk's ShaderArchive. MIC-only content still works from either engine.
+- Device test v4 + VAT (2026-10-05 ~17:05). The user: "the vat test i see people moving. in dino animated i see the
+  lights pulsing and moving".
+  - So World Position Offset (VAT dancers, chunk 52 from the MetaVat project with the ModMaterialTools editor plugin)
+    and our animated pixel materials (Dino Animated, chunk 53) both work in Tribe.
+  - FPS: 71-72 at 72 Hz in Dino Animated (~278k tris), with 2-17 frames over 20 ms per 10 s and 300-400 ms on level
+    switches.
+  - A game-state lookup failed for one whole Tribe session (GetGameState null for every context; "click ignored, not
+    ready: gs=0x0"). gs.aligned.apk adds a fallback that finds TribeMainGS_C by class.
+- The user's next asks:
+  - Lasers from the tops of the bones into the crowd.
+  - Far more detailed people, and a WAY darker crowd ("night set").
+  - The crowd dancing in the animated build.
+  - "more people ... more totems ... especially on the sides too, pack that fuckin venue out, we are the headliner".
+- Work split:
+  - VAT agent: crowd v2 (detailed, LOD tiers, dance clips, totem holders, wider and denser layout).
+  - atmosphere agent: a laser rig at the horn tips, with UV1-3 sweep data.
+  - Me: dino_materials.laser_sweep, a WPO material with pan then tilt via RotateAboutAxis about each laser's pivot
+    (47 nodes, built OK in the fork with the plugin), and the night crowd lighting.
+    The night lighting cuts Front/CrowdGlow/SideFill/Wash about 4x and pools 160k -> 120k; crowd exposure 0.9.
+  - The ModMaterialTools plugin is now also in the main fork project (UBT: 4 actions, 22 s, no engine changes).
+- Horn tips (computed from build_structure). The two sides are NOT mirror images: the horn bend axis isn't mirrored
+  (a pseudo-vector), so the left horns flare out while the right ones stand more upright.
+- Crowd v2 integrated (2026-10-05 ~18:15; VAT agent's Scripts/Blender/crowd2/, README there):
+  - The people are procedural festival-goers (faces, hair strands, outfits, hats, packs, phones, glowsticks) with
+    8 VAT clips. Tiers: near < 12 m (~920 tris), mid < 20.5 m (~225), far (~36).
+  - Totems/flags are held inside the crowd mesh: 163 in the device test. The infrastructure module's 16 static
+    totems turn off via infrastructure.TOTEMS = False.
+  - kit.crowd_half = 20 + 0.55*(-y), was 14 + 0.5*(-y); the vendors move out with it.
+  - dino_stage.py:
+    - CROWD2 switch (DINO_CROWD2=0 brings back build_crowd).
+    - Phones/glowsticks emit their "Col" colors in the bake (mat_emit_col).
+    - Crowd bake 4096 at exposure 0.55 (the user: "WAY darker"). No flags mesh.
+    - Previews posed mid-dance (crowd2.pose_preview).
+  - build_dino.py (animated build):
+    - Imports T_DinoCrowdVAT.exr via dm.prepare_vat_texture (16BitData, TC_HDR, no mips, nearest).
+    - Crowd meshes: vertex colors REPLACE + dm.prepare_vat_mesh (5 UV channels, 16-bit UVs, no collision data,
+      bounds extended).
+    - Materials dm.vat_crowd (body: baked T_DinoCrowd; glow: vertex color). dm.prepare_vat_actor on the actors.
+  - Fast pipeline test: 4,552 people (4,302 field + 250 extra), 340,781 body tris, VAT 2048x256.
+  - On device: "Crowd Test" chunk 52 (the stage at 16:42 + crowd v2.1, 345,882 UE vertices, 102 MB) was pushed
+    17:53 but not tried yet.
+- Lasers integrated: SM_DinoLasers keeps UV1-3 sweep data. Animated build uses dm.laser_sweep with pan negated for
+  the FBX mirror; the stock build is frozen.
+- The user on the v5 renders (2026-10-05): "ok that looks pretty good! ... everything needs to be dark, it is way too
+  light. also for the lights and lasers, they shouldnt be on all the time. also, lets make the crowd with more rave
+  attire and make them more believable. dont hold back".
+  - Night pass (dino_stage.py):
+    - NIGHT = 0.5 multiplies every bake exposure; the crowd is 0.55 x 0.5 = 0.275.
+    - Sky horizon and town glow x0.4, milky band x0.6, far ground (0.004,0.004,0.006).
+    - Light sources (emitters, LEDs, signs, beams) unchanged.
+  - Light show:
+    - T_DinoCues.png: 32 bars x 16 rows, linear data (R level, G strobe, B beat pulse), from show_program().
+      Rows: stage 0, sky 2, fan 3, horn6-3 4-7, infra 8, stage2 9, lenses 10, always 13.
+    - One loop = 32 bars at 128 BPM = 60 s: intro, build (lasers enter), bar-16 blackout, drop (all, strobe
+      bursts), breakdown, outro (horn pairs alternate, strobe).
+    - dino_materials.cue_level() samples it (nearest, sRGB off, TC_VECTOR_DISPLACEMENTMAP). beams_material has a
+      CueRow param (one MIC per beam/halo mesh, per out/show_groups.json). laser_sweep uses row = 3 + LaserCue (UV4).
+      strobe_tex for the lenses uses row 10.
+    - Beams/halos are now one mesh per module group (SM_DinoBeams<k>, SM_DinoHalos<Module>).
+    - atmosphere.py adds UV4 "LaserCue": 0 fan, 1-4 horn pairs k6-k3.
+  - Crowd v3 (rave attire, believable: friend groups, shoulder riders, glowing accessories) is with the VAT agent,
+    in crowd2/crowd3.py with the same API.
+- The user: "Well im talking like the crowd is dark because its dark outside. Its a nighttime set. The stage would also be
+  dark except for the dj and the visuals, lazrs, lights ect".
+  - So v5.2: the set (structure, rig, deck, riser, plants) and the crowd are SHOW-LIT.
+  - dino_materials.show_light: emissive = baked x (floor + (1-floor) x level of cue row 1 "wash"). Floor 0.08 for the
+    set, 0.06 for the crowd; sweep bands across the crowd.
+  - The show program moved to Scripts/Blender/show.py (no bpy); `python show.py` rewrites T_DinoCues.png alone.
+- "Also let's put some speaker towers in the crowd". The infrastructure module now has 4 towers:
+  - (+-17,-42) and (+-15,-65), 13.5 m, 11-box arrays, cyan LED-strip "T" frames, DINO panels, purple sky beams.
+  - Masts moved to (+-30,-58) and (+-24,-78).
+- Crowd v3 (VAT agent, crowd2/crowd3.py, same API; dino_stage imports `crowd3 as crowd2`):
+  - 4,439 people in 874 friend groups, 14 shoulder riders, rave outfits and costumes.
+  - Glow accessories (glowsticks, necklaces, LED gloves, light-up soles, phones, flow toys, totem LEDs).
+  - 15 standing dances, 17 clips.
+  - VAT 2048x1024 (2 pages), 326,884 tris.
+- v6 pushed 22:35 (md5 371c1362...): chunk 50 = v6 (122 MB), chunk 53 = "Dino Classic" (v4 animated).
+  - v5.1/v5.2/v6 have never been launched on the device yet, so crowd v2/v3 FPS is still unmeasured.
+
+### Session 3v — v6.1-v6.3: Tribe's visuals on our big screen, deck lamps, crowd v3 FPS, skull v2 (2026-10-06)
+- Crowd v3 FPS (logcat_v61, 10:24-10:27): 71.3-72.1 fps average at 72 Hz once loaded. Per 10 s window, 0-22
+  frames took over 20 ms (worst 141 ms, once); the load itself had a 400 ms frame. Same class as v4 (71-72).
+- v6.1: SM_DinoVisualScreen (16 x 9 m quad at Blender y 10.3, cz 7.2 pre-drop) registered via
+  BP_TribeVisualsManager_C.SetupEnvironmentBackdrop(BackdropMesh=ours) -> log "our screen ... is Tribe's backdrop now".
+  The booth boost (BoothSpotlight x2.5 via tribemod/lights.txt) was unwanted: "i only wanted a small light on the
+  decks, not for the entire stage". v6.2 replaced it with two level spot lights DinoDeckLamp_L/R (build_dino.py
+  DECK_LAMPS, 3 cd, radius 140, cones 38/20 deg, no shadows); lights.txt can still scale them by name.
+- "Keywall" misread in v6.2 (registered our screen as ChromaKeyBackdropMesh with ChromaKey_M). The user then said:
+  "well we dont need obs to run it. they run from the media folder inside tribe". So the user's "keywall" is the
+  visuals BACK WALL (Media tab, videos from the media folder), not Tribe's Key Backwall switch.
+  - W_VisualsMenu: the Chroma tab has "Key Backwall" (KeyBackdropSlider) + "Hide Room" + key color. Both call
+    TribePlayerController.SetChromaKeyBackdropInSpectatorCameras / SetHideRoomInSpectatorCameras. Ghidra:
+    SetChromaKeyBackdropInSpectatorCameras impl rva 0x509edd0 = `*(bool*)(this+0x8f4) = b` (a flag read by the
+    spectator-camera code: UpdateSceneCaptureComponentHiddenActorsWithChromaKey / UpdateChromaKeyActorOwnership).
+    So Key Backwall only changes what the STREAM cameras see (a green wall for OBS); the headset view is unchanged.
+  - Media folder = the Quest's Movies folder (libUnreal string "../../../../Movies/", i.e. /sdcard/Movies; the
+    user's own visuals mp4 is there). Music: "../../../../Music/". GIFs: Downloads/Gifs/, "My Gifs".
+- Why v6.1 showed the video on only part of the big screen (decoded 2026-10-06):
+  - Tribe's back wall is SM_BackdropScreen_OldStyleUVs (Void: actors SM_BackdropScreen + SM_BackdropScreen_ChromaKey).
+    A curved 9-column strip, 18 verts, x +-287, y 244..307, z 45..280 local (arc 5.97 m x 2.35 m, ~2.54:1).
+    UV0: U 0 at x=-287 (the viewer's RIGHT when facing the wall) to 1 at x=+287; V 0.5 (top) .. 1.0 (bottom).
+    UV1 = UV2 = mirrored-U 0.008..0.992 (lightmap style).
+  - M_VideoBackdrop PS (Tribe archive Chunk0, shader map 31a5f258..., PS index 1801; extracted with
+    shaderdiff/tools/shaderlib.py + oodle_dec + NDK spirv-dis) reads UV0 (VS ATTRIBUTE4), p = (1-U, 2V-1), then applies
+    MPC_VideoBackdrop: scalars Aspect [0].x, Tile [0].y, Mirror [0].z; vector StretchMode [1] (defaults: Aspect 1,
+    Tile 1, Mirror 1, StretchMode (1,0,0,0)).
+    - StretchMode.z > 0.5: fill (X=p.x, Y=p.y).
+    - .x > 0.5: full width, V scaled by Aspect/4 (Aspect/2 when Tile).
+    - else 2/3-width pillarbox (X = 1.5 p.x - 0.25), V scaled by Aspect/2.
+    - Tile >= 0.5 doubles X (two copies; the second is mirrored when Mirror >= 0.5). X outside 0..1 is black.
+    - BP_TribeVisualsManager sets Aspect from GetVideoTrackAspectRatio when a video opens.
+  - Our old screen had plain UV 0..1, so the video landed in the lower half, mirrored, and partly outside.
+- v6.3 fix:
+  - dino_stage.visual_screen_uv(): U = 0.5 - x/w, Blender V = 0.5 * (z - bottom)/h (UE V 0.5 top .. 1.0 bottom after
+    the FBX V flip). The screen was re-exported alone (scratchpad export_vscreen.py) into out/.
+  - build_dino.py: MI_DinoVisualScreen is plain black (Tribe puts its own material on it); the chroma branch is gone.
+  - hook: BackdropMesh = our screen; ChromaKeyBackdropMesh = the Void's own chroma screen. While the Dino Stage is
+    active the mod sets MPC_VideoBackdrop StretchMode=(0,0,1,0), Tile=0 (fill, one copy) via KismetMaterialLibrary
+    Set/GetVector/ScalarParameterValue, re-applies when Tribe changes them, and restores Tribe's values in
+    em_unload. Lookups run on the poll thread (mpc_lookup); parameter FNames come from the collection's
+    ScalarParameters (28 B elements) / VectorParameters (40 B). Log lines: "[ENV] video mapping ...",
+    "[ENV] visuals screen: hidden=.. material=..".
+  - Pushed 11:33: patch_v63.obb (md5 c03db2dc..., chunk 50 122 MB, 0 cook errors) + out/hookA/vscr.aligned.apk
+    (reseed.sh MOD updated). Awaiting the user's headset test.
+- Skull v2 (landmarks agent: Scripts/Blender/skull.py, skull_check.py, skull_preview.py) is integrated into
+  dino_stage.py.
+  - `import skull`; build_structure() bm_adds build_skull_v2() into the structure and eyes meshes.
+  - The old SKULL_T / jaw_point / build_skull_mb / build_skull are deleted; SkullKey is replaced by skull.SKULL_LIGHTS
+    (also in grounds/preview.py).
+  - The head is ~11 m wide; 0 laser contacts, closest beam 0.51 m; chin z 12.73 pre-drop; 12,008 + 360 tris.
+  - Full bake started 11:35 into Scripts/Blender/out_v7 (DINO_OUT). It keeps out/ = v6.3 intact.
+    build_dino.py's SRC is still fixed to Blender/out, so it needs an override before a v7 build.
+- v7 = v6.3 + skull v2: bake out_v7 18m50s, no errors, modules unchanged. atmosphere_lasercheck (now honours
+  DINO_OUT): all 45 beams clear, stage clearance >= 0.46 m, DJ head gap >= 4.9 m. build_dino.py now honours DINO_SRC
+  (v7 built with DINO_SRC=Blender/out_v7): 33 actors, 0 cook errors, chunk 50 = 121.7 MB.
+  Pushed 11:58: patch_v7.obb md5 26ebd9ba... The mod is unchanged (vscr.aligned.apk). Awaiting the headset test.
+- The user on v7 (12:24): "its not filling the entire screen. its like tribes visuals in front of our wall. so we
+  technically have 2 walls", then "we dont even need the curved wall if we have the tribe key wall. just make the
+  keywall as big and its done".
+  - v7.1: SM_DinoLED and tex_led are gone. SM_DinoVisualScreen is 23 x 12.94 m (16:9) at y 10.3. The moon + ring +
+    ring bulbs sit behind it (bulbs 16-44 cm behind) and show when Tribe's visuals are off.
+  - Clearance check: nothing crosses the screen. Lasers are unchanged (>= 0.46 m).
+  - build_dino.py purges the stale LED assets. Bake out_v71 17m53s; 32 actors, 0 cook errors, chunk 50 = 120.4 MB.
+  - patch_v71.obb md5 19c22e46...; verified on device at 13:01: the screen registered, fill applied, video on it.
+    The user: "ok looks great!".
+- Streaming broke (Meta token expired; see the memory modded-build-login-recovery). The re-seed was run as two
+  manual phases, because the auto-mode guard blocks `adb uninstall` until the user approves it.
+  - Genuine login 12:56: 0 "Unofficial Application", 4x OBTAIN_TOKEN ok.
+  - Part B restored the mod (vscr), main OBB, patch_v71, avatar/skins/calib, envs.txt/active_env/drone files, the
+    flags, and the storage permissions.
+  - The user: "yes i streamed fine".
+  - scripts/reseed.sh: PATCH/ENVBK restore added, MSYS_NO_PATHCONV, logcat -c before the login count, MOD=vscr.
+- Next (the user, 13:10):
+  - "make the arches bigger ... wider" from the front, and "the screen to match that arch shape as well". This
+    is with the landmarks agent: arch.py single source, mirrored horns, arch-shaped SM_DinoVisualScreen with
+    16:9-box UVs.
+  - "add some more stuff to the stage where im standing". This is with the infra agent: grounds/stagedeck.py.
+  - After the arch: the atmosphere agent re-derives HORN_TIPS from arch.py and re-aims the fans.
+- The user: "im usually in between 128 and 150 bpm. mostly heavy dubstep"; then "ok that sounds good" to moving the
+  stage to 140 half-time.
+  - dino_materials.py: BEAT_HZ = 140/60, HALF_HZ = BEAT_HZ/2.
+    - HALF_HZ drives the cue_level beat pulse, the strobe_tex lens default, the scroll_tex booth pump and the crowd glow.
+    - vat_crowd defaults to bpm=140, so the dances are 9% faster.
+    - The show loop is 32 bars = 54.9 s. show.py SHOW_BPM = 140.
+  - These take effect at the next Unreal build. Backup: dino_materials.v7.bak.py.
+- Visuals phase 2: "visuals" leads and assembles, with helpers visuals2 (Raptor Run, Stomp, Extinction) and visuals3
+  (Amber DNA, Jungle).
+  - Target: 24+ loops at 140 BPM half-time, plus "Dino Visuals - Full Set.mp4" (60 min, ~6 Mbps). Output goes to
+    C:\Users\Chris\TribeUE\Visuals\deliver\.
+  - GPU lock: mkdir C:\Users\Chris\TribeUE\gpu.lock.d (owner.txt inside). Take it before stage bakes too.
+- Giant intro (the user, 2026-10-06): a lift behind the decks with a button; a floor-length robe like the user's
+  reference photo, shown only while up ("when im on the ground no cape").
+  - Height test (giant1, test file giant_test.txt "o|p|h <cm>"):
+    - VROrigin relative Z works: K2_SetRelativeLocation on TribePawnBP_C.VROrigin, re-applied each frame. Tribe never
+      pulled it back, and the pawn's actor Z tracks it.
+    - The A2 avatar's feet follow (floor = VROrigin world Z).
+    - The user picked a 545 cm platform (eyes ~7 m); 9-10.5 m was "too high".
+  - Implementation:
+    - Blender/giant.py writes out_giant/SM_DinoGiantLift/Glow/Robe.
+      - Lift: plate x+-0.6, y 0.70..1.70; telescoping column; button at (0, 1.52, 1.06) m.
+      - Robe: rest = a 1 m wall on the hem ellipse (c (0, 1.84), a 2.8, b 1.16); UV1 = (h, theta).
+    - build_dino.py makes MPC_DinoGiant (Height, RobeTopX/Y/Z, RobeOn, ButtonGlow) and dm.giant_lift / giant_glow /
+      giant_robe materials (WPO). The robe is pulled from the hem to the shoulders by s^0.7.
+    - hook giant_tick: either hand within 14 cm of the cap (re-armed after moving away, 1.2 s cooldown) gives
+      DOWN -> RISING (8 s smoothstep) -> UP -> DESCENDING (60 s) -> DOWN.
+      - It sets VROrigin rel Z = base + h and the MPC each frame. RobeTop = HMD - 27 cm z, 8 cm behind; RobeOn when
+        h > 25 cm.
+      - tribemod/giant.txt: height= rise= descend= press=. em_unload puts the DJ down.
+  - v7.2 = out_v71 + giant + 140 BPM materials (mod giant2.aligned.apk): a quick test ahead of the arch/stagedeck v8.
+  - v7.3: robe v2 + crowd camera v2. The user: "way too large ... more skinnier at the top with widening at the
+    bottom" and "a little too far back. i cant see my face from the crowd".
+    - Robe v2: hem ellipse c (0, 1.68), a 1.4, b 1.0; 64 x 28 rings. The material pulls it to the shoulders by s^1.4,
+      so it stays slim through the upper body and widens toward the floor. The plate keeps only its top face.
+    - Crowd camera: only while the giant runs (press to landing), the drone camera cuts to (0, -1200, 240) cm with a
+      slow handheld sway. It aims at the head minus 120 cm, and the reel's playhead waits.
+  - v7.4: blackout + follow spot. The user: "when i press the button, no lasers or lights and only a spotlight on me
+    when im tall and when im on the ground. after im on the ground then turn on all the lights and stuff".
+    - MPC_DinoGiant gains ShowLevel, ShowOffset and SpotOn. dino_materials cue_level multiplies by ShowLevel and adds
+      ShowOffset to its time; chase, pillars and scroll_tex dim to 15% through show_dim.
+    - The follow spot is front-of-house:
+      - SM_DinoGiantSpot: 3 crossed planes on T_DinoBeam, from (0.95, -31, 5.35) m to the DJ's head, with the far end
+        riding up with the lift.
+      - A real SpotLight, "DinoGiantSpotLight": 9/5 degree cone, 6000 cd at full via SetIntensity.
+      - The robe picks up a SpotOn term.
+      - A spot from the skull's mouth was rejected: it would backlight the DJ and hide the face from the crowd camera.
+    - Hook timing: after a press the show fades out over 1.5 s and the spot fades in over 1 s. On landing the show
+      snaps back in 0.3 s and the spot fades out over 1.2 s.
+    - ShowOffset = (bar 17 - T mod loop) restarts the light show at its drop. T is GameplayStatics.GetTimeSeconds,
+      the materials' Time; it is a double on this build.
+    - Device: patch_v74.obb (md5 6462842709d1c2e1374d36adabf3ed9a) and mod giant6.aligned.apk. Two full cycles ran,
+      18:14-18:15 and 18:18-18:20, logging "show restarts at the drop (clock 150.9 s, offset 41.06 s)" and
+      "(clock 434.1 s, offset 32.19 s)". In the second cycle two presses on the way down were "ignored while
+      moving". How it looks is the user's call; not confirmed yet.
+- Avatar + stage stopped loading at 18:04. The user: after a multiplayer session, then solo too. It was NOT the token;
+  no re-seed was needed.
+  - Cause: the mod's GUObjectArray resolve. When it ran very early (NumElements still < 10000), try_objects_field's
+    slide skipped NumElements at +0x14 and accepted a constant 16384 at +0x20/+0x24, which passed the one-chunk check.
+  - Every object scan was then capped at 16384 objects: no game state, no level loader, no avatar spawn, no env menu.
+  - Fix in giant6:
+    - Take FChunkedFixedUObjectArray.NumElements at +0x14 first (floor 1000; the chunk counts must agree). The
+      fallback slide stops at +0x1C.
+    - refresh_numelements self-heals when a live object sits right past the count: it switches to +0x14, or else
+      counts the items, and logs "[R2] object count was stale ...".
+  - Verified 18:11. Launch 1 resolved at NumElem=15871, the early case that used to stick. Its count grew to 65582,
+    and the avatar spawned via FinishSpawningActor.
+  - Verified 18:13. Launch 2 resolved at 22657; then "[ENV] ON", the menu boxes, the Dino Stage level load and the
+    avatar. [R2] never fired: the +0x14 counter was live from the start.
+  - load_result.txt, httpd.log and the INI log are now chmod 0666 after each write, so adb can read them.
+- After the context reset, two agents were restarted:
+  - arch2: arch v2, the arch-shaped screen, lasers via arch.py, and a stagedeck bake to out_arch.
+  - visuals: the 140 BPM pack, Giant Halo, and the 60-minute Full Set.
+  - The v8 integration waits for both.
+- v7.5 (18:3x): the giant button + no beam. Stage-only (patch_v75.obb md5 c621a1193e3b6dca92973db3be64f189); the
+  mod is unchanged (giant6).
+  - The user: "i want the button to actually go down when i press it".
+    - giant.py marks the cap with UV0.x = 1: 168 loops, z 1.04-1.08 m, checked by re-importing the FBX.
+    - dino_materials.giant_glow sinks it GIANT_BUTTON_TRAVEL = 2.5 cm by min(3 x ButtonGlow, 1). The mod already sets
+      ButtonGlow to 1 on every press (ignored ones too) and fades it out over 0.8 s, so the cap holds ~0.5 s and
+      rises over ~0.3 s. No APK reinstall.
+  - The user: "i need the spotlight to be less dramatic. i dont need the light beam but how i look illuminated looks
+    good".
+    - SM_DinoGiantSpot is out of GIANT_MESHES; giant.py no longer builds it. Its stale mesh was purged; the cooked
+      chunk 50 has no GiantSpot entry.
+    - DinoGiantSpotLight and the robe's SpotOn term stay unchanged.
+  - Also pushed to /sdcard/Movies/Dino Visuals/ (md5-checked):
+    - the 140 BPM loops: Giant Halo (red) and Spine Tunnel (amber);
+    - the five 128 BPM extras: Extinction Event (inferno), Raptor Run (green), Spine Tunnel (amber/ember/ice).
+- Song-synced lasers (the user: "i have a song that we need to adjust the lazers to go to, just for this set"):
+  - Tribe's deck class /Game/Equipment/Deck/BP_Deck.BP_Deck_C has BP functions GetPlaybackSeconds, GetPlaybackMs,
+    GetIsPlaying, GetCurrentTrackDisplayName, GetTrackDurationMs, GetDisplayTempo and GetPlaybackRate, plus a
+    replicated CurrentTrackFileName (logs/scan_final/objects_v7.txt).
+  - Plan: the mod finds the deck playing the configured track and writes its playhead to the MPC. A per-song cue
+    table, from analysing the audio with librosa 0.11 + ffmpeg, drives the lasers in track time, so cue jumps and
+    pitch changes stay in sync. Waiting for the song file.
+- v7.6 = song mode for the set's opener, SVDDEN DEATH - PRELUDE I (stage patch_v76.obb md5
+  169e2db5d426075e01a1866ba6d300a6; mod song1.aligned.apk). Awaiting the first device test.
+  - The user: "when i play this song, no lights should be happening. at 1:09 is when the platform should raise. at 1:52
+    is when the lasers from the top of the stage start going. at 2:20 i am coming down with the platform. by 2:46 im
+    down at the decks for sure".
+  - Song analysis (librosa; scratchpad song/analyze_song.py, analyze_grid.py, zoom.py):
+    - 5:22 long, about 140-143.5 BPM. The tracker's grid is unreliable: 297/724 beats on one line, and the sections
+      fit different tempos. So cues sit on measured hits.
+    - 1:10.22: the hit after a breath (silence 70.17-70.22 s).
+    - 1:53.1: drop 1, where the sub returns after a dip at 112.75-113.05 s. The user said 1:52.
+    - 2:19.7: drop 1 ends.
+    - 3:17.86 / 3:18.71 / 3:19.56: a three-gap stutter, then drop 2 at 3:19.71 (the sub enters at ~3:20.6).
+    - 3:51.4: breakdown.
+    - 3:58.29: the next section starts after silence at 3:57.99-3:58.29.
+    - 4:39.45: section change.
+  - tribemod/song.txt, also in backup/tribemod_20261006 (reseed.sh restores song.txt + giant.txt):
+    match=PRELUDE I / bpm=140 / lift=69.0 139.7 166.0 /
+    cues=0:dark 113.1:top 166:drop 179.7:build 197.86:dark 199.71:drop 231.4:breakdown 238.29:outro 279.45:build 320:show
+  - Hook (song_* in dumper.cpp):
+    - The poll thread finds BP_Deck_C instances, including subclasses, plus GetIsPlaying, GetPlaybackSeconds,
+      GetCurrentTrackDisplayName and the CurrentTrackFileName property; first output = CPF_OutParm at FProperty+0x38.
+    - The game thread picks a deck whose track name matches (case-insensitive, word-ended, so "PRELUDE I" doesn't match
+      "PRELUDE II") and is playing. Its playhead sets the lift height (rate-limited 1.5 m/s for seeks), the lights and
+      a per-frame ShowOffset, so the chosen part of the 32-bar show loops in step with the song.
+    - The button is ignored while the song plays. If the song stops while the DJ is up, the lift comes down from there.
+  - Stage: MPC_DinoGiant TopLasers. laser_sweep lifts the horn-tip heads (UV4.x groups 1-4; group 0 = the stage fan)
+    to max(cue level, TopLasers), through the blackout.
+  - Expected log: "[SONG] BP_Deck_C ..." (the function signatures), "[SONG] N deck(s)", "[SONG] deck i track: '...'
+    <- the song", "[SONG] ON at ...", then "lift rising/up/coming down/down" and "lights 'top'/'drop'/...".
+- Light shows for every song (the user: "is it possible to do lasers for any song??", "my songs are on the oculus
+  itself", "there is a SHIT TON of songs", "ok start the scan"). The user cues the next song "with the volume down with
+  the headphone on so the crowd cant hear", so the lights must follow the deck the crowd hears.
+  - Scan: TribeUE/TribeXR/Scripts/songs/scan_library.py.
+    - Pulls each audio file under /sdcard/Music (2052 files, 7 GB), measures it, then deletes the copy.
+    - Saves TribeUE/Songs/features/<id>.npz: 5-band dB at 10 Hz, the onset envelope, beats. index.jsonl makes reruns
+      scan only new or changed files.
+    - 3 workers, 18 min. Failed: "AWEMINUS - MAKE SOME NOISE (VICE TEMPUS BOOTLEG).mp3", which is damaged on the
+      headset (zero MPEG header; ffmpeg can't open it either).
+  - Scripts: make_cues.py turns the features into one song.txt-format script per file name. It writes
+    TribeUE/Songs/cues/<key>.txt, key = FNV-1a 64 of the name as the hook reads it (non-ASCII -> '?', ASCII lower-case).
+    - Sections: drop = majority over 5 s of (loudness within 4 dB of the track's p97 and sub within 8 dB). Merges keep
+      the longer neighbour; level moves of > 6 dB split long sections; labels come from each section's own level.
+    - Hits: the first strong rise that stays loud for 1 s, so a stutter build resolves to its last hit. Builds take the
+      8 bars before a drop; a breath of >= 0.4 s before a hit goes dark.
+    - Tempo: the beat track's median, folded x2 or 3:2, refined at the 16-beat onset autocorrelation lag. librosa's own
+      value is quantised to 136 / 143.55 near 140.
+    - Checked on PRELUDE I against the hand analysis: drops 1:53.0 / 3:19.7 (hand 1:53.1 / 3:19.71), build 1:46.3,
+      breakdown 3:50.9, 140 BPM.
+    - Library: 1791 unique scripts, 316 KB, largest 610 B. Drops per track mostly 2-4; only 10 full-length tracks have
+      none. Tempos: 140 (766), 145 (411), 150 (314).
+    - Songs/overrides/<file name>.txt replaces a generated script (PRELUDE I with its lift).
+  - On the headset: tribemod/songs/ (1791 files, staged via /data/local/tmp). reseed.sh restores them.
+  - Mod song3 (out/hookA/song3.aligned.apk, signed, NOT installed yet):
+    - Each deck's track loads songs/<key>.txt; song.txt still applies to the track it names.
+    - Only a script with lift= drives the lift. Otherwise the button works, and a button giant keeps its blackout and
+      spot.
+    - Interim deck choice: the scripted song that has been playing longest.
+    - Includes the smooth song clock and a read-only probe that logs the deck class's fader / crossfader / cue / tempo
+      properties and their changes. Plan: the user moves faders and cue buttons once, then fader-based on-air choice.
+- v8 (arch v2 + stagedeck) + song3, on the headset 20:00, used for the user's beta-test demo with friends.
+  - Stage patch_v80.obb (md5 24bc5bd36bfacdc6ef33b097b0657f10) is built from out_arch (arch2's bake, 18:31-18:49):
+    - new: SM_DinoGroundsStagedeck (show_lit; one ANIM line in build_dino.py) and SM_DinoHalosStagedeck;
+    - the arch-shaped SM_DinoVisualScreen at y 9.0 (643.5 m2, was 297.6), the lintel, lasers on the new horn tips;
+    - 4446 people;
+    - cook 0 errors, chunk 50 has 111 entries.
+  - On device: 71.6-71.9 fps on the Dino Stage. One stretch at ~58 fps (20:09:49-20:10:35) started with a 400 ms hitch:
+    Go Live or friends joining, which renders the stage a second time.
+  - Mod song3 (installed 19:52):
+    - PRELUDE I found songs/8e6169c8e3f50784.txt, the override with the lift. The hook's FNV key matches make_cues'.
+    - Rise at 69.01 s, up at 77.01 s, top lasers at 113.10, landed + drop at 166.00, drop 2 at 199.71: all exact. The
+      program-based lift state gave no flaps.
+    - The button was ignored while the song drove the lift; the user pressed it three times (1:04.5, 1:08.1, 2:21.8).
+    - Interim handover: the user stopped deck 1 mid-breakdown, and the lights switched to deck 2 (FORGOTTEN NAME,
+      generated, 29 cues) at its 6.61 s, then followed its build / drop / breakdown cues.
+    - The probe is useless as built. Its 48 slots filled with BP_CDJ3000_C's Marker_* ObjectProperties (button
+      markers) before reaching the mixer values. Next: skip Marker_* and objects, raise the cap, and include
+      BP_Deck_C's floats/bools in full.
+  - Tribe's EXIT_SELF restarts (dumpsys exit-info reason=1, status 0) happen often after a launch (~46 s in). Not a
+    crash, and not from the mod: they happened before tonight's builds too.
+  - Next bake (v8.1): arch2's stairs fix (step tops -0.2/-0.4/-0.6/-0.8) and the legacy build_crowd 5-tuple fix are in
+    dino_stage.py, unbaked.
+- 2026-10-07:
+  - VJ pack final, on the headset (md5-checked): 33 loops plus "Dino Visuals - Full Set.mp4" (60:00, 2.70 GB),
+    recomposed for the arch window. The user chose a 96-bar Giant Halo opening, covering the giant rise; the visuals
+    team is re-encoding the set. The user kept Fossil Scan / Lava Moon at their new, darker levels.
+  - arch2 is baking v8.1 (the stairs fix) to out_v81; out_arch stays as the live reference.
+  - Mod song4 (out/hookA/song4.aligned.apk, signed, not installed) adds probe v2:
+    - numeric BP variables of the decks, BP_Console_C, BP_MixerChannelDevice_C and BP_MixerSliderBase_C, down to the
+      engine base classes; poll thread, every 0.5 s;
+    - logged as [PROBE] lines, and only while tribemod/probe_on exists.
+  - Test: touch probe_on, play two songs, move the channel faders and the crossfader, toggle the headphone cues, then
+    read the log and remove probe_on.
+- v8.1 built (not installed): patch_v81.obb md5 796dd16c77d46d610b07733bf26e3ddb, from out_v81.
+  - Only change vs out_arch: the riser stairs. Step tops -0.2/-0.4/-0.6/-0.8, standing on the deck; v8 had every top
+    at -0.5.
+  - Blender's UV packer re-laid out T_DinoGroundsStagedeck even though mesh and code were unchanged, so the packer is
+    not deterministic for every mesh. The look is the same.
+  - Install with song4 in one Tribe restart; then touch probe_on for the fader test.
+- Rise time: giant.txt rise=26 (was 8), on the headset and in backup/tribemod_20261006. The user found the rise much
+  faster than the 26 s descent of PRELUDE I. The button descent is still 60 s (asked the user whether to match).
+- Full Set with the 96-bar Giant Halo opening is on the headset (md5 68978dc817155cc740cd18deb5f22175).
+- Probe v2 on device (2026-10-07 16:43-16:46; the headset's battery died at 16:46). Tribe's mixer is BP_DJM_Nexus_2_C
+  (a BP_Console_C).
+  - Channel faders: 4 x BP_ChannelVolumeSlider_C (a BP_MixerSliderBase_C), "Mixer Channel"@1312, plus BP_Crossfader_C.
+    The position is BP_SliderBase_C.CurrentSliderOffset, -2.2 .. +2.2. It read +2.2 when the user brought deck 2 in,
+    so +2.2 = top is assumed; mix.txt "fader_sign=-1" flips it.
+  - Filters: 4 x BP_ChannelColorKnob_C, BP_KnobBase_C.CurrentKnobRotationYaw, 0 = centre, seen -74 .. +144. There are
+    also Trim/EQ/master/headphone knobs.
+  - Deck channel: BP_MixerChannelDevice_C.MixerChannel@720 (BP_Deck_C's parent).
+  - The deck also exposes BeatgridBpm@1208 and BeatgridStartMs@1216: Tribe's own grid, for a later beat-lock.
+  - The user never uses the crossfader ("i just use the filters and the regular channel faders").
+- Mod song5 (out/hookA/song5.aligned.apk, signed, not installed):
+  - The lights follow the deck the crowd hears: level = fader x filter openness (open up to 55% of the filter's travel,
+    gone at 95%).
+  - Choice: the loudest playing deck, kept unless another is 0.15 louder or it drops under 0.1. A loud track without a
+    script = the free-running show. If the mixer can't be read, the longest-playing deck is used.
+  - Logs "[MIX] out loud: deck N (channel c, level x)" and "[MIX] levels ..." every 2 s.
+  - Test: two songs, faders up and down, a filter sweep. If the lights follow the quiet deck, set mix.txt
+    fader_sign=-1.
+- 2026-10-07/08:
+  - Re-seed at 18:13: 0 auth errors during the genuine login, OBTAIN_TOKEN_3P ok. The mod is reinstalled as song7,
+    later song8 (beat-grid lock).
+  - BUG found 10-08: the re-seed's permission step "chmod 666 $D/*" also hit the songs DIRECTORY, leaving it at
+    drw-rw-rw- (no x). From 18:15 no light script could be opened, so tracks logged "has no light script" and the show
+    ran free. The user's "lights need to go with the songs WAY better" came while this was broken.
+    - Fixed on device: chmod 777 songs, 666 its files.
+    - Fixed in reseed.sh: files get 666, folders 777 including songs.
+  - First launch of v8.2 after the re-seed: one SIGSEGV in RenderThread at 18:17:24, 8 s in, in the menu (pc in
+    anonymous memory, called from libUnreal 0x49b15f8). It did not repeat on the relaunches or with the stage loaded.
+    Assumed to be the fresh install's shader/pipeline cache rebuild; watch for a repeat.
+  - Lift slowed (the user: "we need to slow down the up and down on the platform"):
+    - PRELUDE I lift=69.0 126.0 166.0: rise 1:09-1:53 (44 s, top as the lasers start), down 2:06-2:46 (40 s).
+    - giant.txt rise=44 descend=60, so the button lift rises 44 s and descends 60 s.
+    - Updated in Songs/overrides, Songs/cues, backup/tribemod_20261006 (song.txt, giant.txt) and on the device.
+  - Mod song8 (installed 10-07): beat-grid lock.
+    - The lights' bar and beat clock follows BP_Deck_C.BeatgridBpm / BeatgridStartMs of the deck the crowd hears, in
+      song mode and the free show.
+    - Beat 1 comes from the script's first drop; cues snap to the grid's nearest beat within 0.15 s.
+    - Logs [GRID] lines. Not yet verified on device.
+  - song8 on device 10-08 16:3x-16:5x: the grid lock engages ([GRID] lines for every track), but Tribe's grids are often
+    wrong. Compared on 19 tracks the user played against a whole-track comb fit of the scan's onset envelope (mean onset
+    strength on the grid's beats; scratchpad check_grids.py / tempo_scan.py):
+    - Wrong tempo on 6:
+      - Dream Sequence (Kompany Remix) 142.38 (is 140.00), Manly - MONSTER 142.00 (140), BASSPLASMA - HUNTING GROUNDS
+        145.00 (140), EYELANDER - RHYTHM OF ETERNITY 143.00 (140), KATTANA - Sacred Land 143.49 (145.01), SISTO -
+        DAMNATION 145.12 (145.00).
+      - A 120-170 BPM scan gives each of them one dominant peak at our tempo (2-4x the median score); Tribe's tempo
+        scores at the median, i.e. no better than an off-tempo grid.
+    - First beat "0.000 s" on 7 more (PRELUDE I among them): 40-70 ms before the hits. Tribe seems to leave 0 when its
+      phase analysis fails.
+    - Where Tribe did analyse a first beat (6 tracks, 0.049-0.923 s) it agrees with our fit within 0-23 ms. Independent
+      check of the fit's phase.
+  - make_cues.fit_grid: comb fit, tempo within +-2.5 % of the section BPM (0.02 BPM steps, then 0.002), phase in 5 ms
+    steps; a whole-number BPM within 99.5 % of the best score wins. t0 = the first drop/top cue snapped onto the grid
+    (beat 1 of a bar is the drop's beat, as grid_bars assumes). Every script gets "grid=<bpm> <t0>"; overrides get it
+    added when copied (the override file stays as written). song.txt (PRELUDE I): grid=140 113.188.
+  - Mod song9 (out/hookA/song9.aligned.apk, signed): SongScript.gbpm/gt0 from grid=; song mode locks to the song's own
+    grid ahead of Tribe's ("[GRID] song mode locked to deck N's own grid (... Tribe's: ...)"). Tribe's grid stays the
+    fallback (no grid line) and drives the free show (no script).
+  - 10-08 ~17:00: Tribe froze (ANR) after 32 min. Not the mod (verified from the ANR trace, bugreport FS/data/anr):
+    - The GameThread waited forever in Tribe's deck player Open() (UFunction "Open"(FString, int, int, bool), next to
+      Play/Pause/JogTick/SetBeatGrid in its native table, likely the Superpowered SDK: the "hls://" prefix check, open
+      (path, offset, length, ...)). Its spin-wait (usleep 10/20 ms) waits for the player's worker to go idle, but all 8
+      worker threads were idle in pthread_cond_wait: a lost wakeup inside the player. Triggered by loading a track.
+    - libhook's repl_pe frames in the stack are the ProcessEvent passthrough (the blr at repl_pe+0x2018). The mod's
+      own tick work runs before it and was not on the stack.
+    - The ANR itself came when the user pressed the Meta button: Android's onSurfaceDestroyed waits for the hung game
+      thread. Recovery: restart Tribe. First occurrence in many hours of use.
+  - Beat sync (the user: "i use beat sync"): Tribe's GetPlaybackSeconds is the position in the track (it advanced
+    0.9835 s/s on a synced Dream Sequence = 140 / 142.38), so the grid lock holds at any synced tempo. But Tribe's sync
+    uses its own grid: on the mis-gridded tracks it plays them at the wrong speed (Dream Sequence at ~137.7 against a
+    140 master). Offered a mod fix (the player has SetBeatGrid); the user chose "not now".
+  - Song scripts: the grid line only when the comb fit is clear (make_cues GRID_MIN_CONF = 1.7, best / median score;
+    library median 3.4). 48 of 1791 fall back to Tribe's grid: DJ mixes with tempo changes, likely 2:3 tempo misreads
+    (113-116 for ~170 tracks). 1743 scripts carry a grid (Songs/cues and the headset).
+
+## Stage v9: lasers v2 (2026-10-08, installed 18:48)
+The user: "your gonna have to change the colors of the lazers too. also the lazers need to be coming from the actual
+lazer things on the stage, currently there off from it or coming out of nowhere so we just need to upgrade the quality.
+also we need more patterns too. way more." Choices: colors "Full RGB / rainbow chases", fixtures "All of them".
+- Why "out of nowhere": the sweeping lasers came from small dark 0.36 m boxes on the horn tips (invisible from the
+  crowd) and one box on the stage lip; the fixtures the crowd sees (towers, stage front) only had static beams.
+- Fixtures (grounds/atmosphere.py): 19 laser units, UNIT_BOX 0.5 x 0.46 x 0.3 with a bezel and fins, each beam
+  anchored at its unit's aperture (LASER_GAP 0.1 m), the aperture glowing in the beam's color (kind-1 quads):
+  center fan (13 beams), 8 horn-tip units (5 each), 4 tower units (top of each truss column + its crowd face at
+  z 9, 6 each), 6 stage-front units on 0.8 m road cases at x +-4, +-8, +-13, y -3.6 (5 each) = 107 beams (v8: 45),
+  thinner (2 -> 10 cm) and additive.
+- Pattern engine (show.py "the laser show v2", dino_materials.laser_show): 48 motion patterns and 14 RGB color schemes
+  as byte-encoded rows (T_DinoLaserLib 8 x 64), played per bar from an 8-variant program (T_DinoLaserProg 32 x 8),
+  crossfading over the last 15% of each bar. Two Custom HLSL nodes in the vertex shader (LaserMotion, LaserColor);
+  color + alpha reach the pixel shader through a VertexInterpolator. MPC_DinoGiant.LaserVariant picks the variant.
+  Cue rows 11 / 12 = the tower / stage-front units (v8.2's pattern-weight rows retired).
+- Checks: atmosphere_lasercheck.py (now against out_v81, the live stage's bake; out/ is a stale v6.3 bake that showed
+  phantom grazes) PASS: DJ head >= 4.9 m (raised giant >= 8.6 m), stage clearance >= 0.13 m, nothing below 0.25 m over
+  the crowd floor. dxc compiles the HLSL. A numpy port of the engine on the real texture bytes: P, Q within -1..1,
+  fastest beam on/off 1.24 /s and color jump 1.33 /s (comfort: under the 2.33 /s beat).
+- Mod song10 (out/hookA/song10.aligned.apk, signed): LaserVariant = FNV(script match) % 8 per song; the free show on a
+  grid moves on every 32 bars; logs "[LASER] variant N (...)".
+- Bake: Blender/out_v9 (17 min). The first v9 bake dropped the stagedeck (the default DINO_GROUNDS lacked it; v8 bakes
+  passed it explicitly): dino_stage.py's default now includes stagedeck, and the re-bake matches out_v81's file list
+  plus the two laser textures. atmosphere_lasercheck on out_v9: PASS.
+- Built 10-08 18:45 (37 actors), cooked (0 errors; M_DinoLasersShow: 4 Vulkan ES3.1 shaders), pakchunk50 126,359,069 B
+  md5 562d9147. Pushed 18:48 with scripts/push_obb.sh (merges into the live OBB: 50 v9 + 53 + Halloween 54 + club 55),
+  device OBB md5 351dcc0a = paks_current/patch_live.obb. song10 installed.
+- reseed.sh: MOD=song10, PATCH=C:/Users/Chris/TribeUE/paks_current/patch_live.obb (push_obb.sh mirrors every verified
+  push there, so a re-seed restores every session's stage; the club's patch_reactor_v2.obb lacked Halloween's 54).
+- v9 on device 18:52-18:56: own-grid locks and "[LASER] variant 7 (MAGIC ARMOUR)" as designed; 71.9-72.0 fps
+  through both drops (worst frame 17-25 ms, 0-2 frames over 20 ms per 10 s; v8.2 was 67-72 / 26-38 ms). The user
+  closed Tribe themselves. Verdict: "the lazers are very close but it still isnt there yet"; picked "Hit with the
+  music" and "More beams, more coverage".
+
+## Stage v10: lasers that hit with the music, and more of them (2026-10-08)
+- Hit maps (make_cues.py --hits, 7 s for the library): per song with a confident grid, songs/<key>.hits = the drum
+  accents. Measured first: the drops' accent profile per 16th (onset strength vs the bar's max) shows 1-2 dominant
+  16ths per bar (0.8-0.9 vs 0.2-0.5): beat 3 (Dream Sequence, PRELUDE I), beat 1 (MAGIC ARMOUR, HUNTING GROUNDS), 2 and
+  4 (MONSTER, FORGIVE FORGET, Tear It Up). So hit_map() finds them per bar from the audio: a 16th reaching 0.65 of
+  its bar's strongest is a hit, 0.85 major, at most one per beat (comfort), quiet bars none. Kick/snare typing from
+  the 10 Hz bands was noise (the prototype's snares spread evenly over the beats), so hits carry strength, not type.
+  1743 maps, 452k hits (about 260 per song); MAGIC ARMOUR's drop majors fall on beats 1 and 3 (half-time kick/snare).
+- Hook song11 (out/hookA/song11.aligned.apk, signed): loads the deck's .hits with its script, replays it against the
+  song clock (seeks and loops reposition quietly) into MPC HitMajor / HitMinor (0.15 s decay), HitCount, HitsOn;
+  DropBoom (1.2 s) when a drop or the top look starts; the free show on a grid gets beats 1 and 3 major, 2 and 4
+  minor. tribemod/hits.txt "offset_ms=N" shifts the hits.
+- Material: per pattern (texel 6) hFlash (dim between hits, flash on them), hTilt (pop), hFan (fan burst), hMir
+  (mirrored swing); per color scheme (texel 9) hHit (hue step per major hit) and hWhite (white flash). Pools set
+  defaults (calm 0.25 flash .. drop 0.9 flash + 0.3 fan burst). DropBoom opens every fan, lifts and lights every beam,
+  and washes them white.
+- More beams, more coverage (atmosphere.py): 189 beams (v9 107) + 24 aperture glows. Center fan 17, horns 7 each,
+  stage towers 8 each, stage front 6 each, plus:
+  - the tunnel: a ring unit hung under the T. rex's chin (its lowest point (0, -2.1, 12.73)), 16 beams on a 9 deg
+    cone at the crowd's center; per-beam phases spin it (tunnel_spin, mouth_tunnel, tunnel_breathe);
+  - the delay towers: a unit on a pole above each tower's header bar (z 13.35), front ring aimed in and back, back
+    ring in and toward the stage, kept short of the other towers.
+  - Library: 57 patterns (new: sheet_flat, sheet_rise, sheet_slam, tunnel_breathe, tunnel_spin, mouth_tunnel,
+    crowd_net, delay_sweep, outro_sheet) and 16 color schemes (new: hit_steps, hit_rainbow); 10 texels per row;
+    group masks by family; cue rows 14 (mouth) and 15 (delay).
+- atmosphere_lasercheck.py: the crowd's structures (FOH, delay towers, masts, and this module's crowd-side units)
+  are reported separately ("crosses FOH/towers/masts N%"); the stage clearance stays the gate. PASS on out_v9:
+  stage clearance >= 0.16 m, DJ head >= 4.9 m (raised giant >= 5.8 m), nothing below 0.25 m over the floor.
+  (Adding the crowd structures showed v9's long beams already crossing the FOH and towers 30-45 m out.)
+- Baked to Blender/out_v10 (17 min, same file list as out_v9; laser check PASS on it), built (37 actors), cooked
+  (0 errors; M_DinoLasersShow 4 Vulkan ES3.1 shaders), pakchunk50 126,471,709 B md5 eb8d8c3a. Pushed 10-08 ~19:50 via
+  scripts/push_obb.sh (50 v10 + 53 + Halloween 54 + club 55, device OBB md5 12935c16), song11 installed,
+  reseed.sh MOD=song11. 1743 .hits files pushed to tribemod/songs (they live next to the scripts in Songs/cues, so
+  reseed.sh's songs copy restores them).
+- 10-08 ~22:15: the club session hooked hook/club.cpp (+ club_collide.h, theirs) into hook/dumper.cpp with the
+  user's OK given in its chat ("figure out walking now"): #include "club.cpp" before repl_pe, club_pe() as repl_pe's
+  first line (static inline, returns on !g_clubOn: one branch off the club's map), club_tick() after giant_tick() on
+  both tick lines, club_lookup() every 4th env poll. Verified here: the diff against song11 (md5 18bc6f22) is exactly
+  those lines; dumper.cpp is now md5 965a5132. Their club1 APK = song11 + the club (not installed yet).
+  Rule: every APK built from dumper.cpp from now on keeps these lines; keep club.cpp / club_collide.h next to it.
+- 10-09 16:55: the club session installed club1 (song11 + the club lines, md5 5ace0c5e) with the user's go; reseed.sh
+  MOD=club1 so a re-seed keeps walking. The headset had rebooted (up 1 min at 16:54), so its log buffer held nothing
+  from the night; v10 has not been seen running yet.
+
+## Stage v11 + song12: the lasers go with the bass (2026-10-09)
+The user: "what about the bass of the songs? ... some songs, it just the bass that plays and the lazers need to be going".
+- Measured first (10 Hz sub + low bands in the drops): pumping / wobbling bass swings 6-16 dB in a steady rhythm (every
+  beat in MAGIC ARMOUR, every bar in MONSTER and HUNTING GROUNDS, every 2 beats in FORGIVE FORGET); a sustained growl
+  stays within 2-3 dB (Dream Sequence, Tear It Up): the level carries presence and pumping, not timbre. 16th / triplet
+  wobbles (7-9 Hz) are above the 10 Hz data's reach: they read as bass present.
+- make_cues.py --bass: songs/<key>.bass = one byte per 100 ms of bass level, scaled per song (15th..99th percentile of
+  the sounding frames, ^1.3). 1791 maps. Section means: drops 0.55-0.78, breakdowns 0.07-0.15, MONSTER's build 0.63.
+- Library motion texel 7 (LIB_TEXELS 11; color texels 8-10): bFan, bTilt, bVis, bLvl; pool defaults (calm .1/0/.2/.35,
+  build .2/.1/.3/.5, drop .3/.15/.5/.8, outro .15/0/.3/.5); new bass_pump, bass_scan, bass_breath (60 patterns).
+- laser_show: P += bFan u Bass, Q += bTilt Bass, V x (1 + bVis Bass), unit level >= bLvl Bass ShowLevel (a bass-only
+  part runs the lasers; the "dark" look keeps them off).
+- song12 = club1 (song11 + the club lines, built from dumper.cpp 965a5132) + bass maps (MPC Bass, 30 ms attack, 150 ms
+  release); dumper.cpp now md5 751cc30b; libhook carries the club's 27 [CLUB] strings.
+- No Blender bake: out_v11 = out_v10 + the v11 show textures. Built (37 actors), cooked (0 errors; the cook compiled
+  M_DinoLasersShow fresh for VULKAN_ES3_1_ANDROID; the stats CSV's "cooked 0" is a counting quirk), pakchunk50 md5
+  b11c0398. Pushed 10-09 ~17:07 with push_obb.sh (device md5 592d0375), 1791 .bass files pushed, song12 installed;
+  reseed.sh MOD=song12.
+
+## Stage v12 + song13: why the lasers never moved, and the bass that never arrived (2026-10-09 evening)
+The user: "the lazers in the dino stage look good. sometimes its a bit much having them all on at the same time but i
+like them all. Also another thing with the lazers, they dont move! neighther do the lights!"
+- ROOT CAUSE (lasers, since v9 and likely v8): Unreal's FBX import stores 1 - v on EVERY UV channel, not just UV0.
+  The laser data channels were never compensated. Measured in the fork editor (inspect_lasers.py, read-only):
+  SM_DinoLasers UV5.y split 144 "beam" / 2268 "aperture" vertex instances, where the FBX has 1512 beam / 96 aperture
+  loops (UV1.v -64.851..4.012 in the FBX reads -3.012..65.851 in UE). So on the Quest every beam read kind = 1 = an
+  aperture: no motion, and lit at >= 35% whenever its unit's level was up (the "all on at the same time"). The pivot
+  y, tilt amplitude, fan position u and phase were all 1 - value too.
+  Ruled out first: the show clock (ShowOffset is written every tick with the fractional bar), and the engine (mobile
+  ES3.1 has no per-primitive WPO switch: MaterialTemplate.ush ShouldEnableWorldPositionOffset; up to 8 vertex UVs).
+  Rule: any per-vertex data in a UV V component must be pre-compensated in Blender (crowd2 does) or read as 1 - v.
+- Fix: dino_materials.laser_show reads every data V as 1 - v (vread); build_dino imports SM_DinoLasers with
+  full-precision UVs (FP16 rounded the 65 m pivots to ~6 cm). Checked by wpo_emulate.py (Blender, emulates the
+  import, the actor's yaw 180 and the material's RotateAboutAxis): the UE pose matches atmosphere.laser_pose_pq to
+  0.08 cm over the P/Q grid; beam tips move up to 21-23 m.
+- Laser scenes (show.py): 92% of the program's bars allowed all six groups and the drop's cue rows hold all six at 1.
+  T_DinoLaserProg alpha (was 0) now carries each bar's groups: the drop opens with everything (with the drop boom),
+  then three-group scenes take turns every two bars, a different order per variant; intro/build/breakdown/outro light
+  what their cue rows bring in. A pattern with its own mask keeps it; TopLasers still shows every top laser. Measured:
+  all six lit in 11% of bars (was ~92%). Unreal only infills PNG pixels that are pure white with zero alpha, so the
+  program's alpha is safe.
+- BASS NEVER REACHED THE STAGE (found by the club session, verified here): mpc_param_name read at most 16 of a
+  collection's scalars; Bass is the 17th, so every Bass write since song12 was a no-op (the device logged
+  "MPC_DinoGiant: 16/17 parameters"). Cap 64 in song13.
+- v12 = out_v12 (out_v11 + the new T_DinoLaserProg; cues and lib byte-identical), built 37 actors, cooked 0 errors
+  (M_DinoLasersShow compiled fresh for VULKAN_ES3_1_ANDROID), pakchunk50 126,511,950 B. Gotcha: the first cook ran
+  with Git Bash's path conversion on and cooked nothing of ours (-map became "C:/Program Files/Git/Game/..."): export
+  MSYS_NO_PATHCONV=1 and quote "-map=..." before cooking from bash.
+- song13 (dumper.cpp md5 5e231fca, out/hookA/song13.aligned.apk md5 b080255e), all requested or found by the club
+  session: the 64 cap; g_walkPause + HAVE_WALK_PAUSE (1 from lift start until landed: walking and the lift both
+  move VROrigin); the show bus (the stage's own collection: MPC_DinoGiant, else
+  /Game/Mods/Club/MaterialInstances/MPC_ClubShow; the giant, i.e. button, lift incl. a song's lift=, robe and spot,
+  only with Dino's; show_key/show_set/g_showGen + HAVE_SHOW_BUS for club.cpp); the selfie reel follows the stage
+  (tribemod/drone_path.<folder>.txt, else drone_path.txt, else the built-in reel; em_active_folder()). The club
+  session's club3 (md5 2d2ad182) = song13 + their latest club.cpp: the agreed next install, after the re-seed.
+- The re-seed (headset reboot -> authenticate_application 400): part A done 17:21 (genuine Tribe + main OBB, log
+  cleared); waiting on the user's login. backup/tribemod_20261006 refreshed (envs.txt with Graveyard Shift,
+  club_collide.txt added to reseed.sh's restore list).
+- Stage v13 BUILT 18:49 (bake 18:26-18:45 under the GPU lock; pakchunk50 126,718,514 B md5 1193318f, copies of v12
+  5fcc8366 and v13 in TribeUE/Meta/verify/paks/; not pushed yet): v12 + the stage's 19 moving heads move.
+  Found by the CPU pipeline test (DINO_CPU=1 --fast, a new switch in dino_stage.py): stamping "the faces made since
+  index n0" missed 8 faces a fixture, because bmesh.ops.create_cube/create_cone reuse face slots; stamp by a snapshot
+  of the faces before (set difference). mover_fbx_check.py on the real bake: PASS (heads 912 pan-only loops = the
+  yokes, every vertex within 0.37 m of its own pivot). Cook compiled M_DinoMover*, M_DinoLensMover fresh, 0 errors.
+  Gotcha: pack_chunk.sh must run WITHOUT MSYS_NO_PATHCONV (repak needs the converted paths); the cook WITH it.
+  Was: the stage's 19 moving heads move. Each
+  fixture's yoke (pan only), head, lens, lens glow and beam turn as one about the head's center
+  (atmosphere.mover_pose_pq: pan about the vertical, tilt about the fixture's own horizontal axis), driven per bar by
+  the laser engine's patterns with each cycle rate capped at 2 a bar (dino_materials MOVER_MOTION_HLSL, mover_beams /
+  mover_heads / mover_lens). New meshes SM_DinoMoverBeams/Halos (atmosphere "movers"/"mover_halos") and
+  SM_DinoMoverHeads (yokes + heads out of the baked rig); SM_DinoLenses carries the data too; the beams keep their
+  cue rows. mover_emulate.py: UE pose = Blender pose to 0.001 cm, beam tips swing up to 29 m, lowest beam point
+  over the crowd 3.31 m above the field, closest beam axis to the DJ's eyes 5.59 m.
+- Walking on the Dino Stage (the user: "id like to incorporate walking too, like in the other chat from reactor.
+  also i need a path to get into the crowd"): club.cpp will read tribemod/dino_collide.txt (per-stage maps by
+  folder; the club session). Route options drawn on a body-height map of the stage front (scratchpad
+  walk/walk_routes.png): A = stairs into the pit at x 9.1-10.6 + a barrier gate; B = side stairs on the right wing.
+  The barrier belongs to SM_DinoDeck (dino_stage.build_deck). Waiting on the user's pick.
+
+## Session 3o — Detachable head (the pumpkin-head rider's head flies off and comes back). BUILT; device-verified 2026-10-10 (addendum 2 below)
+Fork of the character session, 2026-10-09 evening. (The directive called this "3n"; 3n was already the env-menu entry.)
+Goal: a Headless-Horseman character whose head lifts off the neck, circles the DJ, grins into the stream camera and
+re-seats, while the player keeps seeing from the body. The user's view never follows the head: the engine draws the
+eyes at the HMD, so the head is only a prop.
+- Design: the head stays PART of the skinned skin (A = full body owner-no-see, B = owner-only with Head hidden, as
+  before), so "head on" costs nothing and tracks the HMD. A second, STATIC copy of the head (a plain mesh) flies while
+  A's Head bone is hidden (HideBoneByName on A at the switch frame; UnHideBoneByName when it lands). Hide/show happen in
+  the same tick, so the hand-off reads as one head.
+- File contracts (paired by the active skin's file name):
+  * tribemod/skins/<skin>.glb: the skin, plus three leaf bones under Head, rest pose: DH_C (head centre),
+    DH_F (= DH_C + 0.10 m toward the character's front), DH_U (= DH_C + 0.10 m up). From them the hook gets the head's
+    world position + orientation with no bone-space math.
+  * tribemod/heads/<skin>.glb: NON-skinned glTF, mesh index 0, origin at the head centre, upright, facing the front,
+    same units as the skin (loaded with the skin's LoaderConfig: SceneScale=100, then glTFRuntimeAsset.LoadStaticMesh
+    (0, zeroed config; BoundsScale=(1,1,1) if the struct has it; gray fallback = MaterialsConfig.bSkipLoad)).
+    Its local forward/up after glTFRuntime's default basis are assumed +Y/+Z (glTF +Z front -> UE +Y, +Y up -> UE +Z).
+  * tribemod/head.txt (polled ~1 s; re-read on change only): `auto` (default, also when the file is absent: cycles),
+    `on` (stay on; if flying, return now), `off` (take off now; orbit until changed), `boo` (one camera moment now,
+    then back to the mode in force; a file saying only "boo" keeps the previous mode), optional `fwd=+y` `up=+z`
+    (axis overrides: +x -x +y -y +z -z; a wrong guess is a file edit, not a rebuild).
+- Where the head is (hook/head.cpp, included from dumper.cpp after the drone): head_capture_fk() is called at the end of
+  a2_drive's FK every frame and keeps the DH bones + Hips in A's component space (the pose A renders, live whether Head
+  is hidden or not; RequiredBones/hidden-bone questions don't arise). head_dh_pose() turns them into world space with
+  A's own K2_GetComponentLocation/Rotation/Scale. GetSocketTransform(DH_C, world) is read once at init as a cross-check
+  and logged ("socket read ok (x cm off the FK)").
+- Runtime (head_tick on our actor's tick, after bt_frame/drone): the static head is a StaticMeshComponent added to our
+  avatar actor like A (AddComponentByClass, SetStaticMesh, attached at identity to the tracked parent, SetRelativeScale3D
+  g_btScale, no collision/shadow, owner CAN see it; hidden while ON). It needs body tracking live (g_a2Live), so with no
+  heads/<skin>.glb, no DH bones, or tracking off, the feature idles (logged once). State machine, monotonic clock:
+  ON (random 20-40 s; 0 in `off`) -> TAKEOFF 1.2 s (hide Head on A, show the copy at the DH pose, ease up 25 cm and out
+  to the ring) -> ORBIT (random 15-25 s: ring r=90 cm around the smoothed Hips, z = DH_C.z at takeoff + 10 cm, 8 s per
+  lap, bob +-8 cm at 0.5 Hz, faces the way it flies with a +-10 deg roll wobble) -> BOO once per flight at the midpoint
+  if BP_SelfieStick_C's CaptureComponent2D resolves (1.5 s to 60 cm in front of the lens, grin 2.5 s, 1.5 s back; skipped
+  + logged when there is no stick) -> RETURN 1.5 s to the LIVE DH pose -> switch frame (UnHideBone, hide the copy) -> ON.
+  Every skin load (do_load) drops the old static head (and gives A its head back) and loads heads/<skin>.glb if present;
+  a re-rig (new A) resets the state. Logs: TRIBEMOD "[HEAD] ..." for resolve, load, rig geometry, every state change,
+  head.txt changes, a 5 s heartbeat while flying.
+- dumper.cpp edits (small): forward decls + head_skin_loaded(skin,libCDO,fnLoad) at the end of do_load; head_capture_fk
+  (cq,ct) in a2_drive before the SetBone loop; #include "head.cpp" after drone_update; head_tick in both ReceiveTick
+  chains; head_poll every ~1 s in dump_thread. `char skin[256]=""` in do_load (was uninitialized when active_skin.txt
+  is absent).
+- Built from the current tree (= song13 + the club session's latest club.cpp + this): libhook 340,024 B (no new
+  warnings), out/hookA/head1.aligned.apk (md5 24837191, signed with scripts/sign_apk.sh, verified).
+- Test files from the character session: out/headtest/skullbuck.glb (skullbuck + DH_C/DH_F/DH_U under Head, 57 joints;
+  DH_F = C + 0.10 glTF Z, DH_U = C + 0.10 glTF Y, checked) and out/headtest/skullbuck_head.glb (his skull as a static
+  mesh, 1 material, node Head_Static, antlers up +Y, snout +Z).
+- NOT INSTALLED, NOT TESTED: the headset was mid re-seed (genuine Tribe, base.apk 111,389,761 B, installed 17:20; no
+  tribemod/; waiting on the user's login, then part B). install -r over the genuine build is impossible (other signer) and
+  uninstalling is forbidden. Test recipe (scratchpad devtest.sh, same steps by hand): after part B, `adb install -r
+  out/hookA/head1.aligned.apk`; mkdir tribemod/heads (chmod 777); stage both test files through /data/local/tmp into
+  skins/skullbuck.glb and heads/skullbuck.glb (chmod 666); active_skin.txt = skullbuck.glb; head.txt = auto; relaunch;
+  logcat -s TRIBEMOD:V; set head.txt off / on / boo; expect "[HEAD] resolved", "loaded heads/skullbuck.glb ->
+  UStaticMesh", "static head component", "rig ok: DH_C/DH_F/DH_U = bones ..", TAKEOFF/ORBIT/RETURN/BOO lines; same pid
+  throughout. Body tracking must be live for anything past "loaded" (a headset on a desk may not get there; prox_close
+  makes it think it is worn, see line ~3762).
+- Open: the +Y/+Z local-axis guess for the static mesh (fix via head.txt fwd=/up= if the pumpkin faces the wrong way);
+  the FglTFRuntimeStaticMeshConfig layout is resolved by name at runtime and logged ("LoadStaticMesh psz=.. Config@..");
+  the socket cross-check number; whether the first-person user sees the flying head well (owner-no-see is OFF on the
+  copy by design). head1 supersedes club3/song13 on the headset once installed (same source tree).
+
+### Session 3o addendum (character session, 2026-10-09 evening) — Horseman files + "leave skullbuck alone"
+- User decision: skullbuck stays as he is. skins/skullbuck.glb = the cargo-pants build WITHOUT the DH bones (6,248,380 B);
+  heads/skullbuck.glb removed. The DH test pair stays in out/headtest/ only (never pushed). The horseman is the only
+  detachable-head skin: skins/horseman.glb (5,284,404 B, 32k tris, checker LOADS+MOVES) + heads/horseman.glb (770,172 B,
+  the pumpkin, origin at its centre, face at glTF +Z, emissive face). Build: scripts/skullbuck_cargo_pants.py `plain`
+  (breeches) -> scripts/horseman_build.py; helpers scripts/avatar_common.py, render_skin.py, pose_test.py.
+- reseed.sh: KEEP_SKINS += horseman; new heads/ step (pushes heads/<skin>.glb when present, writes head.txt=auto).
+- Headset state: genuine Tribe since 17:20 (Dino session's re-seed, waiting on the user's login). Agreed order after the
+  login: Dino part B -> its paks -> club3 -> club files -> ping tribe-hack-81 -> install -r head1 + push horseman/heads
+  (fallback: install -r club3). reseed.sh MOD= becomes head1 only once it is verified on the device.
+
+## The evening of 2026-10-09: re-seeds, the user's test, then stage v14 (walkways + darker), staged only
+- Re-seed #1 (official login via remote launch + the user's two dialog clicks) then: the user tapped RESTORE on Meta's
+  "Restore App" dialog → the mod, tribemod and both OBBs were deleted (19:20:26 deletePackageX) and the store installed
+  the official Tribe. Then the battery died (reboot). Re-seed #2 at 22:17 in the new boot (the official login must be
+  in the SAME boot as part B). Lesson for the user: on that dialog, Close, never Restore; keep the headset on a charger
+  (the PC's USB port charges slower than VR drains: 21% → 7% in ~15 min).
+- Remote-driving the login: adb can wake the headset (prox_close broadcast) and launch Tribe, but once the immersive app
+  starts, a full-screen VoidActivity covers the 2D dialogs, so `input tap` can't reach the mic prompt or the
+  "Restore App" dialog. The user must click in the headset. The genuine dialog's buttons: Restore / Close (no
+  "Open"); Close on a cached first launch drops the launch, so launch again.
+- The user's test (club3 + v13 + the club's v5): "looks pretty good!". 72 fps on all three stages after the post-boot
+  warm-up (38→52 fps in the first minute). Bass/hits/variants confirmed per song in the log. Their "i was able to
+  actually walk for a sec" on the Dino was a club.cpp stage-switch race (fixed by the club session: walking only on the
+  stage whose own map is loaded).
+- Stage v14 (chunk 50 md5 3bde75e1, 126,777,339 B; TribeUE/Meta/verify/paks/pakchunk50_v14.pak):
+  - walkways (dino_stage.WALKWAYS): A x 9.1..10.6 and B x 15.5..16.7, each 8 risers of 0.1875 m on 0.3 m treads from the
+    deck edge into the pit, handrails, and a gate in the barrier;
+  - darker (the user: "it still needs to be darker on stage and in the crowd i think"): dino_materials.NIGHT_GAIN 0.6
+    on show_light (the set, the crowd), and baseColorFactor 0.6 on the field + festival-grounds MICs (verified: the
+    glTFRuntime unlit parent is factor x texture into emissive).
+- Walking map (Scripts/Blender/dino_walk: extract.py → dino_collide.py; staged backup/dino_pending/dino_collide.txt
+  f6500d98): floors exact from dino_stage.py, walls from a body-height raster of the export (per-object boxes, 317),
+  all 4446 dancers as soft people, `spot decks` at the DJ. Needs the club's raised limits (club_collide.h 83ab550e:
+  CC_MAXP 4608, CC_MAXB 512, person grid; club.cpp 971a4293: 512 KB read buffer). My Python walk under the club's rules:
+  PASS (both walkways). The club's C++ test 52ba3c1c: 556,744 states, 0 stuck. Gotcha: float seams between treads
+  (-509.99999999999994 vs -510.00000000000006) opened gaps only in the offline walk; it now rounds like the file.
+- Hook source dumper.cpp 5c08eaf6 (not built into an APK yet): the show-bus lookup by the active stage's folder (dino /
+  club / halloween → MPC_HwShow for the Halloween session's music-driven lasers). dumper.cpp also carries the
+  character session's head.cpp lines (since 18:32) — keep them, like the club's.
+- The other stages: the club session reports Reactor's lasers/lights already song-driven (laser_show unchanged); my v12
+  scene masks left Reactor dark in 86/256 bars (their families ≠ the Dino's) → they remap their copies (stage v6,
+  pending). They take the moving-heads contract for Reactor v7. The Halloween session is building Graveyard Shift's
+  lasers on laser_show with MPC_HwShow.
+
+### 2026-10-10: Graveyard Shift's stream intro, the mod side (built, compile-checked; NOT packaged or installed)
+[observed: MSVC host tests, NDK compile; the Halloween session wrote the spec and the stage files]
+- The user's design (relayed by the Halloween session, then "Ok go ahead"): the stream camera follows the Headless
+  Horseman through woods behind the stage; a crypt button under the screen, 3 presses: 1 pre-show (dark, door shuts,
+  the ride loop), 2 he takes the exit, 3 showtime ("the venue gets dark, starts the visuals ... the button is mapped to
+  the play button on that deck"). Their picks: queue press 3 until the camera holds; the deck sitting at its cue point
+  plays and any other playing deck stops; one intro per stage load; set the capture FOV for the intro and restore it.
+- Files: hook/intro_ride.h (engine-free: the intro file + a Hermite spline with Catmull-Rom tangents on the time knots;
+  the exit leaves along the loop's seam tangent, so both branches share it and the branch has no kink) and hook/intro.cpp
+  (the state machine, the button, the rider and woods actors, IntroStep / DoorOpen on the show bus, Tribe's
+  BackdropMediaPlayer rewind/pause/play, the deck calls, the FOV, and the deck capture). dumper.cpp 15a0a14b: globals
+  g_introCam/Armed/Dark + g_introP/A before drone_update (the intro flies the drone's camera through its takeoff and
+  landing; the reel pauses), drone_poll resolves the camera while an intro is armed (a miss logged once a minute),
+  giant_tick holds ShowLevel 0 while g_introDark, `#include "intro.cpp"` after club.cpp, intro_tick after club_tick,
+  intro_lookup in env_menu_poll, deck_log_pe in repl_pe, the log_deck toggle in the poll loop. 7 warnings before and
+  after (all old).
+- On the headset: tribemod/intro.<folder>.txt (Graveyard: intro.halloween.txt = the Halloween session's hw_intro.txt)
+  and tribemod/intro_deck.txt ("play deck:<Function>" / "stop ..." or "button:<Function>", params name=value), written
+  after the deck capture: create tribemod/log_deck, press Play then Pause on a deck, read the [DECK] lines (each call
+  into BP_Deck_C / its buttons / its audio player with its parameters). Without intro_deck.txt, showtime leaves the
+  decks alone and says so.
+- Checks: tests/intro_ride_test.cpp (MSVC) against hw_intro_path's preview math: rider <= 4.6 cm, yaw <= 5.9 deg,
+  camera <= 40 cm, aim <= 59 cm with 0.5 s keys (0.25 s keys: 3.1 cm, 3.5 deg, 35 / 37 cm); speed 5.96-6.04 m/s on the
+  loop. The club's tests/club_collide_test.cpp built with MSVC on the PC passes halloween_collide.txt: 58,479 states
+  from the decks, 0 with no way back (= my Python walk from backstage). Host builds: scratchpad msvc.bat (vcvars64 + cl).
+- Review fixes found on the way (Halloween's side, fixed): a 75.8 deg snap where the exit left the loop, and 2 s keys
+  (29 cm off the preview, the speed wandering 5.56-6.19 m/s).
+- Next, in the push window with the user: package the APK from this tree (+ club.cpp 971a4293, head.cpp a3031f32),
+  install -r, push intro.halloween.txt + the Halloween v4 pak (theirs), run the deck capture, write intro_deck.txt.
+- The walk cycle on the avatar's legs (same day; the user, after hearing the avatar glides while the stick walks: "my
+  arms are already tracked so we don't need to add that. Im more concerned about the legs moving"). Body tracking
+  poses the legs from the user's real legs, which stand still while club.cpp's stick moves VROrigin (derived, not
+  watched on device). hook/gait.h (engine-free) + a2_gait in dumper.cpp (0ce94ad3), called in a2_drive before the
+  first FK: VROrigin's (= the meshes' parent g_trackParent) world motion gives the speed; jumps over 10 m/s, frames
+  with a snap turn (yaw step > 2 deg) and vertical moves don't count. A phase advances by distance / stride (stride =
+  4 L sin(max hip), L = the rig's thigh + shin); per leg the thigh turns about the tracked hips' left-right axis: in
+  stance L sin(hip) ramps linearly (the planted foot stays put), in swing it returns on a cosine while the knee bends
+  (50 deg) and the foot stays nearer level; the hips dip (60% of the drop) so the planted foot stays near the floor
+  (a2_fk adds g_gaitHipOff). Backwards walking runs it in reverse. Blend: full from 60 cm/s, in/out tau 0.1 s.
+  Arms, spine and head untouched. The A2 live log line ends "gait w .. cm/s fwd|back leg .. cm".
+- tests/gait_test.cpp (MSVC, two-leg chain): at 180 cm/s 1.17 cycles/s (stride says 1.18), a planted ankle slides
+  0.3 cm (a plain sine swing skated 66 cm: why stance is linear), the lower ankle within 2.1 cm of the floor, the
+  swing ankle up to 22.6 cm, backwards reverses, teleport / snap turn / lift ignored, back to tracking ~0.3 s.
+  Tuning by eye (selfie camera) waits for the headset session, with the deck capture.
+- Combined APK for the next headset session (the character session's request: one install instead of head1 + mine):
+  out/hookA/combo1.aligned.apk, 112,119,023 B, md5 8903d10b797e008d8fd6a75c1a7df619, cert SHA-256 979d63d7…, from
+  menu.apk + libhook_combo1.so (384,016 B; dumper.cpp d4f4f80f with obj_alive guards on the per-frame calls in
+  a2_gait / intro, head.cpp a3031f32, club.cpp 971a4293, club_collide.h 83ab550e, intro.cpp 3f8f77dc). NOT installed.
+  Agreed: whichever session gets the user's "go" installs it (install -r) and tells the other; reseed.sh MOD follows
+  the last build verified on the device.
+- PUSH WINDOW 2026-10-10 08:41-08:46 (the user: "Ok go ahead"). Tribe force-stopped at 08:41:43 at the user's prompt
+  (headset asleep, 90% on USB). The Halloween watcher pushed v4 (chunk 54 b3ce58e0) at 08:44:02. Then:
+  - combo1 installed 08:43:39 (install -r; installed base.apk md5 8903d10b = the file; firstInstallTime still
+    2026-10-09 22:17:43, data and OBBs kept);
+  - stage v14b pushed 08:44:57 with push_obb.sh (Saved/ModPak/pakchunk50-Android_ASTC_P.pak 87ec24ba): live OBB md5
+    7151057a = chunk 50 87ec24ba, 53 7420a9fc, 54 b3ce58e0, 55 7ccef713 (the club's v5, unchanged);
+  - tribemod: dino_collide.txt f6500d98, intro.halloween.txt a076dc93, halloween_collide.txt 2058287d,
+    drone_path.halloween.txt 6c1e0daf (each via /data/local/tmp + cp + chmod 666).
+  Not yet launched. Pending with the user in the headset: the deck capture (log_deck), the walk tuning, the
+  character session's horseman test, the Graveyard intro; the club's v7 (chunk 55 793294ce) waits on the user's OK.
+  - 08:47:22, the user: "Yes let's get everything pushed": the club's v7 (chunk 55 793294ce, D:/TribeUE/MetaClub/.../v7)
+    pushed with push_obb.sh. Live OBB md5 db9445bc = 50 87ec24ba, 53 7420a9fc, 54 b3ce58e0, 55 793294ce. Fallback v6
+    1993790953ed. Everything staged is now on the headset; what's left needs the user in it.
+
+### Session 3o addendum 2 (character session, 2026-10-10) — detachable head DEVICE-VERIFIED on combo1
+- Build: the Dino session's combo1 (out/hookA/combo1.aligned.apk, md5 8903d10b; = song13 + club + head.cpp a3031f32 +
+  giant_lookup + intro + gait), installed 08:43:39 with install -r. head1.aligned.apk was never installed (obsolete).
+- Launch 16:19:55 (pid 23270): "[HEAD] resolved" at +6 s (LoadStaticMesh, StaticMeshComponent, SetStaticMesh, setWorld,
+  socketXf all found); head.txt read as mode=auto fwd=+y up=+z; skullbuck auto-loaded -> "no heads/skullbuck.glb ->
+  feature off" (skullbuck stays plain, as decided).
+- Horseman picked 16:20:42: "loaded heads/horseman.glb -> UStaticMesh (materials on)", "static head component ... scale
+  1.060, hidden until takeoff", "rig ok: DH_C/DH_F/DH_U = bones 8/9/10", front/up axes 10.6 cm (= 10 cm x 1.06). A second
+  pick at 16:20:48 did a clean "dropped the static head (skin loaded)" + reload. The first rig-ok's "socket read 47.4 cm
+  off the FK" was a first-frame transient (the re-pick read 0.9 cm); it is diagnostic only, placement uses the FK.
+- Cycle 1 (seated; HMD 115 cm above the floor, head on the rig 111 cm): TAKEOFF 16:21:27 -> ORBIT 15 s -> BOO 16:21:36
+  ("boo done" 16:21:40) -> RETURN 16:21:43 -> ON 16:21:45. Cycle 2 (standing, head 172 cm): TAKEOFF 16:22:07 -> ORBIT 23 s
+  -> boo done 16:22:24 -> RETURN 16:22:31 -> ON 16:22:33. No crash signatures; A2 live dt 0.011-0.017 s before and during.
+- The BOO targets the selfie-stick camera wherever it is: during the reel's wide shot (cam at (0,-4372,1537)) the pumpkin
+  darted ~35 m to the lens in 1.5 s, held 2.5 s, came back. Keep the camera near the rider if an intro wants a close boo.
+- Still to verify by eye (the log can't): the pumpkin's facing (fix: head.txt fwd=/up=, no rebuild), the neck stump, the
+  emissive glow. Log capture: %TEMP%\claude\head\head_test.log (adb logcat -s TRIBEMOD:V DEBUG:I AndroidRuntime:E).
+- reseed.sh MOD= -> combo1 is the Dino session's edit (it owns re-seeds); agreed 2026-10-10.
+- 2026-10-10 (after the verification): head.cpp gained two head.txt knobs, both for the stream-intro / drone-reel overlap
+  (the pumpkin had darted 35 m to a wide drone shot; the Graveyard intro's camera sits 80-130 m out in the woods):
+  `boomax=<metres>` (default 12, 0 = any distance): a boo that is due while the lens is farther than that from the hips
+  WAITS ("[HEAD] boo waiting: ...") and fires if the camera comes within range before the orbit ends, else "[HEAD] boo
+  skipped this flight" at RETURN. `intro=hold` (default) | `free`: with hold there is no auto takeoff while the intro owns
+  the camera (g_introCam from intro.cpp, press 1 -> hand-back at showtime; "[HEAD] auto takeoff held" / "the intro handed
+  the camera back: next auto takeoff in N s", the 20-40 s countdown restarting at the hand-back); a flight already in the
+  air finishes; off/boo in head.txt still work. Compile-checked from the tree (0 errors, the 7 old warnings). Takes effect
+  in the NEXT hook build: combo1 on the headset still boos at any distance and flies during intros (head.txt `on` is the
+  manual stop until then).
+- 2026-10-10 16:4x, the user (via the Dino chat): "for the pumpkin head, uh i might not want it to come off my head as often,
+  its kind of distracting. like once every 10 minutes or something". head.txt `every=<seconds>` (default 600, +-20 % jitter
+  = 8-12 min, floor 10, cap 86400) now sets the ON gap in all three places (after a skin load, after each RETURN, and at the
+  intro's hand-back); the orbit (15-25 s, one boo) is unchanged. No head.txt edit needed on the headset (the default is in
+  the source); `every=120` for a quick test. head.cpp md5 fbde3601, compile-checked against dumper.cpp 2616d9fc (0 errors,
+  the 7 old warnings). Hand-off: the Dino session builds the next APK from the tree and the user says when to install it.
+- 2026-10-10 ~17:1x, the user (via the Dino chat): "the one on the avatar sitting on the shoulders. its basically sitting on
+  top of the collar of the coat. i want it lower so that the collar is like halfway up the sides of the pumpkin head. so it
+  looks normal basically". Cause: the pumpkin centre (PC_Z 0.665) was at the avatar's eye line with its bottom 3.7 cm below
+  the collar top (0.585), where the pumpkin (r 0.11 there) was as wide as the collar (neck_r 0.084 + 0.048) -> the rim just
+  touched it. Fix in scripts/horseman_build.py: PC_Z 0.60 (6.5 cm lower, the equator 1.5 cm above the collar top) and the
+  collar flared into a cowl (+0.05 at the top, ~0.17 r) with every collar ring clamped >= pumpkin radius + 1.2 cm after the
+  ring smoothing (which had pulled it 3.5 mm inside). The DH bones follow PC (DH_C in Head space 0.101 -> 0.036 up);
+  heads/horseman.glb is unchanged (static copy, origin at the centre). Old skin kept as backup/skins/horseman_v1_pumpkin_high.glb;
+  new skins/horseman.glb md5 9b3d6c74 pushed to tribemod/skins/ (needs a re-pick of the Horseman; no hook rebuild).
+  render_skin.py now also renders head_front/head_side/head_front34 close-ups.
+- Seen twice (16:20:44: 47.4 cm; 17:54:01: 93.5 cm): the FIRST "rig ok" after a fresh skin load reports a large
+  socket-vs-FK gap, and the next load seconds later reads ~1 cm. Diagnostic only (placement uses the FK, and takeoffs come
+  minutes later when both agree), but if a takeoff ever starts away from the neck, look at head_A_xform / the FK capture
+  being stale on the first tick after the component is created.
+- 17:54 the user picked the Horseman on combo2 ("first takeoff in 675 s"); the headset slept from 17:57:48 to 19:50:19
+  and the head took off at 19:50:19, one second after the resume, because the countdown ran on the wall clock (addendum 3
+  below). So the 10-min cadence's first flight WAS observed (TAKEOFF -> ORBIT 18 s, cut short when the user quit Tribe
+  9 s in), but it came at the wrong moment. The lowered pumpkin + cowl still need the user's eyes.
+
+### 2026-10-10 afternoon (Dino session): combo1 verified on the device; combo2 built
+- combo1's first launch 16:19:55 (pid 23270) passed every log check: Dino [GIANT] ready + walking map dino_collide.txt
+  (25 floors, 317 boxes, 4446 people); Graveyard [GIANT] show bus 19/19, halloween_collide.txt (11 floors, 32 boxes) and
+  "[INTRO] ready on this stage"; the A2 line's gait w reached 1.00 at 180 cm/s while the user stick-walked Graveyard
+  (floors 0, -40, -100, through the crypt-door gap). Intro press 1 at 16:22:43 ran the pre-show. reseed.sh MOD= is now
+  combo1 (club3 2d2ad182 noted as the build before it). tribemod/log_deck on since 16:23:01; no Play/Pause captured yet.
+- combo2: out/hookA/combo2.aligned.apk, 112,119,023 B, md5 8e72019bac75eedd43b712bbec08c8e8, cert SHA-256 979d63d7…,
+  from menu.apk + libhook_combo2.so (385,800 B, md5 9bf8fe9c; 0 errors, the 7 old warnings): dumper.cpp 2616d9fc
+  (= d4f4f80f + a comment: head.cpp reads g_introCam, keep it declared above #include "head.cpp"), head.cpp fbde3601
+  (every= 600 s +-20 %, boomax waits, intro=hold), club.cpp 971a4293, club_collide.h 83ab550e, intro.cpp 3f8f77dc,
+  intro_ride.h 6c711050, gait.h ea05eff4. INSTALLED 16:43:29 (install -r, on the user's "ok go ahead"; base.apk 8e72019b,
+  firstInstallTime unchanged, patch OBB 2e5915c7 intact, tribemod kept).
+  After it runs: check the character session's head lines, then reseed.sh MOD=combo2.
+
+### Session 3o addendum 3 (character session, 2026-10-10 evening) — the head timer now counts PLAY time (combo3 built, NOT installed)
+- Bug (the Dino session's catch, confirmed from my own capture, logcat pid 55303): the countdown ran on CLOCK_MONOTONIC,
+  which keeps counting while the headset sleeps and Tribe is paused. 17:54:10 rig ok "first takeoff in 675 s"; the last
+  mod line before the nap was 17:57:48; the first line after it was 19:50:19.208 "[HEAD] TAKEOFF (auto)". fallbackTicks
+  went 125820 -> 126000 across the whole gap (180 frames, ~2.5 s at 72 fps): our actor does not tick while the headset
+  sleeps. About 220 s of play had passed, 455 s short of the countdown. Effect: any break longer than the remaining gap
+  ended with the pumpkin flying off the moment the user was back, the opposite of "once every 10 minutes".
+- Fix, hook/head.cpp (md5 6bfa9ead; nothing else in hook/ touched): hd_now() now returns a play clock, g_hdClock = the sum
+  of each accepted tick's dt (added after the existing dt<=0||dt>0.25 filter, so a resume frame with a huge dt adds
+  nothing). Every state uses it: the ON countdown, TAKEOFF/ORBIT/BOO/RETURN phase times, g_hdBooAt, the intro hold's
+  restart, head_force_on. The wall clock survives as hd_real(), used only to detect a pause (5 s+ between ticks,
+  accumulated) and for the 10 s "can't create the static head" log throttle. When ticks come back at frame rate the pause
+  is reported once: "[HEAD] Tribe was paused N s (headset asleep?): the head's clock stood still; next auto takeoff in
+  M s of play" (or "the ORBIT goes on" / "mode on"). The rig-ok, hand-back and ON lines now say "... s of play"; the
+  "[HEAD] head.txt: ..." summary line is unchanged. every= therefore means seconds of play, which is what the user asked for.
+- combo3: out/hookA/combo3.aligned.apk, 112,119,023 B, md5 a156adfcbc56798894d69f927d257297, cert SHA-256 979d63d7…
+  (CN=Tribe Mod), from menu.apk + libhook_combo3.so (386,848 B, md5 8a5b3209; 0 errors, the 7 old warnings), compiled
+  against combo2's unchanged tree (dumper.cpp 2616d9fc, club.cpp 971a4293, intro.cpp 3f8f77dc, gait.h ea05eff4,
+  intro_ride.h 6c711050, club_collide.h 83ab550e; every hook/ mtime predates combo2's 16:38 libhook.so). Staged in my
+  scratchpad, so out/hookA/stage still holds combo2's libhook.so; the libhook.so extracted from the signed APK is the new
+  build (md5 8a5b3209, carries "Tribe was paused"). All three combo APKs are 112,119,023 B because apksigner pads the
+  signing block to 4 KB. NOT INSTALLED: needs the user's go; whoever installs it (adb install -r) sets reseed.sh
+  MOD=combo3. Device at 20:00: asleep, Tribe not running, combo2 (16:43:29) installed. The Dino session has the md5 and
+  rebuilt the hook from the same sources independently: byte-identical libhook.so (386,848 B, md5 8a5b3209), same 7 old
+  warnings, and it read the play-clock code without finding anything wrong. Install protocol (agreed 20:10): whoever gets
+  the user's go runs adb install -r, sets reseed.sh:25 MOD=out/hookA/combo3.aligned.apk (combo2 moves into the "builds
+  before it" comment) and tells the other session. Graveyard v6 went live at 20:03:57 (Halloween session); Tribe closed.
+- 20:13 the user said "install" in the Dino chat and that session took the install; but the headset dropped off adb at
+  about 20:13 (no device listed; its adb wait-for-device has been waiting since 20:13:59) and had not returned by 23:31,
+  so combo3 is STILL NOT INSTALLED at that time (combo2 16:43:29 live, Tribe closed since 19:50:28). My old logcat capture
+  died with the connection; a watcher (scratchpad combo3/watch_first_launch.sh, 12 h horizon) restarts a read-only capture
+  into $TEMP/claude/head/head_test.log when the device is back and reports the next launch's [HEAD] lines.
+- 2026-10-11 02:30 (Dino session): still off adb (since 20:11 on 10-10); its guarded auto-install waited 21:30-22:29 and
+  22:30-02:30 and has STOPPED waiting. It installs combo3 when the user says the headset is plugged in, then posts the
+  lastUpdateTime. Until then every Tribe launch is combo2: its rig-ok line says "first takeoff in N s" WITHOUT "of play".
+- 2026-10-11 16:37:33 combo3 INSTALLED by the new Dino session (tribe-hack-b4; the headset came back on adb at ~16:35,
+  install -r on the user's go from the night before). Verified from this session by a second route: on-device
+  md5sum of base.apk = a156adfcbc56798894d69f927d257297, lastUpdateTime=2026-10-11 16:37:33, firstInstallTime still
+  2026-10-09 22:17:43 (Meta auth intact), reseed.sh:25 MOD=out/hookA/combo3.aligned.apk. Tribe not launched yet; my
+  read-only capture (adb logcat -T 1 -s TRIBEMOD:V, pid 14113, appending to $TEMP/claude/head/head_test.log) and the
+  watcher are waiting for the first rig-ok line, which must end in "s of play".
+- Verify once installed: with the Horseman on, take a break of a minute or more -> on the resume expect the "Tribe was
+  paused" line and NO TAKEOFF within seconds; flights should come 8-12 min of play apart ("first takeoff in N s of play",
+  N in 480-720).
+- 2026-10-11 19:14:27 FIRST LAUNCH UNDER combo3 CONFIRMED from the capture: "[HEAD] rig ok: DH_C/DH_F/DH_U = bones 8/9/10
+  ... first takeoff in 668 s of play (mode auto)" (combo2's line had no "of play"); head.txt summary unchanged (mode=auto
+  fwd=+y up=+z boomax=12 m intro=hold every=600 s). Tribe was started twice that evening: pid 24677 at 19:13:25 (unofficial-
+  app dialog dismissed 19:13:23, head loaded 19:13:43, avatar spawned, last line "A2 resolve: align" 19:13:54.28) and pid
+  25405 at 19:13:56. The first was NOT a hook crash: the system log shows the vrshell focus placeholder at 19:13:52.97, the
+  Home overlay (OVERLAY_LAUNCHER) at 19:13:54.60, the GameActivity finished at 19:13:54.66, "Process com.TribeXR.TribeXR
+  (pid 24677) has died: cch+5 CEM" at 19:13:55.20 (died as a cached process after its activity was finished), the launcher
+  START of Tribe at 19:13:56.64; no tombstone, empty crash buffer, no dropbox entry tonight. So it was closed through the
+  headset's system menu and relaunched 2 s later (the shell does not log which button). Still pending: the nap test (the
+  "Tribe was paused" line, no TAKEOFF seconds after a resume) and flights 8-12 min of play apart; watcher
+  scratchpad combo3/watch_first_flight.sh (4 h) reports the first TAKEOFF / pause line / relaunch.
+- 19:27:57.9 FIRST FLIGHT ON THE PLAY CLOCK, from the capture: 19:15:17 "auto takeoff held: the stage intro owns the stream
+  camera" (Graveyard intro), 19:16:49.913 "the intro handed the camera back: next auto takeoff in 668 s of play",
+  19:27:57.915 "TAKEOFF (auto)" = 668.002 s later (play clock == wall clock while playing, as it should), ORBIT 22 s, boo
+  waited (camera 47 m) then "boo skipped this flight: the selfie-stick camera stayed 13 m away (boomax 12 m)", RETURN,
+  19:28:22 "ON: head back on the neck (next takeoff in 586 s of play when auto)". Everything as designed; only the nap test
+  is left. Watcher scratchpad combo3/watch_nap.sh (4 h) wakes on a "Tribe was paused" line, a relaunch/head.txt change, a
+  head error, or a TAKEOFF earlier than announced (late = normal after a nap); on-time flights are only logged.
+
+### Session 3o addendum 4 (character session, 2026-10-11 evening) — Horseman v3: the cowl opens at the front
+- ~19:55 the user, from the headset via the Dino chat: "The front of the collar for the face of the pumpkin needs to be
+  exposed - currently the collar is covering the front half of the face" (everything else about the head "looked great").
+  Cause: v2's cowl rim sat at z 0.585 all round with r ~0.17 (wider than the pumpkin), and the mouth spans z 0.544-0.578
+  and +-52 deg of azimuth (from pumpkin_tex: mouth v 0.34-0.44, u 0.25 +- 0.145), so the rim hid the mouth and nose.
+- Fix in scripts/horseman_build.py (loft() now takes per-vertex ring heights): each collar ring keeps v2's height and
+  radius at the back and sides but dips to the collar base across the front, z_k = Z_COLLAR0 + (z - Z_COLLAR0) * g with
+  g = smoothstep(38 deg, 100 deg, angle from the front) floored at 0.08; the radius is recomputed for the lowered height
+  (flare + the pumpkin clearance) and blended into the smoothed v2 ring by g. Build log: front rim z 0.5064 r 0.133 (inside
+  the pumpkin's 0.15 silhouette, so it hides behind the chin head-on), side (90 deg) z 0.5706, back z 0.58 r 0.171,
+  clearance min 0.0 (ok). Rendered (render_skin.py under the GPU lock, 6 s): full face visible head-on, cowl points rise at
+  the sides behind the pumpkin, side view shows the rim swooping down to the chin.
+- Files: skins/horseman.glb = v3, md5 a04620a1b2b8 (5,284,428 B); v2 kept as backup/skins/horseman_v2_cowl_closed_front.glb
+  (9b3d6c74); heads/horseman.glb untouched (ed59d303; the build's static head is not used). NOT YET ON THE HEADSET: the
+  push at 20:06 found the headset off adb (the capture pid 14113 died with it; the last mod line is 19:42:44 "body gone ->
+  keeper OFF", i.e. Tribe was left at 19:42). scratchpad horseman_v3/watch_return.sh (12 h) restarts the read-only capture
+  and pushes + md5-verifies the skin when the headset is back; then the user re-picks the Horseman (no hook rebuild).
+- PUSHED 2026-10-12 09:01:08: the headset came back on adb at 09:01:07 and watch_return.sh (re-armed overnight with a 48 h
+  cap after the nap watcher's 4 h cap ran out at 23:30 with nothing to see) staged + copied skins/horseman.glb; on-device md5
+  a04620a1b2b8fe2dcea728c290b32777 verified, active_skin.txt = horseman.glb, Tribe NOT running (pidof empty), so the next
+  launch loads v3 by itself (a re-pick is only needed if Tribe was already up). Read-only capture restarted (pid 14311,
+  appending to the head log); combo3/watch_nap.sh (48 h cap, from byte 1829275) is tailing it for the nap test. Dino session
+  told (msg fe0aae29). Still unseen by the user: the open cowl, the neck stump, the emissive glow.
+
+## The .usmap dump: Tribe's type mappings, so its cooked assets read offline (2026-10-26)
+- Why: the user asked whether we have every deck function and the decks' design. We had names only (the live object
+  dump), no logic: Tribe's paks are cooked unversioned, and without a .usmap UAssetAPI leaves every export raw (Phase 3,
+  Sep 29). The Sep 29 roadmap put a usmap dump first; it was never built until now.
+- Built: hook/usmap.cpp + hook/usmap_writer.h, one-shot on tribemod/usmap_now (may exist before launch: it waits for the
+  engine objects and BP_Deck_C, or 120 s), writes tribemod/TribeXR.usmap + usmap_log.txt. Format v4 (ExplicitEnumValues),
+  uncompressed, checked against CUE4Parse UsmapParser.cs, UAssetAPI Usmap.cs and Dumper-7 MappingGenerator.cpp. Every
+  loaded class and struct (functions skipped) with its own properties in ChildProperties order, supers written first;
+  enum entries bare ("X", not "EAxis::X"). Layout checks run before writing; any rate under 98% = nothing written.
+- Layout measured on 35,135 properties (all 100% unless noted): ArrayDim@0x2C (35,062 == 1), ElementSize@0x30 (17,572 of
+  the Int/Float/Double/Name/Object/Str/Array ones), sizeof(FProperty) 0x70, FArrayProperty::Inner@0x78 (not 0x70: a flags
+  field comes first), Map key/value@0x70/0x78, Set element@0x70, Enum underlying/UEnum@0x70/0x78, Struct@0x70, Byte's
+  UEnum (or null)@0x70, Optional@0x70 (1 seen).
+- Desktop test first: tests/usmap_test.cpp (MSVC) writes every property kind through the same writer; scripts/uasset_tool
+  (dotnet, UAssetAPI 1.1.0 from the NuGet cache) reads it back identically. UAssetAPI decodes usmap names as ASCII
+  (CUE4Parse: UTF-8); Tribe has no non-ASCII names, so it doesn't matter here.
+- combo13 = combo12 + the dump. Today's sources first rebuilt byte-identical to libhook_combo12 (4744f53f). combo13: lib
+  1f2391dc, APK c5f6c308, same cert as combo12 (979d63d7), 751 of 752 entries identical. Installed 2026-10-26 22:20:00
+  over combo12 (verified md5 46babf9f before; Tribe had been up since 18:44 in the background, the install restarted it).
+  reseed.sh MOD=combo13 (combo12 noted as the fallback).
+- Run: launched 22:20:44, dumped 22:20:54 in 0.3 s: 48,600 objects, 8,589 classes and structs, 1,809 enums, 35,135
+  properties, 39,688 names, 1,390,942 B, every problem counter 0. Tribe stayed up (same pid, avatar follow running).
+  pulled/TribeXR.usmap md5 9f43c160 (same on the headset); log in logs/usmap_log_20261026.txt.
+- Result: repak 0.2.3 (~/.cargo/bin) unpacks Tribe's Oodle paks directly (pakchunk0 -> D:/TribeUE/tribe_paks, assets ->
+  D:/TribeUE/tribe_assets, JSON -> tribe_assets/json). Without -> with the usmap: BP_Deck 342 raw -> 0 raw, 329/329
+  functions decoded (the live dump also counts 329); BP_Console (mixer) 178 -> 0, 167/167; BP_JogWheel 58 -> 0, 51/51.
+  Content checks: CurrentPitch 1.0, ClientPlaybackSyncToleranceMs 360, Server_NetSyncPacket's 4 fields; the deck screen
+  at (-0.29, -13.70, 3.70) cm, pitch 15.2 deg, scale 0.145; GetIsPlaying = IsPlaying -> isPlaying -> return.
+- Gap: a Blueprint whose Blueprint parent wasn't loaded at dump time keeps its default object raw, e.g.
+  BP_BeatFXTypeKnob_V10 (parent BP_BeatFXTypeKnob_C isn't in the usmap); its functions and components still decode.
+  Unloaded parts with loaded parents parse fully (BP_JogWheel3000 23/23, BP_SlipButton 13/13). Fix: add schemas for every
+  Blueprint class from the paks' own ClassExports (offline), or dump again with each deck and mixer model loaded.
+- Use: adb shell touch $D/usmap_now (any time), then adb pull $D/TribeXR.usmap; read an asset with
+  scripts/uasset_tool/bin/Release/net8.0/uasset_tool.exe asset pulled/TribeXR.usmap <file.uasset> [out.json].
+
+## The deck catalog: every deck, mixer and control, from Tribe's own Blueprints (2026-10-26)
+- Asked for after the usmap: what every button, knob and screen on each deck and mixer does, and where it sits.
+  Result: claudedocs/deck_catalog.md (12 models, 448 spawned controls = 670 placed instances once mixer channels and
+  the FLX4's looped pads are expanded, 196 control classes, what the deck/mixer/rig engines do) and
+  claudedocs/deck_reference.md (every function of BP_Deck, BP_Console, BP_MixerChannelDevice, BP_BaseDeckControl,
+  BP_Rig with parameters and calls). Bulk outputs stay on D: (derived from Tribe's code): D:/TribeUE/tribe_assets/catalog/
+  code/ (280 Blueprints as pseudo-code), deck_catalog.json, inventory_before/after.tsv.
+- Pipeline: repak 0.2.3 `unpack -i TribeXR/Content/Equipment -i .../Visuals/Skins/Rig` (pakchunk0 only) ->
+  D:/TribeUE/tribe_assets/all; `uasset_tool augment` adds the Blueprint classes, user structs and enums the runtime dump
+  lacked, from their own ClassExports -> pulled/TribeXR_full.usmap (+139 classes/structs, +2 enums, every parent
+  resolved; reading and rewriting the original reproduces it byte for byte); inventory: 910 assets, 8,757 exports, 0
+  raw; `uasset_tool dump` -> 360 JSONs, 3,618 functions all through UAssetAPI's KismetSerializer;
+  scripts/kismet_print.py prints pseudo-code; scripts/deck_catalog.py builds the catalog. UAssetAPI also loads a
+  missing parent .uasset from disk when the Content folder layout is intact; the augmented usmap removes that need.
+- How Tribe builds gear: a model Blueprint on BP_Deck or BP_Console plus an ...Info class (menu name, store SKU
+  Equipment_*, width, preview). SpawnControls / SpawnChannel / RespawnPadButtons spawn control actors and hand them
+  Deck/Console + the model's mesh and material tables; "Setup Child Control" puts each on the bone its
+  DT_<ModelId>_ControlInfo row names (row = the control's GetUniqueControlName: ControlName + band/mode word + index
+  or _channel), else on the marker passed in. The DDJ-FLX4 shares one model id across 3 tables (_0 mixer, _1/_2 decks).
+- Positions: markers exact; bones from each Skeleton's reference pose (parsed from the native bytes after the Skeleton
+  export's properties: bone names/parents, then FTransforms as doubles). Bone vs marker for the same control agree on
+  the CDJ-3000 (4 of 5), Tribe CDJ (4/5) and DJM-NXS2 (16/17) at median < 0.2 cm; the Tribe Mixer's bones sit
+  (0, -1.18, -4.38) cm from its markers (14/15), so they are shifted; the CDJ-3000X's markers are stale (0/5), so its
+  bones are used as the game does.
+- Findings: hot cues: 8 buttons on the CDJ-3000 and CDJ-3000X, 3 on the Tribe CDJ, 8 pads on the FLX4, 4 pads on
+  the Starter CDJ; EQ band byte 0-4 = Low/LowMid/Mid/HighMid/High
+  (the V10 is 4-band); the APC40 is a Resolume controller (OSC, SetResolumeTempo); play/hot cues go out through
+  the pawn's Server_ functions and the deck's Multi_ ones; Tribe's "Smart Fader" matches tempo from the fader.
+- Not covered: how the gear looks (meshes/textures need FModel with the same usmap), the native code under the
+  Blueprints (Superpowered audio, the mesh component's table lookup, networking).
+
+## The gear models and the C++ (2026-10-26, late)
+- Models: scripts/mesh_export (CUE4Parse 1.2.2 + CUE4Parse-Conversion 1.2.1, the newest builds for .NET 8; 1.2.2.2026xx
+  need .NET 10) reads the loose files repak unpacked. Its root must be .../all/TribeXR (else it names the project after
+  the folder). It reads .usmap only up to version 3: `uasset_tool downgrade` writes pulled/TribeXR_full_v3.usmap (each
+  enum's names placed at their values; 10 bit-flag enums keep their order). Output in D:/TribeUE/tribe_models (589 MB):
+  13 gear meshes (Equipment/Models/SkeletalMeshes, with textures), 144 control and part meshes, 221 PNGs (24 deck
+  skins), 44 material JSONs. Export the gear with --materials and the rest with --no-materials: control meshes share
+  their model's 2048x4096 atlases, and re-decoding those per mesh took over an hour (now ~7 min). One texture
+  (PF_ETC2_R11_EAC) doesn't decode. Previews: scripts/render_gear.py (Eevee, under the GPU lock, 22 s); the glTF
+  importer's hidden 2 m bone-shape icosphere must not drive framing. claudedocs/gear_models.md + gear_models/ has the
+  contact sheet, sizes and the texture scheme (TextureA off, TextureB lit, Segments = the per-control light mask that
+  ElementIndex points into, Weights palette). The Tribe CDJ's texture is a photo of a Pioneer CDJ-2000.
+- Native dump: hook/native.cpp, one-shot on tribemod/native_now (its text may list packages; default /Script/TribeXR,
+  /Script/TribeIntonal, /Script/SuperPowered): per class its parent, size, the default object's vtable (CDO found by
+  class pointer + RF_ClassDefaultObject), every UFunction's flags, Func RVA and parameters, plus vtable-only records
+  of the engine parents so overrides can be diffed. combo14 (1c752376, installed 23:12) was replaced before any launch
+  by combo15 (c0514d11, lib bf47c27b, installed 23:27; reseed MOD=combo15, first launch NOT yet checked). The switch
+  is set; it waits for the user's launch. Pull: tribemod/native_dump.jsonl -> pulled/native_dump.jsonl.
+- Ghidra: the persistent project C:/ghidra-work/tribexr opens in ~40 s headless with an 8 GB heap (16 GB would take
+  nearly all free commit). Code: Ghidra address = runtime RVA + 0xFF000 (checked: ProcessEvent at 0x1957dd4 tests
+  FUNC_Native at +0xb1). Ready: scripts/native_prep.py (dump -> work list + classes.json), scripts/NativeDecomp.java
+  (exec thunk -> implementation by dropping the helpers most thunks call; renames FUN_ names to Class__execX /
+  Class__X / Class__vfuncN; one .c per class), scripts/native_reference.py (-> claudedocs/native_reference.md).
+  The test run named UObject__ProcessEvent and UObject__ProcessInternal in the project.
+- libacidsynth.so (SONAME libUE4.so) is Intonal-compiled DSP, not hand-written C++. Own project
+  C:/ghidra-work/acidsynth; all 162 functions in D:/TribeUE/tribe_native/libacidsynth.c; the generated core in
+  libacidsynth_core.c (call_root, the per-sample processing: 20,227 lines, 121 sinf / 32 powf / 16 cosf calls;
+  reset_root) and libacidsynth_core2.c (create_root, which needs DecompileOptions.setMaxPayloadMBytes); the 425 KB
+  write_to_float32_four_values_root doesn't decompile. Its controls are TribeIntonal's AcidSynthUniforms: beat width,
+  MIDI note offset, cutoff, resonance, env mod, decay, accent, waveform switch, lowpass attack, distortion amount and
+  tone, chorus rate and mix, echo time, feedback and mix, master gain: a TB-303-style voice into distortion, chorus
+  and echo.
+
+## The C++, read statically (2026-10-27, 03:15-04:10)
+
+- Why static: the 4 h watcher timed out at 03:12 without a Tribe launch. I didn't launch it over adb: a headless
+  `am start` crashes or never ticks (Session notes above), and Meta's launch dialog has the Restore button. Instead
+  scripts/NativeTables.java reads UE's own registration code in libUnreal.so (C:/ghidra-work/tribexr):
+  - GetPrivateStaticClassBody = Ghidra 0x17fba04 (the callee most often given a Tribe package literal in x0); 7,606
+    callers, 4,077 classes in 175 packages. Per call: x0 package, x1 name (UTF-16, +2 skips the U/A prefix), x3
+    StaticRegisterNatives<Class>, w4 sizeof; stack +8 InternalConstructor<T>, +32 Super::StaticClass.
+  - Native table: the call in StaticRegisterNatives that passes (FNameNativePtrPair table, count).
+  - Vtable: the last vtable constant InternalConstructor<T> (or the T::T it calls) stores into the object itself.
+- Result: 179 classes (TribeXR 130, TribeIntonal 32, SuperPowered 12, Beatport 2, TribeMIDI 1, AndroidVulkanVideo 1,
+  VulkanVideoMeshComponent 1) + 22 engine parents, 1,518 native functions, 872 overrides. Files:
+  D:/TribeUE/tribe_native/static/ (native_static.jsonl in the hook dump's format, work.tsv, classes.json,
+  slot_names.json); decompiled D:/TribeUE/tribe_native/classes/ (178 .c, 5.1 MB, 0 failures, ~1 min per run);
+  claudedocs/native_reference.md (generated; its summary section is claudedocs/native_summary.md, hand-written).
+- Checks, each by a second route: all 179 class names are in the runtime usmap; 372 of 374 Blueprint calls into Tribe
+  classes are in the tables (the other 2 are delegate signatures); all 179 parents equal the usmap's; every vtable
+  extends its parent's; the engine slot names (scripts/vtable_names.py, UE 5.4.4 headers + .generated.h) give all 22
+  parents' vtable lengths exactly, and UObject slot 78 = ProcessEvent (rva 0x1858dd4, the runtime-measured one).
+  AcidSynthUniformFuncs' 17 setters = libacidsynth's 17 uniforms.
+- Lessons:
+  - FlatProgramAPI.getReferencesTo stops at 4096 references; use ReferenceManager.getReferencesTo.
+  - StaticRegisterNatives inlines StaticClass(), so every class with natives registers twice; keep the call outside.
+  - A vtable read runs into the next table: FClassRegisterCompiledInInfo {Z_Construct_UClass_X, X::StaticClass,
+    TEXT("UX"), &Z_Registration_Info, ...} often sits right after a vtable, and its first two members are code. Stop
+    at a slot that something points at. Constructors also store helper objects' vtables: only accept stores into the
+    constructed object (param 0, or *param0 in InternalConstructor).
+  - Vtable layout from headers needs UHT's virtuals (Foo_Implementation / Foo_Validate for every RPC and
+    BlueprintNativeEvent, spliced in at GENERATED_BODY), the Itanium secondary-base rule (overriding an interface's
+    virtual takes a new primary slot), signature normalization (class/struct keywords, east/west const), and
+    UE_ALLOW_EXEC_COMMANDS=1 + UE_WITH_IRIS=1. Tribe is a Shipping build: Development macros miss 4 of 22.
+  - Git Bash + cmd: `cmd //c x.bat` works only without MSYS_NO_PATHCONV; with it set use `cmd /c`. Arguments like
+    /Script/TribeXR need MSYS_NO_PATHCONV=1 or they arrive as C:/Program Files/Git/Script/TribeXR.
+- Still open: the runtime dump adds parameters, flags and Blueprint-only events (combo15's tribemod/native_now is
+  still armed; combo15's first launch still unchecked). Then: pull native_dump.jsonl,
+  `native_prep.py pulled/native_dump.jsonl <work.tsv> <classes.json> D:/TribeUE/tribe_native/static/slot_names.json`,
+  NativeDecomp.java, native_reference.py with claudedocs/native_summary.md. Compare its func/vtable RVAs with
+  native_static.jsonl: they should be equal.
+- 2026-10-27 04:38 the runtime dump arrived (combo15's first launch: DONE, Tribe up, no crash; pulled/native_dump.jsonl
+  md5 95904c4a, logs/native_log_20261027.txt). Against the static read: 174 classes, parents and sizes all equal; all
+  1,496 native function addresses equal (4 names differ only in case: FNames keep the first-registered spelling);
+  its vtables run 2-3 entries past the end in 114 classes (hook/native.cpp reads until a non-code qword, so it reads
+  into the class registration record), so `native_prep.py ... --static native_static.jsonl` keeps the static
+  vtables and adds the 5 classes outside the dumped packages. Merged outputs: D:/TribeUE/tribe_native/runtime/
+  (work list = the static one; no re-decompile needed); claudedocs/native_reference.md now has every function's
+  signature and flags for TribeXR/TribeIntonal/SuperPowered, plus the 37 functions left to Blueprints.
+
+## Cue headphones, song selection and menus (2026-10-27, 04:45-05:20)
+
+- Unpacked more of pakchunk0 (repak -i TribeXR/Content/{Menus,Pawn,TrackManager,MusicServices,Audio,Waveform,
+  GameModes} -> D:/TribeUE/tribe_assets/all; last night's unpack had only Equipment + Visuals). Augmented usmap:
+  pulled/TribeXR_full2.usmap (+161 classes/structs, 0 parents missing; TribeXR_full.usmap left as it was). Dumped and
+  printed: Pawn 23 Blueprints / 478 functions, Menus 151 / 2,295, TrackManager 24 / 519, MusicServices 6 / 131,
+  Waveform 3, GameModes 10 (Audio = sound files only) -> D:/TribeUE/tribe_assets/{dump,catalog/code}.
+- Write-up: claudedocs/cue_tracks_menus.md. Key facts:
+  - Hand-to-ear: TribeControllers.TryToToggleHeadphoneWorn on a grab press with nothing grabbed: hand within 25 cm
+    (MaxHeadphoneWornToggleDistSquared 625) of a point 5 cm behind the camera; ear = side of the head (camera right
+    vector), VR input mode only -> TribePawnBP.ToggleVirtualHeadphones -> BP_Console.SetHeadphonesWorn(L, R) ->
+    SuperPoweredLibrary flags at module +0xB4/+0xB5.
+  - Output (module function Ghidra 0x47b5c30): main + cue buses; main split L/R into two spatialized virtual monitors
+    ((-500,0,170) and (500,0,170), gain 24; listener = camera); a worn ear gets the cue bus added and its monitor's
+    spatializer gets Headphone Isolation (module +0x134, the BP calls it Occlusion); isolation 1.0 removes the room
+    from that ear; then global volume (+0xB0) and the limiter; Split Mono (+0xC0) = mono main left, mono rest right.
+    Module layout: +0xB6 spatializer on, +0xB7.. limiter, +0xD0-0xF0 monitor positions, +0xF8-0x120 listener,
+    +0x128 monitor gain, +0x130 room.
+  - Track load: W_TrackOptions.AttemptTrackLoad -> TribePawnBP.LoadTrackToChannel (guest: Server_Load*ByFilename) ->
+    BP_Rig -> BP_Deck LoadTrack -> Multi_Open*ByName on every headset -> OpenCurrentTrack: own library, track packs,
+    own streaming account ("{StreamingService} service required..."), else RequestTrackTransfer.
+  - Menus: B/Y toggles the mini menu (Music, Equipment, Visuals, Social, Lessons, Demo Mix, Exit); main menu =
+    W_MainMenu on a 3D panel owned by the game state.
+
+## Menu catalog + the mixer's cue bus (2026-10-27, 05:20-06:00)
+
+- scripts/menu_catalog.py -> claudedocs/menu_catalog.md (+ D:/TribeUE/tribe_assets/catalog/menu_catalog.json): 162
+  widget Blueprints (Menus, TrackManager, MusicServices), 547 controls (480 labelled), 547 bound events (493 doing more
+  than restyling themselves). How:
+  - the widget tree comes from the WidgetTree's widget exports and their slot exports (Parent / Content);
+  - labels: text blocks inside the control, Tribe widgets' own text properties (TextLabel, ButtonText, Header),
+    string-table keys (Content/Localization/StringTables/*.csv, unpacked with repak; 686 entries), or for a
+    checkbox/slider the text block beside it;
+  - events: the class's ComponentDelegateBinding export (exact widget, delegate and function; BndEvt names alone
+    mislead: copied nodes keep another widget's name), plus `self.X.OnY += ...` bindings in the graph;
+  - "does": the calls reached from the event's ubergraph entry (jumps, both sides of branches, sequences), the
+    Blueprint's own functions and calls into other dumped Blueprints (by the variable's type) expanded a level;
+    cosmetic calls, redraws and getters filtered.
+  Checked by hand: Music -> BP_MiniMenu.OnMusicIconClicked -> W_MiniMenu.ToggleMusicPanel = SetActivePanel(TrackBrowser),
+  then the analytics event Menu_TrackBrowser. Every menu click sends a TribeAnalytics event; the mini menu's Record
+  button calls an empty ToggleRecordPanel.
+- The mixer's render (USuperPoweredMixer, Ghidra 0x47aeca8) read stage by stage. Order: input, mic, trim/comp,
+  [cue if PRE EQ], channel FX, EQ + filter, [cue if not PRE EQ], faders + crossfader (in place: cue is pre-fader),
+  beat/send FX, master sum, master filter/isolator, mic into master, headphone bus, outputs (FUN_047b1564: main =
+  master x balance x master level; headphones = headphone bus x LEVEL). Cue sum = FUN_047b0188: every channel with
+  cue byte +0x6F0+ch summed with three chained Superpowered stereo mixers (up to 10 channels). Headphone bus =
+  cue x clamp(1-MIX) + (MASTER CUE ? master x clamp(MIX+1) : 0). Fader/crossfader curve formulas and every control's
+  offset are in claudedocs/cue_tracks_menus.md "Inside the mixer".
+
+## Mixer effects + runtime menu labels (2026-10-27, 06:00-07:00)
+
+- claudedocs/mixer_effects.md: Color FX, send FX, Beat FX and mic FX read from the decompiled mixer. Units:
+  FUN_047a3448 (NXS2 colour FX: Space, Dub Echo, Sweep, Noise, Crush, Filter), FUN_047a4a1c (V10/A9: Filter,
+  Phantom Echo, Vaporize, Noise Chopper), FUN_047a42fc (sends: Dub Echo, Short/Long Delay, Reverb), FUN_047a7dd8
+  (Beat FX engine) with FUN_047a8580 (per-effect dispatch) and its parameter helpers FUN_047a8ee8..FUN_047aad8c,
+  FUN_047a5ad4 / FUN_047a64c8 (set type / parameter), FUN_047ab760 (mic FX, not read). Tables (Ghidra addresses):
+  0x89dbf0 colour FX insertion point per type (0 pre-EQ, 1 post-EQ, 2 post-fader); 0x89d748 per Beat FX type
+  {min/max interval index, min/max ms, trail flag} stride 0x20; 0x89dac8 interval -> beats (1/64..128, negative
+  for Mobius); 0x89d9e8 Reverb/Shimmer % table; 0x89da58 Pitch % table; exponent 0.8197 at 0x561238. Superpowered
+  classes recognised by constructor + field layout (Echo/Reverb ctor (samplerate, 96000); FX `enabled` byte at
+  +8). Not read: the sample loops of Tribe's own effect classes and the SDK's DSP; Shimmer, Slip Loop and Megaphone
+  have no case in the Beat FX engine; Vinyl Brake is not processed there.
+- Menu labels: scripts/menu_catalog.py now labels 546 of 547 controls. Sources, in order: text inside; the text
+  beside a checkbox/slider/dropdown; text set at run time (SetText / Set...Text / AddOption, with Array_Get from a
+  member array resolved to the class default's values, e.g. the sort dropdown's 8 options); list views' entry
+  class; icon textures (an Image's brush, a Tribe widget's ButtonImage, or the Button style's Normal brush; generic
+  backgrounds skipped); embedded panels; the widget's name split into words as the last, marked fallback.
+
+## Own VR DJ game: plan research (2026-10-27, morning)
+
+- claudedocs/vr_dj_game_plan.md: the plan (engine, audio, crowd stream, Quest scaling, online, phases 0-4 with
+  headset pass/fail tests, store, rights, risks, sources). Nothing built.
+- Superpowered can't be licensed for a new app: no new licences, prorated renewals only, operations end
+  2027-07-31 (superpowered.com/superpowered-farewell). Successor "Yuby" (Gabor Szanto): no public page or price;
+  contact him. The plan uses open parts instead: Signalsmith Stretch (MIT) or Bungee (MPL-2.0) for key lock, Oboe
+  for the DJ headset's output, Opus for the crowd stream (UE_5.4/Engine/Source/ThirdParty/libOpus exists, checked).
+- Tribe's DJ audio bypasses UE's audio (the -nosound probe above: two OpenSL ES players stayed up). In the plan only
+  the DJ's headset runs the deck engine; listeners play an Opus stream (128 kb/s; Xiph calls 128 VBR "pretty much
+  transparent") through UE audio, and light cues carry the stream's sample numbers.
+- Engine: Meta's compatibility matrix (2026-09-24) names fork tags like oculus-5.7.4-release-1.205.0; the fork needs
+  a source build (verified Meta dev account + linked Epic/GitHub), which a dedicated server needs anyway. UE 5.4 is
+  not on that page. This PC: i5-9400F 6 cores, 32 GB, GTX 1660 SUPER, D: 254 GB free, C: 135 GB.
+- Numbers in the plan were recomputed by script: 63.5 MB per 6-min 16-bit stereo track; 57.6 MB per listener-hour at
+  128 kb/s; near/far split (16 near at 40 B x 20 Hz, far at 8 B x 2 Hz) = 107 kb/s per headset and 5.3 Mb/s server
+  at 50 people, vs 255 Mb/s server at 200 people without the split. Packet sizes are assumptions.
+- Not found: Meta Horizon Store's current revenue share (only 2021-2022 reports of 30%).
+
+## Key lock CPU test on the Quest 3 (2026-10-27, 08:33)
+
+- scripts/keylock_bench.cpp + scripts/keylock_bench.sh. Signalsmith Stretch v1.3.2 (88061fd) + signalsmith-linear
+  0.6.6, both MIT, cloned to out/third_party/. Built with out/android-ndk-r26d clang++
+  --target=aarch64-linux-android29 -O3 -static-libstdc++ (695,856 B), run from /data/local/tmp over adb and deleted
+  after (checked). Log: logs/keylock_bench_20261027_083325.txt.
+- Setup: 4 stereo decks, 256-frame blocks at 48 kHz (5.33 ms), +8 % tempo, 20 s per run (3,750 blocks), pinned per
+  core. Tribe was open but the headset asleep, so FORCE=1. Cores ran at their top clocks: cpu2-5 2.36 GHz, cpu0-1
+  2.05 GHz.
+- Default preset (120 ms window / 30 ms hop, no split): average 7.4 % of a block on the fast cores, 8.7 % on the slow
+  ones; worst 48 % / 60 % (spikes every hop); 0 blocks over budget in any run.
+  - Split computation: worst 16-18 %, for +30 ms output latency (90 ms).
+  - Cheaper preset (100/40, split): average 5.3-6.1 %, worst 10-11 %.
+  - Custom 40/10 with split: average 7.4-8.6 %, worst 11-12 %, latency 20 ms in + 30 ms out.
+  - Ratio 0.92 costs the same as 1.08.
+- Correction to the plan's first draft: D:\MetaUE54 is already a source build of Meta's 5.4.4 fork (Build.version:
+  Partner-Oculus-UE5, 5.4.4). So no account linking and no first source build are needed. libOpus is in its
+  ThirdParty folder too.
+
+## Key lock listening test (2026-10-27, 08:35-08:48)
+
+- Files: scripts/keylock_render.cpp (plays a raw f32 file through the stretcher block by block, like a deck) and
+  scripts/keylock_listen.sh.
+  - The script pulls the track read-only, builds the renderer with MSVC 2022 (vcvars64 + cl, through a generated .bat
+    run by powershell.exe), renders, checks, and encodes.
+  - The .bat puts the VS Installer folder on PATH; without it vcvars64 prints "'vswhere.exe' is not recognized" (it
+    still builds).
+- Track: ICETROUT-CHIMERA.wav (/sdcard/Music/NEW MUSIC FOR OCULUS; lossless, 145 BPM), pulled to
+  out/keylock_listen/src. The excerpt is 30 s from 95.4 s (drop at 99.4 s), resampled to 48 kHz with soxr.
+- Renders:
+  - +8 %: 120/30 (default), 100/40 (cheaper), 60/15 split, 40/10 split;
+  - -8 %: 120/30 and 40/10.
+  
+  Durations exact (27.78 s / 32.61 s).
+- Key check (same stretch of music in every file): the energy per pitch class (100-2000 Hz, 8192-point STFT),
+  compared with the original's, is 0.998-0.999 for every key-lock render. A simulated plain speed-up gives 0.763
+  (+8 %) / 0.734 (-8 %). Strongest bass: 47.03-48.55 Hz against the original's 47.75 Hz; a plain speed-up would give
+  51.57 / 43.93 Hz.
+- Peaks rise 3.1-3.6 dB with stretching (original +1.9 dBFS after resampling, renders +5.0 to +5.5 dBFS); the average
+  loudness doesn't change (-11.8 vs -11.9 dB). So all clips got one gain (-5.8 dB): the loudest peak sits at -0.3 dB,
+  and none clips. The engine will need a master limiter or headroom.
+- `python -I` can't import numpy here: it lives in the user site-packages (AppData/Roaming/Python/Python313), which -I
+  hides. Use `python -P`.
+- The 7 MP3s (320k) were sent to the user's phone with SendUserFile, since the user was away from the PC. The 24-bit
+  WAVs are in out/keylock_listen/ICETROUT-CHIMERA. Waiting for the user's pick.
+
+## Own VR DJ game: deck engine core (2026-10-27, 08:50-09:15)
+
+- The user heard no difference between key lock windows ("I mean it all sounds right"), so the engine uses 40 ms /
+  10 ms with split computation (30 ms delay).
+- The engine lives in its own repo, D:\VRDJ, not in this one: this repo's snapshot was shared with Tribe's dev. Its
+  README has the layout and status. Nothing is committed.
+  - Deck: CDJ cue, 8 hot cues, beat loops, beat jump (quantized jumps keep the beat), tempo, pitch bend, key lock
+    (Signalsmith seek / outputSeek, so starts have no delay and loops are seamless), beat sync (one jump to line
+    up, then a rate correction).
+  - Mixer: Tribe's signal path, fader, crossfader and EQ curves (the EQ knob read from SetChannelEq in the
+    decompiled SuperPoweredMixer: Kill curve = knob x 2; Classic = 0.1 + 1.9 knob^1.078), the headphone formula,
+    an LR4 isolator at 250 Hz / 3 kHz, the one-knob filter, and a limiter.
+- Checks: `bash tools/build.sh run` (MSVC), 84 pass.
+  - 60 minutes of looping beat sync, measured in the rendered audio: 0.03 ms worst gap (0.31 ms with key lock).
+  - Key-locked clicks sound within 0.9 ms of the beat; zero heap allocations while rendering.
+- Bugs found by the checks:
+  - Mid = input - low - high only gave 5 dB kills (the filters' phase shift); replaced with an LR4 tree plus an
+    all-pass.
+  - A test wrote past its buffer: heap corruption, exit 0xC0000374 and no output. Unbuffered stdout now.
+- Demo: tools/mix_demo.cpp, Kane & Undertaker (140) into CHIMERA (145, synced, key lock), double drop at bar 16. The
+  drops line up within 0.3 ms; the sub energy jumps on the expected beat in the audio. MP3 sent to the user's phone.
+  - CHIMERA's drop is at 99.35 s: its grid anchor sits half a bar off the downbeat (found beat by beat in the
+    sub-bass).
+  - Kane's drop is at 136.809 s (sub energy x3000 on the bar).
+
+## The full decode: every pak, the lesson data, the effects DSP (2026-10-27, evening)
+
+- **Why.** The user asked "we have the full game and decks fully decompiled right?". The answer was no: only 9 Content
+  folders of pakchunk0 plus Tribe's C++ were done. Then the user said "do the full thing".
+- **Paks.** The OBB holds four: pakchunk0, pakchunk1 (the five stock stages Desert, HipHop, HotelSelina, LodatoLounge,
+  PolygonCity) and two optional paks.
+  - pakchunk1 and the optional paks came out of pulled/main.2304.com.TribeXR.TribeXR.obb with 7z; sizes match the
+    listing.
+  - Each pak was unpacked with repak into an empty folder, then merged into D:/TribeUE/tribe_assets/all with `cp -rn`:
+    7,975 files (2,787 .uasset, 13 .umap).
+  - All 3,727 earlier files were in the new unpack, 400 of them byte-compared identical; the paks share no paths.
+  - Engine/Content and Engine/Plugins are left packed: stock UE 5.4.4.
+- **Mappings.** `uasset_tool augment pulled/TribeXR.usmap D:/TribeUE/tribe_assets/all pulled/TribeXR_full3.usmap`: +246
+  classes/structs, +2 enums, 0 parents missing.
+- **uasset_tool** now also reads .umap (levels and their level Blueprints), and `dump` writes World packages.
+  - Regression: Equipment re-inventoried identically to inventory_after.tsv (837 rows, once line endings are
+    normalised).
+  - Inventory: D:/TribeUE/tribe_assets/catalog/inventory_full.tsv: 2,800 packages, 0 errors.
+  - 7 exports stayed raw, in 5 NDI assets: NDI plugin classes weren't loaded at usmap time. They hold no functions.
+- **Dumps:** one folder per Content folder in D:/TribeUE/tribe_assets/dump/.
+  - Equipment and Visuals are rooted at Content, because deck_catalog.py looks assets up as "Visuals/...". The new
+    Visuals dump got that prefix in its asset field; the rest is identical to a folder-rooted dump.
+  - Every other folder is folder-rooted.
+- **scripts/code_print.py (new)** regenerated the whole code/ tree: 733 files = 629 Blueprints (8,876 functions) + 104
+  tables/structs/enums, plus 13 levels with their placed actors and root transforms.
+  - It reproduces all 491 non-empty earlier files. Equipment matches byte for byte; the others differed only in CRLF
+    (kismet_print's stdout) and the `var` lines.
+  - The earlier printer wrote 27 empty files for tables/structs/enums (now filled) and 6 for skeleton/mesh dumps (now
+    not written).
+- **Checks.**
+  - The functions printed equal the inventory's count in every folder.
+  - The native dump's 37 bodiless functions are 5 delegate signatures + 32 Blueprint events. 31 are implemented in the
+    decoded Blueprints; `TribeGameInstance::PreMapTravel` is implemented nowhere.
+- **Lesson data in Content/Replays.**
+  - **Saves:** 501 .sav (GVAS). By class: TribeEquipmentSaveGame 327, TribeRigSaveGame 109, TribeReplaySaveGame 64,
+    TribeDanceMoveSaveGame 1. By engine: UE 4.26.2 74, 4.27.2 383, 5.4.4 44.
+    - scripts/gvas_print.py (new) writes them to D:/TribeUE/tribe_assets/catalog/data/Replays: 501/501 clean, every
+      field in the runtime schema.
+    - UE 5.4 saves need complete type names (UE5 1012) and the UObject serialization-control byte before the
+      properties (1011+).
+  - **Charts:** 109 .seq. Each line is a TribeBeatHighwayEvent (ControlName, ControlValue, ControlState, MixerChannel,
+    bIsMixerEvent, MeshType, [ReactionType], [SoundClipIndex]). Line 2 lists the preloaded sound clips.
+  - **Replays:** 126 .inrp, decoded by the cpp-fx agent (scripts/inrp_print.py, 126/126, 0 bytes left; I reran it).
+  - **Other:** one pack manifest .json, 624 subtitle .txt, 3 .glb avatars.
+- **C++ (the cpp-fx agent; read-only Ghidra runs; scripts/FxProbe.java + scripts/ghidra_probe.sh).**
+  - Every Tribe effect, the mic FX and most of Superpowered's DSP are written up in claudedocs/mixer_effects.md
+    ("Inside the effects") and claudedocs/superpowered_dsp.md.
+  - Unread: the time-stretch core, the Spatializer, the Compressor/Limiter gain loops, and jog modes 3-5/slip.
+  - Checked by me by another route:
+    - the Phaser LFO bug: beatfx_dispatch.c case 9's step = 2π·(beat ms / time ms)/sr, and per-sample 0x47b9d8c
+      advances it twice per frame, so the period is beats/2 s;
+    - no mixer offers Shimmer, Slip Loop, Megaphone or Vinyl Brake: every AvailableBeatFX list in the Equipment dumps;
+    - the Freeverb comb lengths: 0x45c..0x651 written in the SDK constructor.
+- **Write-up: claudedocs/game_systems.md.** It covers coverage, data formats, lessons/beat highway/DJ challenge/dance,
+  the visuals wall, the crowd, the stock stages, the video stage, Twitch, achievements, OSC/MIDI/Metaverse/Discord/NDI,
+  config highlights and the checks. The doc-lessons and doc-stage agents drafted the sections; I checked them against
+  the code.
+  - **Corrected from the drafts:**
+    - the beat highway's hit buckets: `frintm`, a floor, gives symmetric quarter windows, and FailureEarly can occur;
+      the draft had assumed truncation;
+    - BeatFrequency = 1.0, read from the constructor FUN_051010d4 (`param_1[0x52] = 0x23f800000`); MasterTempo 120;
+    - the judge ignores ControlValue: s0 is never read in FUN_0510627c;
+    - the visuals-wall stubs, from `_INIT_1105`'s FName globals: FUN_050ef9e0 NdiPlaybackTick, FUN_050f08cc
+      VideoPlaybackTick, FUN_050eef38 GifPlaybackTick;
+    - guests follow the host's environment because IsHost returns the replicated bHost (CPF_Net).
+- **NativeDecomp mislabels.** For natives whose real implementation is a virtual call, NativeDecomp named the first
+  direct callee instead: nine engine helpers.
+  - For example FName's constructor was shown as TribeBeatHighwayLane__SetupLane, and FString-from-TCHAR as
+    TribeDanceManager__GetReplayRoot.
+  - They are renamed in the Ghidra project (scripts/RenameFunctions.java, SAVE=1, verified in a fresh session) and in 86
+    .c files under D:/TribeUE/tribe_native/{classes,fx,inrp}. The table is in claudedocs/native_summary.md.
+  - native_reference.md was regenerated: only the summary changed.
+- **Corrections to earlier entries here,** from the decoded code:
+  - Lines ~4627 and ~4846: SetupEnvironmentBackdrop's arguments are (BackdropMesh, BoothSpotlight, BackdropSpotlight,
+    RoomSkylight, LightDimFactor), not the chroma mesh or the DJ table. Every stock level passes 0.8 dim, except Lodato
+    0.7 and Pioneer 0.
+  - Line ~4631: this+0x3d4 is the PLAY mode (GetPlayMode returns it). SetBackdropStaticMesh takes mode 1 GIF → +0x2e8,
+    2 video → +0x2e0, 3 NDI → +0x2f0; the old line had 2 and 3 swapped.
+- **Config.** Config/*.ini are plain text (highlights in game_systems.md, no credentials copied). Tribe's multiplayer is
+  EOSPlus with NetDriverEOS.

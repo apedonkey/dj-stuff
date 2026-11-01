@@ -1,0 +1,151 @@
+{
+ "what": "Halloween crowd VAT (hw_crowd, from crowd3): per-vertex offsets (m, Blender space) from FRAME 0 of each clip (every person is posed at frame 0 of their clip); columns = tier superset vertices; rows = (page * len(clips) + clip) * rows_per_clip + frame (row 0 = top); UV1.y = page * len(clips) + clip",
+ "texture": "T_HwCrowdVAT.exr",
+ "width": 2048,
+ "height": 1024,
+ "columns_used": 1912,
+ "pages": 2,
+ "tier_pages": {
+  "near": 0,
+  "mid": 1,
+  "far": 1
+ },
+ "tier_columns": {
+  "near": 0,
+  "mid": 0,
+  "far": 1171
+ },
+ "fps": 30,
+ "frames_per_clip": 28,
+ "rows_per_clip": 29,
+ "clips": [
+  "jump",
+  "jumppump",
+  "pump",
+  "handsup",
+  "wave",
+  "clap",
+  "sway",
+  "twostep",
+  "lurch",
+  "headbang",
+  "nod",
+  "claw",
+  "hold",
+  "talk",
+  "carry",
+  "ride",
+  "flow"
+ ],
+ "authored_bpm": 128.0,
+ "beats_per_clip": 2,
+ "loop_rate_for_bpm": "LoopRate = BPM / 120",
+ "set_bpm": 140.0,
+ "loop_rate": 1.1667,
+ "shares": {
+  "costumed_all": 0.557,
+  "costumed_field": 0.566,
+  "half_time_beat_clips": 0.657,
+  "half_time_groove_clips": 0.452
+ },
+ "tier_vertices": {
+  "near": 1912,
+  "mid": 1171,
+  "far": 74
+ },
+ "tier_superset_tris": {
+  "near": 2580,
+  "mid": 1348,
+  "far": 58
+ },
+ "axis_scale": [
+  100.0,
+  -100.0,
+  100.0
+ ],
+ "ue_flips_v": true,
+ "uv_channels": {
+  "UV0 UVMap": "baked-lighting cell",
+  "UV1 VatIndex": "x = VAT column, y = page * 17 + clip",
+  "UV2 VatRotScale": "x = sx cos(yaw), y = sx sin(yaw)",
+  "UV3 VatScalePhase": "x = mirror * sz, y = phase",
+  "UV4 VatRate": "x = playback rate (1 = authored tempo)"
+ },
+ "people": 4549,
+ "field_people": 4209,
+ "riders": 14,
+ "extra_people": 326,
+ "groups": 879,
+ "cleared_for_flow": 51,
+ "density_scale": 1.1378459930419922,
+ "tiers": {
+  "far": {
+   "people": 3917,
+   "glowing": 2254,
+   "costumes": 2191,
+   "totems": 75,
+   "phones": 271,
+   "flow": 72,
+   "riders": 0
+  },
+  "mid": {
+   "people": 509,
+   "glowing": 305,
+   "costumes": 277,
+   "totems": 9,
+   "phones": 23,
+   "flow": 8,
+   "riders": 13
+  },
+  "near": {
+   "people": 123,
+   "glowing": 81,
+   "costumes": 64,
+   "totems": 0,
+   "phones": 8,
+   "flow": 4,
+   "riders": 1
+  }
+ },
+ "clip_counts": {
+  "twostep": 366,
+  "lurch": 113,
+  "headbang": 356,
+  "jump": 267,
+  "wave": 193,
+  "jumppump": 221,
+  "pump": 328,
+  "handsup": 190,
+  "hold": 387,
+  "nod": 642,
+  "claw": 329,
+  "flow": 84,
+  "sway": 612,
+  "clap": 104,
+  "talk": 329,
+  "carry": 14,
+  "ride": 14
+ },
+ "costumes": {
+  "zombie": 315,
+  "cat": 258,
+  "vampire": 229,
+  "skeleton": 389,
+  "devil": 329,
+  "pumpkin": 290,
+  "witch": 317,
+  "ghost": 249,
+  "mummy": 151,
+  "trex": 5
+ },
+ "tris": {
+  "body": 321087,
+  "glow": 13033
+ },
+ "blender_vertices": {
+  "body": 237174,
+  "glow": 19569
+ },
+ "atlas_units": 87,
+ "max_offset_m": 1.4500380754470825
+}

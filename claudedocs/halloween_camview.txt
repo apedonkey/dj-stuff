@@ -1,0 +1,9 @@
+# GRAVEYARD SHIFT: the Crowd button in Tribe's camera menu (hook/camview.cpp). Picking it puts the stream on the selfie
+# camera and holds it here: on the FOH mausoleum's roof deck between the two follow spots, looking at the DJ over the
+# crowd (the user, 2026-10-18: "a camera in the crowd about where the middle platform is looking at the dj").
+# Tribe world cm, the DJ rig at the origin, the crowd toward -Y. The reel (drone_path.halloween.txt) has the same view.
+label=Crowd
+pos=0,-3130,430
+look=0,87,90
+fov=40
+sway=0

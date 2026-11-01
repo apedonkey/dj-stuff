@@ -1,0 +1,136 @@
+{
+ "what": "Crowd V3 VAT: per-vertex offsets (m, Blender space) from FRAME 0 of each clip (every person's base mesh is posed at frame 0 of their clip); columns = tier superset vertices; rows = (page * len(clips) + clip) * rows_per_clip + frame (row 0 = top); UV1.y = page * len(clips) + clip",
+ "texture": "T_DinoCrowdVAT.exr",
+ "width": 2048,
+ "height": 1024,
+ "columns_used": 1449,
+ "pages": 2,
+ "tier_pages": {
+  "near": 0,
+  "mid": 1,
+  "far": 1
+ },
+ "tier_columns": {
+  "near": 0,
+  "mid": 0,
+  "far": 925
+ },
+ "fps": 30,
+ "frames_per_clip": 28,
+ "rows_per_clip": 29,
+ "clips": [
+  "jump",
+  "jumppump",
+  "pump",
+  "handsup",
+  "wave",
+  "clap",
+  "sway",
+  "twostep",
+  "shuffle",
+  "headbang",
+  "nod",
+  "heart",
+  "hold",
+  "talk",
+  "carry",
+  "ride",
+  "flow"
+ ],
+ "authored_bpm": 128.0,
+ "beats_per_clip": 2,
+ "loop_rate_for_bpm": "LoopRate = BPM / 120",
+ "tier_vertices": {
+  "near": 1449,
+  "mid": 925,
+  "far": 41
+ },
+ "tier_superset_tris": {
+  "near": 1993,
+  "mid": 1103,
+  "far": 31
+ },
+ "axis_scale": [
+  100.0,
+  -100.0,
+  100.0
+ ],
+ "ue_flips_v": true,
+ "uv_channels": {
+  "UV0 UVMap": "baked-lighting cell",
+  "UV1 VatIndex": "x = VAT column, y = page * 17 + clip",
+  "UV2 VatRotScale": "x = sx cos(yaw), y = sx sin(yaw)",
+  "UV3 VatScalePhase": "x = mirror * sz, y = phase",
+  "UV4 VatRate": "x = playback rate (1 = authored tempo)"
+ },
+ "people": 4439,
+ "field_people": 4175,
+ "riders": 14,
+ "extra_people": 250,
+ "groups": 874,
+ "cleared_for_flow": 69,
+ "density_scale": 1.1357574462890625,
+ "tiers": {
+  "far": {
+   "people": 3820,
+   "glowing": 1600,
+   "costumes": 119,
+   "totems": 80,
+   "phones": 227,
+   "flow": 69,
+   "riders": 0
+  },
+  "mid": {
+   "people": 492,
+   "glowing": 232,
+   "costumes": 20,
+   "totems": 8,
+   "phones": 23,
+   "flow": 15,
+   "riders": 14
+  },
+  "near": {
+   "people": 127,
+   "glowing": 71,
+   "costumes": 4,
+   "totems": 2,
+   "phones": 7,
+   "flow": 2,
+   "riders": 0
+  }
+ },
+ "clip_counts": {
+  "wave": 251,
+  "jumppump": 254,
+  "handsup": 246,
+  "clap": 151,
+  "headbang": 118,
+  "jump": 335,
+  "sway": 512,
+  "shuffle": 184,
+  "flow": 86,
+  "pump": 300,
+  "hold": 345,
+  "heart": 230,
+  "twostep": 464,
+  "talk": 348,
+  "nod": 587,
+  "carry": 14,
+  "ride": 14
+ },
+ "costumes": {
+  "onesie": 103,
+  "alien": 37,
+  "trex": 3
+ },
+ "tris": {
+  "body": 317488,
+  "glow": 9396
+ },
+ "blender_vertices": {
+  "body": 230189,
+  "glow": 13082
+ },
+ "atlas_units": 86,
+ "max_offset_m": 1.4409441947937012
+}

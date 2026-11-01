@@ -1,0 +1,49 @@
+[gpu] acquired after 105 s: reactor v9 speaker close-ups, take 2 (club session)
+FBX version: 7400
+FBX version: 7400
+FBX version: 7400
+FBX version: 7400
+FBX version: 7400
+FBX version: 7400
+FBX version: 7400
+FBX version: 7400
+FBX version: 7400
+FBX version: 7400
+FBX version: 7400
+FBX version: 7400
+FBX version: 7400
+FBX version: 7400
+FBX version: 7400
+FBX version: 7400
+FBX version: 7400
+[PREVIEW] v9 extras: 29 solids (pillar 2, stack 2, array 2, fx unit 8, blinder 2, rod tube 4, pipe 4, riser 2, barrier 3); arrays hang to z 9.80..7.30; club meshes 17
+Blender 4.5.14 LTS (hash 62c1db4208e8 built 2026-09-15 01:33:49)
+Fra:1 Mem:286.81M (Peak 365.66M) | Time:00:01.29 | Rendering 1 / 32 samples
+Fra:1 Mem:286.81M (Peak 365.66M) | Time:00:01.30 | Rendering 25 / 32 samples
+Fra:1 Mem:286.81M (Peak 365.66M) | Time:00:01.30 | Rendering 32 / 32 samples
+Fra:1 Mem:257.34M (Peak 365.66M) | Time:00:01.39 | Compositing
+Saved: 'C:\Users\Chris\OneDrive\Desktop\tribe hack\claudedocs\club_concept\v9_preview\preview_v9_booth_calm.png'
+Time: 00:01.52 (Saving: 00:00.10)
+
+[PREVIEW] C:\Users\Chris\OneDrive\Desktop\tribe hack\claudedocs\club_concept\v9_preview\preview_v9_booth_calm.png
+Fra:1 Mem:298.70M (Peak 318.11M) | Time:00:00.08 | Rendering 1 / 32 samples
+Fra:1 Mem:298.70M (Peak 318.11M) | Time:00:00.08 | Rendering 25 / 32 samples
+Fra:1 Mem:298.70M (Peak 318.11M) | Time:00:00.08 | Rendering 32 / 32 samples
+Fra:1 Mem:258.80M (Peak 318.11M) | Time:00:00.21 | Compositing
+Saved: 'C:\Users\Chris\OneDrive\Desktop\tribe hack\claudedocs\club_concept\v9_preview\preview_v9_speakers_close.png'
+Time: 00:00.34 (Saving: 00:00.10)
+
+[PREVIEW] C:\Users\Chris\OneDrive\Desktop\tribe hack\claudedocs\club_concept\v9_preview\preview_v9_speakers_close.png
+Fra:1 Mem:300.19M (Peak 319.60M) | Time:00:00.12 | Rendering 1 / 32 samples
+Fra:1 Mem:300.19M (Peak 319.60M) | Time:00:00.13 | Rendering 25 / 32 samples
+Fra:1 Mem:300.19M (Peak 319.60M) | Time:00:00.13 | Rendering 32 / 32 samples
+Fra:1 Mem:260.29M (Peak 319.60M) | Time:00:00.25 | Compositing
+Saved: 'C:\Users\Chris\OneDrive\Desktop\tribe hack\claudedocs\club_concept\v9_preview\preview_v9_array_close.png'
+Time: 00:00.37 (Saving: 00:00.09)
+
+[PREVIEW] C:\Users\Chris\OneDrive\Desktop\tribe hack\claudedocs\club_concept\v9_preview\preview_v9_array_close.png
+[PREVIEW] done
+
+Blender quit
+[gpu] released
+exit 0

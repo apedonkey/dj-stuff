@@ -1,0 +1,14 @@
+native dump: 3 packages, base 0x752680c000, 3 code ranges, sizeof(FProperty) 0x70
+layout check over 35176 properties (sizeof(FProperty) 0x70):
+  ArrayDim 1..255                @0x2c:  35176 of  35176
+  ArrayDim == 1 (want >= 90%)    @0x2c:  35103 of  35176
+  ElementSize of Int/Float/Double.. @0x30:  17601 of  17601
+  ArrayProperty inner            @0x78:   2593 of   2593
+  OptionalProperty value         @0x70:      1 of      1
+  MapProperty key+value          @0x70:    307 of    307
+  SetProperty element            @0x70:     71 of     71
+  EnumProperty underlying+UEnum  @0x70:   1379 of   1379
+  StructProperty UScriptStruct   @0x70:   7183 of   7183
+  ByteProperty UEnum or none     @0x70:    861 of    861
+WROTE /sdcard/Android/data/com.TribeXR.TribeXR/files/tribemod/native_dump.jsonl: 196 classes (22 of them engine parents, vtable only), 1533 functions (1496 native), 196 vtables
+DONE

@@ -1,0 +1,8 @@
+# The chats that "Reopen Tribe Chats.exe" on the Desktop reopens after a restart, one Windows Terminal tab each.
+# One per line: <tab name> | <chat id>. A chat keeps its id for good, also after it summarizes itself.
+# To make the list the chats that are open right now, run the .exe and type S.
+Reactor | 9aaea2df-f379-4c4c-b299-9bb8ac47a8e6
+Graveyard Shift (Halloween) | 9b260986-2f5d-4554-85d4-13b90ed50204
+Harvest Moon (Thanksgiving) | 884abbe3-413a-4a09-9807-a79101476ca6
+MIDTOWN (Christmas) | 36c3183a-04cd-46af-874d-d02185e9b64d
+RED EYE (Hangar) | f33276f9-19b7-47ed-be28-35fc515169dd

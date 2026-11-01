@@ -1,0 +1,31 @@
+# GRAVEYARD SHIFT drone reel (claudedocs/halloween_stage_plan.md Appendix A), in tribemod/drone_path.txt syntax.
+# Install as tribemod/drone_path.halloween.txt: the mod reads drone_path.<folder>.txt for the stage that is up
+# (per-stage reels, the Dino session, 2026-10-10), so this no longer replaces the Dino reel. Tribe world cm:
+# the DJ rig at the origin, crowd -Y, stage +Y; Tribe x = -(Blender x).
+# About 131 s. v6 (2026-10-10), the user: "lets just focus the camera trail around the crowd and the stage. i noticed
+# its showing the other stage and i dont really want that. instead, do a high up shot of the crowd and stage".
+# Out: the pumpkin patch, THE CRYPT (the second stage) and the haunted carousel. In: a high pass behind the crowd.
+# Check after every module change: hw_dronecheck.py -- this file <out_hw> (no segment may pass within 0.5 m of a solid).
+# moonrise reveal: from behind the crowd, the facade and the moon
+fly 12 0,-7000,600 0,-3600,1500 look=0,1400,2400
+# high up: a slow sideways pass 42 m above the field behind the crowd, looking down over all of it to the stage
+fly 16 -3000,-6200,4200 3000,-6200,4200 look=0,-1400,300
+# graveyard crawl down the walkway beside the crowd (Blender |x| = crowd_half + 12), the stage beyond;
+# 3.3 m over the field (at 2.3 m it passed 0.36 m from a raised hand in the walkway queues)
+fly 16 -4850,-3000,80 -3860,-1200,100 look=0,600,900
+# tower climb to the gargoyle lasers
+fly 12 -2600,-900,300 -2600,-200,4200 look=0,1400,2600
+# over the crowd toward you
+fly 14 0,-2400,700 0,-700,330 look=dj
+# close orbit around you
+orbit 15 r=260 h=30 deg=360 start=-90
+# over your shoulder: the crowd ahead
+fly 8 -250,380,260 250,380,260 look=0,-3000,200
+# low hero past the flame jets (v3: 1 m up, 0.55 m over the deck-front laser housings)
+fly 8 -400,-380,100 400,-380,100 look=0,300,900
+# portal push toward the screen
+fly 10 0,-1500,500 0,200,900 look=0,1400,900
+# crane from the pit up the facade
+fly 10 0,-900,150 0,-900,2600 look=0,1400,1600
+# tighter arc the other way
+orbit 10 r=170 h=10 deg=-140 start=-20
